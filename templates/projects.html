@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block title %}Projects — myHQ Proposal Tool{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Projects</h1>
+    <p class="subtitle">{{ groups|length }} client{% if groups|length != 1 %}s{% endif %}</p>
+  </div>
+  <a href="/proposals/new" class="btn btn-primary">+ New Proposal</a>
+</div>
+
+{% if groups %}
+<div class="projects-grid">
+  {% for client, proposals in groups %}
+  <div class="project-card">
+    <div class="project-card-header">
+      <div class="project-initials">{{ client[:2].upper() }}</div>
+      <div>
+        <div class="project-client-name">{{ client }}</div>
+        <div class="text-muted small">{{ proposals|length }} proposal{% if proposals|length != 1 %}s{% endif %}</div>
+      </div>
+    </div>
+
+    <div class="project-proposals">
+      {% for p in proposals %}
+      <div class="project-proposal-row">
+        <div class="project-proposal-info">
+          <span class="project-proposal-title">{{ p.title or 'Untitled' }}</span>
+          <span class="badge badge-{{ p.status }}">{{ p.status }}</span>
+          <span class="text-muted small">{{ p.created_at[:10] }}</span>
+        </div>
+        <div class="project-proposal-actions">
+          <a href="/proposals/{{ p.id }}" class="btn btn-outline btn-sm">Edit</a>
+          {% if p.pptx_filename %}
+          <a href="/proposals/{{ p.id }}/download/pptx" class="btn btn-primary btn-sm">PPTX</a>
+          {% endif %}
+          {% if p.pdf_filename %}
+          <a href="/proposals/{{ p.id }}/download/pdf" class="btn btn-outline btn-sm">PDF</a>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="project-card-footer">
+      <a href="/proposals/new" class="btn btn-ghost btn-sm">+ Add proposal</a>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <p>No projects yet. Create your first proposal!</p>
+  <a href="/proposals/new" class="btn btn-primary">New Proposal</a>
+</div>
+{% endif %}
+{% endblock %}

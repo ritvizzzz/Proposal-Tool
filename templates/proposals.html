@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}Proposals — myHQ Proposal Tool{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Proposals</h1>
+    <p class="subtitle">{{ proposals|length }} proposal{% if proposals|length!=1 %}s{% endif %}</p>
+  </div>
+  <a href="/proposals/new" class="btn btn-primary">+ New Proposal</a>
+</div>
+
+{% if proposals %}
+<div class="proposals-list">
+  {% for p in proposals %}
+  <div class="proposal-row">
+    <div class="proposal-info">
+      <div class="proposal-title">{{ p.title or 'Untitled Proposal' }}</div>
+      <div class="proposal-meta">
+        {% if p.client_company %}<strong>{{ p.client_company }}</strong>{% endif %}
+        {% if p.client_name %} · {{ p.client_name }}{% endif %}
+        <span class="badge badge-{{ p.status }}">{{ p.status }}</span>
+        <span class="text-muted">{{ p.template|upper }} template</span>
+      </div>
+      <div class="text-muted small">{{ p.created_at[:10] }}</div>
+    </div>
+    <div class="proposal-actions">
+      <a href="/proposals/{{ p.id }}" class="btn btn-outline">Edit</a>
+      {% if p.pptx_filename %}
+      <a href="/proposals/{{ p.id }}/download/pptx" class="btn btn-primary">⬇ PPTX</a>
+      {% endif %}
+      {% if p.pdf_filename %}
+      <a href="/proposals/{{ p.id }}/download/pdf" class="btn btn-outline">⬇ PDF</a>
+      {% endif %}
+      <button class="btn btn-ghost" onclick="deleteProposal({{ p.id }})">Delete</button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <p>No proposals yet. Create your first one!</p>
+  <a href="/proposals/new" class="btn btn-primary">New Proposal</a>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+async function deleteProposal(id) {
+  if (!confirm('Delete this proposal?')) return;
+  const res = await fetch(`/proposals/${id}/delete`, { method: 'POST' });
+  const data = await res.json();
+  if (data.ok) { showToast('Deleted'); location.reload(); }
+}
+</script>
+{% endblock %}

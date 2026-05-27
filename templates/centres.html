@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+{% block title %}Centres — myHQ Proposal Tool{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Centre Database</h1>
+    <p class="subtitle">{{ centres|length }} centres available</p>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-outline" onclick="document.getElementById('excelInput').click()">Import Excel</button>
+    <input type="file" id="excelInput" accept=".xlsx" style="display:none">
+    <button class="btn btn-primary" onclick="openAddModal()">+ Add Centre</button>
+  </div>
+</div>
+
+<div class="filters-bar">
+  <form method="get" class="filters-form">
+    <input class="input filter-input" name="q" value="{{ q }}" placeholder="Search by name or address…">
+    <select class="input select" name="city">
+      <option value="">All cities</option>
+      {% for c in cities %}<option value="{{ c }}" {% if city==c %}selected{% endif %}>{{ c|title }}</option>{% endfor %}
+    </select>
+    <select class="input select" name="space_type">
+      <option value="">All types</option>
+      {% for st in space_types %}<option value="{{ st }}" {% if space_type==st %}selected{% endif %}>{{ st }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="btn btn-outline">Filter</button>
+    <a href="/centres" class="btn btn-ghost">Clear</a>
+  </form>
+</div>
+
+<div class="centres-grid" id="centresGrid">
+{% for c in centres %}
+<div class="centre-card" data-id="{{ c.id }}">
+  <div class="centre-thumb">
+    {% if c.primary_image %}
+    <img src="/centre-image/{{ c.id }}/{{ c.primary_image }}" alt="{{ c.name }}" loading="lazy">
+    {% else %}
+    <div class="thumb-placeholder">
+      <span>{{ c.name[:1] }}</span>
+    </div>
+    {% endif %}
+  </div>
+  <div class="centre-info">
+    <div class="centre-name">{{ c.name }}</div>
+    <div class="centre-meta">{{ c.city|title if c.city else '' }}{% if c.space_type %} · {{ c.space_type }}{% endif %}</div>
+    {% if c.price_from %}
+    <div class="centre-price">£{{ '{:,}'.format(c.price_from) }}/{{ 'mo' if c.price_unit == 'MONTHLY' else 'day' }}</div>
+    {% endif %}
+  </div>
+  <div class="centre-actions">
+    <a href="/centres/{{ c.id }}" class="btn-icon" title="Manage">✏️</a>
+    <button class="btn-icon" title="Delete" onclick="deleteCentre({{ c.id }}, '{{ c.name|replace("'","") }}')">🗑️</button>
+  </div>
+</div>
+{% else %}
+<div class="empty-full">
+  <p>No centres found.</p>
+  <button class="btn btn-primary" onclick="openAddModal()">Add your first centre</button>
+</div>
+{% endfor %}
+</div>
+
+<!-- Add Centre Modal -->
+<div class="modal-overlay" id="addModal" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Add Centre</h2>
+      <button class="modal-close" onclick="closeAddModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Name *</label>
+          <input class="input" id="a_name" placeholder="Centre name">
+        </div>
+        <div class="form-group">
+          <label>Address</label>
+          <input class="input" id="a_address" placeholder="Full address">
+        </div>
+        <div class="form-group">
+          <label>City</label>
+          <input class="input" id="a_city" placeholder="london" value="london">
+        </div>
+        <div class="form-group">
+          <label>Space Type</label>
+          <select class="input" id="a_space_type">
+            <option value="COWORKING">Coworking</option>
+            <option value="DEDICATED">Dedicated Desk</option>
+            <option value="PRIVATE_OFFICE">Private Office</option>
+            <option value="VIRTUAL_OFFICE">Virtual Office</option>
+            <option value="MEETING_ROOM">Meeting Room</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Brand / Operator</label>
+          <input class="input" id="a_brand" placeholder="e.g. WeWork, Uncommon">
+        </div>
+        <div class="form-group">
+          <label>Price From (£)</label>
+          <input class="input" type="number" id="a_price_from" placeholder="e.g. 350">
+        </div>
+        <div class="form-group">
+          <label>Price Unit</label>
+          <select class="input" id="a_price_unit">
+            <option value="MONTHLY">Monthly</option>
+            <option value="DAILY">Daily</option>
+            <option value="HOURLY">Hourly</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Open Hours</label>
+          <input class="input" id="a_open_hours" value="9:00 AM – 6:00 PM">
+        </div>
+        <div class="form-group full-width">
+          <label>About</label>
+          <textarea class="input" id="a_about" rows="3" placeholder="Description of the centre"></textarea>
+        </div>
+        <div class="form-group full-width">
+          <label>Amenities (comma-separated)</label>
+          <input class="input" id="a_amenities" placeholder="wifi, parking, meeting_rooms, cafeteria">
+        </div>
+        <div class="form-group full-width">
+          <label>Transport Links</label>
+          <input class="input" id="a_transport" placeholder="e.g. Holborn (Central, Piccadilly) – 2 min walk">
+        </div>
+        <div class="form-group">
+          <label>Website</label>
+          <input class="input" id="a_website" placeholder="https://...">
+        </div>
+        <div class="form-group">
+          <label>Why We Recommend</label>
+          <textarea class="input" id="a_why" rows="2" placeholder="Key selling points"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeAddModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitAddCentre()">Add Centre</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function openAddModal() { document.getElementById('addModal').style.display = 'flex'; }
+function closeAddModal() { document.getElementById('addModal').style.display = 'none'; }
+
+async function submitAddCentre() {
+  const name = document.getElementById('a_name').value.trim();
+  if (!name) { showToast('Name is required', 'error'); return; }
+  const amenitiesRaw = document.getElementById('a_amenities').value;
+  const amenities = amenitiesRaw.split(',').map(a => a.trim()).filter(Boolean);
+  const data = {
+    name, amenities: JSON.stringify(amenities),
+    address: document.getElementById('a_address').value,
+    city: document.getElementById('a_city').value,
+    space_type: document.getElementById('a_space_type').value,
+    brand: document.getElementById('a_brand').value,
+    price_from: document.getElementById('a_price_from').value || null,
+    price_unit: document.getElementById('a_price_unit').value,
+    open_hours: document.getElementById('a_open_hours').value,
+    about: document.getElementById('a_about').value,
+    transport: document.getElementById('a_transport').value,
+    website: document.getElementById('a_website').value,
+    why_recommend: document.getElementById('a_why').value,
+  };
+  const res = await fetch('/centres/add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
+  const json = await res.json();
+  if (json.ok) {
+    showToast('Centre added!');
+    setTimeout(() => window.location.href = `/centres/${json.id}`, 800);
+  } else {
+    showToast('Error adding centre', 'error');
+  }
+}
+
+async function deleteCentre(id, name) {
+  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+  const res = await fetch(`/centres/${id}/delete`, { method: 'POST' });
+  const data = await res.json();
+  if (data.ok) {
+    showToast('Centre deleted');
+    document.querySelector(`.centre-card[data-id="${id}"]`)?.remove();
+  }
+}
+
+// Excel import
+document.getElementById('excelInput').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const fd = new FormData();
+  fd.append('file', file);
+  showToast('Importing…');
+  const res = await fetch('/centres/import-excel', { method: 'POST', body: fd });
+  const data = await res.json();
+  if (data.ok) {
+    showToast(`Imported ${data.added} centres (${data.skipped} skipped)`);
+    setTimeout(() => location.reload(), 1200);
+  } else {
+    showToast('Import error: ' + data.error, 'error');
+  }
+});
+</script>
+{% endblock %}

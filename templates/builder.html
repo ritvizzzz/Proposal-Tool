@@ -1,0 +1,813 @@
+{% extends 'base.html' %}
+{% block title %}Proposal Builder — myHQ{% endblock %}
+{% block content %}
+<div class="builder-wrap">
+
+  <!-- Step indicator -->
+  <div class="steps-bar">
+    <div class="step" id="step-tab-1">
+      <div class="step-dot">1</div>
+      <div class="step-label">Client Details</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step" id="step-tab-2">
+      <div class="step-dot">2</div>
+      <div class="step-label">Select Centres</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step" id="step-tab-3">
+      <div class="step-dot">3</div>
+      <div class="step-label">Generate</div>
+    </div>
+  </div>
+
+  <!-- Step 1: Client Details -->
+  <div class="builder-step" id="step1">
+    <div class="card builder-card">
+      <h2>Client & Proposal Details</h2>
+
+      <div class="template-toggle">
+        <label class="toggle-label">Template:</label>
+        <div class="toggle-group" id="templateToggle">
+          <button class="toggle-btn active" data-val="london" onclick="setTemplate('london')">
+            London
+            <span class="toggle-hint">Plus Jakarta Sans · Blush/Mint/Aqua palette</span>
+          </button>
+          <button class="toggle-btn" data-val="india" onclick="setTemplate('india')">
+            India
+            <span class="toggle-hint">Mont font · Blue backgrounds</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Proposal Title</label>
+          <input class="input" id="p_title" placeholder="e.g. Office Search — Acme Corp" value="{{ proposal.title if proposal else '' }}">
+        </div>
+        <div class="form-group">
+          <label>Client Name</label>
+          <input class="input" id="p_client_name" placeholder="Contact person" value="{{ proposal.client_name if proposal else '' }}">
+        </div>
+        <div class="form-group">
+          <label>Company</label>
+          <input class="input" id="p_company" placeholder="Company name" value="{{ proposal.client_company if proposal else '' }}">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input class="input" type="email" id="p_email" placeholder="client@company.com" value="{{ proposal.client_email if proposal else '' }}">
+        </div>
+        <div class="form-group">
+          <label>Location Required</label>
+          <input class="input" id="p_location" placeholder="e.g. Central London" value="{{ proposal.client_location if proposal else '' }}">
+        </div>
+        <div class="form-group">
+          <label>Team Size</label>
+          <input class="input" id="p_team" placeholder="e.g. 10–15 people" value="{{ proposal.team_size if proposal else '' }}">
+        </div>
+        <div class="form-group">
+          <label>Space Type</label>
+          <select class="input" id="p_space_type">
+            {% for t in ['Coworking','Private Office','Dedicated Desk','Hot Desk','Managed Office','Virtual Office'] %}
+            <option value="{{ t }}" {% if proposal and proposal.space_type == t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Area Required</label>
+          <input class="input" id="p_area" placeholder="e.g. 1,000 sq ft" value="{{ proposal.area_required if proposal else '' }}">
+        </div>
+        <div class="form-group">
+          <label>Budget</label>
+          <input class="input" id="p_budget" placeholder="e.g. £500–£800/desk/mo" value="{{ proposal.budget if proposal else '' }}">
+        </div>
+        <div class="form-group">
+          <label>Duration</label>
+          <input class="input" id="p_duration" placeholder="e.g. 12 months" value="{{ proposal.duration if proposal else '' }}">
+        </div>
+      </div>
+
+      <div class="step-nav">
+        <span></span>
+        <button class="btn btn-primary" onclick="saveStep1()">Next: Select Centres →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2: Centre Selection -->
+  <div class="builder-step" id="step2" style="display:none">
+    <div class="builder-two-col">
+
+      <!-- Left: search + selection -->
+      <div class="card">
+        <h2>Select from Database</h2>
+        <input class="input" id="centreSearch" placeholder="Search centres…" oninput="searchCentres(this.value)">
+        <div class="search-results" id="searchResults"></div>
+
+        <div class="divider"><span>or</span></div>
+
+        <h2>Add Centre Manually</h2>
+        <p class="text-muted">For centres not in the database</p>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Centre Name *</label>
+            <input class="input" id="m_name" placeholder="Centre name">
+          </div>
+          <div class="form-group">
+            <label>Address</label>
+            <input class="input" id="m_address" placeholder="Address">
+          </div>
+          <div class="form-group">
+            <label>Price</label>
+            <input class="input" id="m_price" placeholder="e.g. £450/mo/seat">
+          </div>
+          <div class="form-group">
+            <label>Open Hours</label>
+            <input class="input" id="m_hours" value="9:00 AM – 6:00 PM">
+          </div>
+          <div class="form-group full-width">
+            <label>Amenities</label>
+            <input class="input" id="m_amenities" placeholder="wifi, parking, meeting rooms…">
+          </div>
+          <div class="form-group full-width">
+            <label>Transport Links</label>
+            <input class="input" id="m_transport" placeholder="Nearest tube / bus">
+          </div>
+          <div class="form-group full-width">
+            <label>Why Recommend</label>
+            <textarea class="input" id="m_why" rows="2" placeholder="Key selling points"></textarea>
+          </div>
+          <div class="form-group full-width">
+            <label>Images (upload or paste)</label>
+            <div class="upload-zone small" id="manualUploadZone">
+              <p>Drop / paste images here or click</p>
+              <input type="file" id="manualImgInput" accept="image/*" multiple style="display:none">
+              <button class="btn btn-ghost" onclick="document.getElementById('manualImgInput').click()">Browse</button>
+            </div>
+            <div class="images-grid small" id="manualImagesGrid"></div>
+          </div>
+        </div>
+        <button class="btn btn-outline" onclick="addManualCentre()">+ Add to Proposal</button>
+      </div>
+
+      <!-- Right: selected centres -->
+      <div class="card">
+        <h2>Proposal Centres <span class="count-badge" id="centreCount">0</span></h2>
+        <p class="text-muted">Drag to reorder · click 🖼 to edit images</p>
+        <div class="selected-list" id="selectedList">
+          <div class="empty-drop" id="emptyDrop">No centres selected yet</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step-nav">
+      <button class="btn btn-ghost" onclick="goStep(1)">← Back</button>
+      <button class="btn btn-primary" onclick="goStep(3)">Next: Generate →</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Generate -->
+  <div class="builder-step" id="step3" style="display:none">
+    <div class="card builder-card">
+      <h2>Generate Proposal</h2>
+
+      <div class="summary-block" id="proposalSummary"></div>
+
+      <div class="generate-actions">
+        <button class="btn btn-primary btn-lg" id="generateBtn" onclick="generateProposal()">
+          Generate PPTX
+        </button>
+        <div id="generateStatus" style="display:none" class="generate-status"></div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn btn-ghost" onclick="goStep(2)">← Back</button>
+        <div id="downloadBtns" style="display:none; gap:10px">
+          <a id="downloadPptx" href="#" class="btn btn-primary">⬇ Download PPTX</a>
+          <a id="downloadPdf"  href="#" class="btn btn-outline">⬇ Download PDF</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Image editor modal ──────────────────────────────────────────────── -->
+<div id="imgEditorOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;width:min(680px,96vw);max-height:88vh;overflow-y:auto;padding:24px;position:relative">
+    <button onclick="closeImgEditor()" style="position:absolute;top:14px;right:16px;background:none;border:none;font-size:22px;cursor:pointer;color:#6b7280">✕</button>
+    <h3 id="imgEditorTitle" style="margin:0 0 4px;font-size:17px"></h3>
+    <p style="color:#6b7280;font-size:13px;margin:0 0 14px">First 4 images are used in the proposal. ★ = set primary.</p>
+
+    <!-- URL import -->
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input id="modalUrlInput" class="input" placeholder="Paste image URL (or drag image from browser)" style="flex:1;font-size:13px">
+      <button class="btn btn-primary" onclick="modalImportUrl()" style="white-space:nowrap;font-size:13px">Add from URL</button>
+    </div>
+
+    <!-- Drop zone -->
+    <div class="upload-zone small" id="modalDropZone" style="margin-bottom:12px">
+      <p style="margin:0 0 6px">Drop images / drag from browser · paste (⌘V)</p>
+      <input type="file" id="modalFileInput" accept="image/*" multiple style="display:none">
+      <button class="btn btn-ghost" onclick="document.getElementById('modalFileInput').click()" style="font-size:13px">Browse files</button>
+    </div>
+
+    <!-- Images grid -->
+    <div class="images-grid" id="modalImgGrid"></div>
+    <div id="modalStatus" style="font-size:12px;color:#6b7280;min-height:18px;margin-top:6px"></div>
+  </div>
+</div>
+
+<!-- ── Edit Centre Details modal ────────────────────────────────────────── -->
+<div id="editModalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1001;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;width:min(620px,96vw);max-height:90vh;overflow-y:auto;padding:24px;position:relative">
+    <button onclick="closeEditModal()" style="position:absolute;top:14px;right:16px;background:none;border:none;font-size:22px;cursor:pointer;color:#6b7280">✕</button>
+    <h3 id="editModalTitle" style="margin:0 0 16px;font-size:17px">Edit Centre Details</h3>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Centre Name</label>
+        <input class="input" id="em_name" placeholder="Centre name">
+      </div>
+      <div class="form-group">
+        <label>Address</label>
+        <input class="input" id="em_address" placeholder="Full address">
+      </div>
+      <div class="form-group full-width">
+        <label>About</label>
+        <textarea class="input" id="em_about" rows="3" placeholder="Description of the centre"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Price From</label>
+        <input class="input" type="number" id="em_price_from" placeholder="e.g. 450">
+      </div>
+      <div class="form-group">
+        <label>Price Unit</label>
+        <select class="input" id="em_price_unit">
+          <option value="MONTHLY">Monthly</option>
+          <option value="DAILY">Daily</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Open Hours</label>
+        <input class="input" id="em_open_hours" placeholder="9:00 AM – 6:00 PM">
+      </div>
+      <div class="form-group">
+        <label>Brand</label>
+        <input class="input" id="em_brand" placeholder="e.g. Regus, WeWork">
+      </div>
+      <div class="form-group full-width">
+        <label>Amenities <span style="color:#9ca3af;font-size:12px">(comma-separated)</span></label>
+        <input class="input" id="em_amenities" placeholder="wifi, parking, meeting rooms…">
+      </div>
+      <div class="form-group full-width">
+        <label>Transport Links</label>
+        <input class="input" id="em_transport" placeholder="Nearest tube / bus stops">
+      </div>
+      <div class="form-group full-width">
+        <label>Why Recommend</label>
+        <textarea class="input" id="em_why" rows="2" placeholder="Key selling points for this centre"></textarea>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeEditModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEditModal()">Save Changes</button>
+    </div>
+    <div id="editModalStatus" style="font-size:12px;color:#6b7280;min-height:18px;margin-top:8px;text-align:right"></div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+// State
+let proposalId = {{ proposal.id if proposal else 'null' }};
+let selectedTemplate = '{{ (proposal.template if proposal else "london") | safe }}';
+let selectedCentres = [];  // array of DB centre objects
+let manualCentres = [];      // array of manual centre objects
+// Load existing data if editing
+(function() {
+  try {
+    const sc = {{ (proposal.selected_centres if proposal and proposal.selected_centres else '[]') | safe }};
+    const mc = {{ (proposal.manual_centres if proposal and proposal.manual_centres else '[]') | safe }};
+    selectedCentres = Array.isArray(sc) ? sc : JSON.parse(sc);
+    manualCentres = Array.isArray(mc) ? mc : JSON.parse(mc);
+  } catch(e) { selectedCentres = []; manualCentres = []; }
+})();
+let manualImages = {};  // key: temp id → array of base64 strings
+
+// Preselected IDs from map (passed as query param ?map_names=...)
+const PRESELECTED_IDS = {{ preselected_ids | tojson }};
+// Unified init: load full centre objects (for existing proposals or map preselections)
+(async function initCentres() {
+  // When editing an existing proposal, selected_centres stores raw IDs — load full objects
+  if (selectedCentres.length && typeof selectedCentres[0] === 'number') {
+    const ids = [...selectedCentres];
+    selectedCentres = [];
+    for (const id of ids) {
+      try {
+        const res = await fetch(`/centres/api/${id}`);
+        const centre = await res.json();
+        if (centre && centre.id) { _centreCache[centre.id] = centre; selectedCentres.push(centre); }
+      } catch(e) {}
+    }
+    renderSelectedList();
+  }
+  // Load centres preselected from London map (?map_names=...)
+  if (PRESELECTED_IDS && PRESELECTED_IDS.length) {
+    for (const id of PRESELECTED_IDS) {
+      if (selectedCentres.find(c => c.id === id)) continue;
+      try {
+        const res = await fetch(`/centres/api/${id}`);
+        const centre = await res.json();
+        if (centre && centre.id) { _centreCache[centre.id] = centre; selectedCentres.push(centre); }
+      } catch(e) {}
+    }
+    renderSelectedList();
+    goStep(2);
+  }
+})();
+
+// ── Template toggle ────────────────────────────────────────────────────────
+function setTemplate(val) {
+  selectedTemplate = val;
+  document.querySelectorAll('.toggle-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.val === val);
+  });
+}
+
+// ── Step navigation ────────────────────────────────────────────────────────
+function goStep(n) {
+  document.querySelectorAll('.builder-step').forEach((el,i) => {
+    el.style.display = (i+1 === n) ? 'block' : 'none';
+  });
+  document.querySelectorAll('.step').forEach((el,i) => {
+    el.classList.toggle('active', i+1 === n);
+    el.classList.toggle('done', i+1 < n);
+  });
+  if (n === 3) renderSummary();
+}
+
+// ── Step 1: Save client details ────────────────────────────────────────────
+async function saveStep1() {
+  const title = document.getElementById('p_title').value || 'New Proposal';
+  if (!title) { showToast('Please enter a title', 'error'); return; }
+  const data = {
+    title, template: selectedTemplate,
+    client_name:     document.getElementById('p_client_name').value,
+    client_company:  document.getElementById('p_company').value,
+    client_email:    document.getElementById('p_email').value,
+    client_location: document.getElementById('p_location').value,
+    team_size:       document.getElementById('p_team').value,
+    space_type:      document.getElementById('p_space_type').value,
+    area_required:   document.getElementById('p_area').value,
+    budget:          document.getElementById('p_budget').value,
+    duration:        document.getElementById('p_duration').value,
+  };
+  if (proposalId) {
+    await fetch(`/proposals/${proposalId}/update`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
+  } else {
+    const res = await fetch('/proposals/new', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
+    const json = await res.json();
+    proposalId = json.id;
+    history.replaceState(null,'',`/proposals/${proposalId}`);
+  }
+  goStep(2);
+  renderSelectedList();
+}
+
+// ── Step 2: Centre search ──────────────────────────────────────────────────
+let searchTimer;
+const _centreCache = {};  // id → centre object
+
+function searchCentres(q) {
+  clearTimeout(searchTimer);
+  if (!q.trim()) { document.getElementById('searchResults').innerHTML = ''; return; }
+  searchTimer = setTimeout(async () => {
+    const res = await fetch(`/centres/api/search?q=${encodeURIComponent(q)}`);
+    const centres = await res.json();
+    centres.forEach(c => _centreCache[c.id] = c);
+    const el = document.getElementById('searchResults');
+    el.innerHTML = centres.map(c => `
+      <div class="search-item" data-cid="${c.id}">
+        <div>
+          <strong>${c.name}</strong>
+          <span class="text-muted"> · ${c.city||''} · ${c.space_type||''}</span>
+        </div>
+        <div class="text-muted small">${c.address||''}</div>
+        ${c.price_from ? `<div class="price-tag">£${c.price_from.toLocaleString()}/${c.price_unit==='MONTHLY'?'mo':'day'}</div>` : ''}
+      </div>
+    `).join('') || '<p class="text-muted p-sm">No results</p>';
+    // Attach click handlers after render
+    el.querySelectorAll('.search-item[data-cid]').forEach(item => {
+      item.addEventListener('click', () => addCentreFromDB(Number(item.dataset.cid)));
+    });
+  }, 300);
+}
+
+function addCentreFromDB(id) {
+  const centre = _centreCache[id];
+  if (!centre) return;
+  if (selectedCentres.find(c => c.id === centre.id)) {
+    showToast('Already added', 'error'); return;
+  }
+  selectedCentres.push(centre);
+  renderSelectedList();
+  document.getElementById('centreSearch').value = '';
+  document.getElementById('searchResults').innerHTML = '';
+  showToast(`Added: ${centre.name}`);
+}
+
+// ── Manual centre ──────────────────────────────────────────────────────────
+let manualTempId = 0;
+const manualZone = document.getElementById('manualUploadZone');
+const manualInput = document.getElementById('manualImgInput');
+
+manualZone.addEventListener('dragover', e => { e.preventDefault(); manualZone.classList.add('drag-over'); });
+manualZone.addEventListener('dragleave', () => manualZone.classList.remove('drag-over'));
+manualZone.addEventListener('drop', e => {
+  e.preventDefault(); manualZone.classList.remove('drag-over');
+  handleManualImages(Array.from(e.dataTransfer.files));
+});
+manualInput.addEventListener('change', e => handleManualImages(Array.from(e.target.files)));
+
+document.addEventListener('paste', e => {
+  if (!document.getElementById('step2').offsetParent) return;
+  const items = Array.from(e.clipboardData.items).filter(i => i.type.startsWith('image/'));
+  if (!items.length) return;
+  handleManualImages(items.map(i => i.getAsFile()));
+});
+
+let pendingManualImages = [];  // array of base64
+
+function handleManualImages(files) {
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      pendingManualImages.push(e.target.result);
+      renderManualPreview();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderManualPreview() {
+  const grid = document.getElementById('manualImagesGrid');
+  grid.innerHTML = pendingManualImages.map((src,i) => `
+    <div class="img-thumb small">
+      <img src="${src}" alt="">
+      <button class="img-del" onclick="removeManualImg(${i})">✕</button>
+    </div>
+  `).join('');
+}
+
+function removeManualImg(i) {
+  pendingManualImages.splice(i, 1);
+  renderManualPreview();
+}
+
+function addManualCentre() {
+  const name = document.getElementById('m_name').value.trim();
+  if (!name) { showToast('Centre name is required', 'error'); return; }
+  const centre = {
+    _manual: true,
+    _tempId: ++manualTempId,
+    name,
+    address:   document.getElementById('m_address').value,
+    price_str: document.getElementById('m_price').value,
+    open_hours: document.getElementById('m_hours').value,
+    amenities:  document.getElementById('m_amenities').value,
+    transport:  document.getElementById('m_transport').value,
+    why_recommend: document.getElementById('m_why').value,
+    images_b64: [...pendingManualImages],
+  };
+  manualCentres.push(centre);
+  renderSelectedList();
+  // Reset form
+  ['m_name','m_address','m_price','m_amenities','m_transport','m_why'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('m_hours').value = '9:00 AM – 6:00 PM';
+  pendingManualImages = [];
+  renderManualPreview();
+  showToast(`Added: ${name}`);
+}
+
+// ── Selected list render ───────────────────────────────────────────────────
+function renderSelectedList() {
+  const list = document.getElementById('selectedList');
+  const count = selectedCentres.length + manualCentres.length;
+  document.getElementById('centreCount').textContent = count;
+
+  if (count === 0) {
+    list.innerHTML = '<div class="empty-drop">No centres selected yet</div>';
+    return;
+  }
+
+  const items = [
+    ...selectedCentres.map((c,i) => ({ ...c, _idx: i, _source: 'db' })),
+    ...manualCentres.map((c,i) => ({ ...c, _idx: i, _source: 'manual' })),
+  ];
+
+  list.innerHTML = items.map((c,i) => `
+    <div class="selected-item" data-source="${c._source}" data-idx="${c._idx}">
+      <div class="selected-num">${i+1}</div>
+      ${c._source==='db' && c.images && c.images[0]
+        ? `<img src="${c.images[0]}" style="width:40px;height:36px;object-fit:cover;border-radius:4px;flex-shrink:0">`
+        : `<div style="width:40px;height:36px;background:#f1f5f9;border-radius:4px;flex-shrink:0"></div>`}
+      <div class="selected-info" style="flex:1;min-width:0">
+        <strong>${c.name}</strong>
+        <span class="text-muted">${c._source==='manual'?'Manual entry':c.address||''}</span>
+      </div>
+      ${c._source==='db' ? `
+        <button class="btn-icon" title="Edit details" onclick="openEditModal(${c.id})" style="font-size:13px">✏</button>
+        <button class="btn-icon" title="Edit images" onclick="openImgEditor(${c.id},'${c.name.replace(/'/g,"\\'")}')">🖼</button>
+      ` : ''}
+      <button class="btn-icon remove-btn" onclick="removeCentre('${c._source}', ${c._idx})">✕</button>
+    </div>
+  `).join('');
+}
+
+function removeCentre(source, idx) {
+  if (source === 'db') selectedCentres.splice(idx, 1);
+  else manualCentres.splice(idx, 1);
+  renderSelectedList();
+}
+
+// ── Step 3: Generate ───────────────────────────────────────────────────────
+function renderSummary() {
+  const el = document.getElementById('proposalSummary');
+  const all = [...selectedCentres.map(c=>c.name), ...manualCentres.map(c=>c.name)];
+  el.innerHTML = `
+    <div class="summary-grid">
+      <div><label>Template</label><strong>${selectedTemplate === 'london' ? 'London' : 'India'}</strong></div>
+      <div><label>Client</label><strong>${document.getElementById('p_company').value || document.getElementById('p_client_name').value || '—'}</strong></div>
+      <div><label>Centres</label><strong>${all.length} selected</strong></div>
+    </div>
+    ${all.length ? `<ul class="summary-centres">${all.map(n=>`<li>${n}</li>`).join('')}</ul>` : ''}
+  `;
+}
+
+async function generateProposal() {
+  if (!proposalId) { showToast('Save details first', 'error'); return; }
+
+  // Save current state
+  const manualData = manualCentres.map(c => ({
+    name: c.name,
+    address: c.address,
+    price_str: c.price_str,
+    open_hours: c.open_hours,
+    amenities: c.amenities,
+    transport: c.transport,
+    why_recommend: c.why_recommend,
+    images_b64: c.images_b64 || [],
+  }));
+
+  await fetch(`/proposals/${proposalId}/update`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      template: selectedTemplate,
+      selected_centres: JSON.stringify(selectedCentres.map(c=>c.id)),
+      manual_centres: JSON.stringify(manualData),
+    })
+  });
+
+  const btn = document.getElementById('generateBtn');
+  const status = document.getElementById('generateStatus');
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+  status.style.display = 'block';
+  status.innerHTML = '<div class="spinner"></div> Building your PPTX deck…';
+
+  const res = await fetch(`/proposals/${proposalId}/generate`, { method:'POST' });
+  const data = await res.json();
+
+  btn.disabled = false;
+  btn.textContent = 'Generate PPTX';
+
+  if (data.ok) {
+    status.innerHTML = '✓ Done! Download your deck below.';
+    status.className = 'generate-status success';
+    const btns = document.getElementById('downloadBtns');
+    document.getElementById('downloadPptx').href = `/proposals/${proposalId}/download/pptx`;
+    document.getElementById('downloadPdf').href  = `/proposals/${proposalId}/download/pdf`;
+    btns.style.display = 'flex';
+    showToast('Proposal generated!');
+  } else {
+    status.innerHTML = `Error: ${data.error}`;
+    status.className = 'generate-status error';
+    showToast(data.error, 'error');
+  }
+}
+
+// ── Image Editor Modal ─────────────────────────────────────────────────────
+let _editingCentreId = null;
+
+function openImgEditor(centreId, centreName) {
+  _editingCentreId = centreId;
+  document.getElementById('imgEditorTitle').textContent = centreName;
+  document.getElementById('modalUrlInput').value = '';
+  document.getElementById('modalStatus').textContent = '';
+  loadModalImages();
+  const overlay = document.getElementById('imgEditorOverlay');
+  overlay.style.display = 'flex';
+}
+
+function closeImgEditor() {
+  document.getElementById('imgEditorOverlay').style.display = 'none';
+  // Refresh the selected centre's images in the list
+  const c = selectedCentres.find(c => c.id === _editingCentreId);
+  if (c) {
+    fetch(`/centres/api/${_editingCentreId}`)
+      .then(r => r.json()).then(fresh => {
+        Object.assign(c, fresh);
+        renderSelectedList();
+      });
+  }
+  _editingCentreId = null;
+}
+
+async function loadModalImages() {
+  const grid = document.getElementById('modalImgGrid');
+  grid.innerHTML = '<p style="color:#9ca3af;font-size:13px">Loading…</p>';
+  const res = await fetch(`/centres/api/${_editingCentreId}`);
+  const c = await res.json();
+  renderModalImages(c.images_meta || [], _editingCentreId);
+}
+
+function renderModalImages(meta, cid) {
+  const grid = document.getElementById('modalImgGrid');
+  if (!meta.length) {
+    grid.innerHTML = '<p style="color:#9ca3af;font-size:13px">No images yet — add some above.</p>';
+    return;
+  }
+  grid.innerHTML = meta.map(img => `
+    <div class="img-thumb" data-img-id="${img.id}">
+      <img src="/centre-image/${cid}/${img.filename}?t=${Date.now()}" alt="" loading="lazy">
+      ${img.is_primary ? '<div class="primary-badge">Primary</div>' : ''}
+      <div class="img-actions">
+        ${!img.is_primary ? `<button onclick="modalSetPrimary(${img.id})" title="Set primary">★</button>` : ''}
+        <button onclick="modalDeleteImage(${img.id})" title="Delete">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function modalImportUrl() {
+  const url = document.getElementById('modalUrlInput').value.trim();
+  if (!url) { showToast('Paste a URL first', 'error'); return; }
+  setModalStatus('Fetching…');
+  const res = await fetch(`/centres/${_editingCentreId}/import-url`, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({url})
+  });
+  const data = await res.json();
+  if (data.ok) {
+    document.getElementById('modalUrlInput').value = '';
+    renderModalImages(data.images, _editingCentreId);
+    setModalStatus('Image added!');
+    showToast('Image added');
+  } else {
+    setModalStatus('Error: ' + (data.error || 'Failed'));
+    showToast(data.error || 'Failed', 'error');
+  }
+}
+
+async function modalUploadFiles(files) {
+  if (!files.length) return;
+  setModalStatus('Uploading…');
+  const fd = new FormData();
+  files.forEach(f => fd.append('images', f));
+  const res = await fetch(`/centres/${_editingCentreId}/upload-image`, {method:'POST', body:fd});
+  const data = await res.json();
+  if (data.ok) { renderModalImages(data.images, _editingCentreId); setModalStatus('Uploaded!'); showToast('Uploaded'); }
+  else { setModalStatus('Upload failed'); showToast('Upload failed','error'); }
+}
+
+async function modalSetPrimary(imgId) {
+  await fetch(`/centres/${_editingCentreId}/set-primary-image/${imgId}`, {method:'POST'});
+  loadModalImages();
+}
+
+async function modalDeleteImage(imgId) {
+  if (!confirm('Delete this image?')) return;
+  const res = await fetch(`/centres/${_editingCentreId}/delete-image/${imgId}`, {method:'POST'});
+  const data = await res.json();
+  if (data.ok) { document.querySelector(`#modalImgGrid [data-img-id="${imgId}"]`)?.remove(); showToast('Deleted'); }
+}
+
+function setModalStatus(msg) { document.getElementById('modalStatus').textContent = msg; }
+
+// Modal drag/drop/paste
+const modalDrop = document.getElementById('modalDropZone');
+modalDrop.addEventListener('dragover', e => { e.preventDefault(); modalDrop.classList.add('drag-over'); });
+modalDrop.addEventListener('dragleave', () => modalDrop.classList.remove('drag-over'));
+modalDrop.addEventListener('drop', e => {
+  e.preventDefault(); modalDrop.classList.remove('drag-over');
+  const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+  if (files.length) { modalUploadFiles(files); return; }
+  const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+  if (url && url.match(/^https?:\/\//i)) {
+    document.getElementById('modalUrlInput').value = url.trim();
+    modalImportUrl();
+  }
+});
+document.getElementById('modalFileInput').addEventListener('change', e => modalUploadFiles(Array.from(e.target.files)));
+
+// Paste inside modal
+document.getElementById('imgEditorOverlay').addEventListener('paste', async e => {
+  if (!_editingCentreId) return;
+  const imgItems = Array.from(e.clipboardData.items).filter(i => i.type.startsWith('image/'));
+  if (imgItems.length) {
+    const fd = new FormData();
+    imgItems.forEach(i => fd.append('images', i.getAsFile(), 'pasted.png'));
+    const res = await fetch(`/centres/${_editingCentreId}/upload-image`, {method:'POST',body:fd});
+    const data = await res.json();
+    if (data.ok) { renderModalImages(data.images, _editingCentreId); setModalStatus('Pasted!'); }
+    return;
+  }
+  const text = e.clipboardData.getData('text/plain').trim();
+  if (text.match(/^https?:\/\//i)) {
+    document.getElementById('modalUrlInput').value = text;
+    await modalImportUrl();
+  }
+});
+
+// Close on overlay click
+document.getElementById('imgEditorOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('imgEditorOverlay')) closeImgEditor();
+});
+
+// Modal URL input Enter key
+document.getElementById('modalUrlInput').addEventListener('keydown', e => { if (e.key==='Enter') modalImportUrl(); });
+
+// ── Edit Centre Details Modal ──────────────────────────────────────────────
+let _editingCentreForDetails = null;
+
+function openEditModal(centreId) {
+  const c = selectedCentres.find(c => c.id === centreId);
+  if (!c) return;
+  _editingCentreForDetails = centreId;
+  document.getElementById('editModalTitle').textContent = c.name;
+  document.getElementById('em_name').value = c.name || '';
+  document.getElementById('em_address').value = c.address || '';
+  document.getElementById('em_about').value = c.about || '';
+  document.getElementById('em_price_from').value = c.price_from || '';
+  document.getElementById('em_price_unit').value = c.price_unit || 'MONTHLY';
+  document.getElementById('em_open_hours').value = c.open_hours || '9:00 AM – 6:00 PM';
+  document.getElementById('em_brand').value = c.brand || '';
+  let amenities = c.amenities;
+  if (typeof amenities === 'string') {
+    try { amenities = JSON.parse(amenities); } catch(e) { amenities = [amenities]; }
+  }
+  document.getElementById('em_amenities').value = Array.isArray(amenities) ? amenities.join(', ') : (amenities || '');
+  document.getElementById('em_transport').value = c.transport || '';
+  document.getElementById('em_why').value = c.why_recommend || '';
+  document.getElementById('editModalStatus').textContent = '';
+  document.getElementById('editModalOverlay').style.display = 'flex';
+}
+
+function closeEditModal() {
+  document.getElementById('editModalOverlay').style.display = 'none';
+  _editingCentreForDetails = null;
+}
+
+async function saveEditModal() {
+  if (!_editingCentreForDetails) return;
+  const amenitiesRaw = document.getElementById('em_amenities').value;
+  const amenitiesArr = amenitiesRaw.split(',').map(s => s.trim()).filter(Boolean);
+  const data = {
+    name:         document.getElementById('em_name').value.trim(),
+    address:      document.getElementById('em_address').value.trim(),
+    about:        document.getElementById('em_about').value.trim(),
+    price_from:   document.getElementById('em_price_from').value || null,
+    price_unit:   document.getElementById('em_price_unit').value,
+    open_hours:   document.getElementById('em_open_hours').value.trim(),
+    brand:        document.getElementById('em_brand').value.trim(),
+    amenities:    JSON.stringify(amenitiesArr),
+    transport:    document.getElementById('em_transport').value.trim(),
+    why_recommend: document.getElementById('em_why').value.trim(),
+  };
+  document.getElementById('editModalStatus').textContent = 'Saving…';
+  const res = await fetch(`/centres/${_editingCentreForDetails}/update`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data),
+  });
+  const json = await res.json();
+  if (json.ok) {
+    // Update local centre object so proposal reflects edits without page reload
+    const c = selectedCentres.find(c => c.id === _editingCentreForDetails);
+    if (c) Object.assign(c, data, { amenities: amenitiesArr });
+    closeEditModal();
+    renderSelectedList();
+    showToast('Centre details saved!');
+  } else {
+    document.getElementById('editModalStatus').textContent = 'Save failed';
+    showToast('Save failed', 'error');
+  }
+}
+
+// Close edit modal on overlay click
+document.getElementById('editModalOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('editModalOverlay')) closeEditModal();
+});
+</script>
+{% endblock %}

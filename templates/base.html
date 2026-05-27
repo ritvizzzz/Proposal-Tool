@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}myHQ Proposal Tool{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<nav class="topnav">
+  <a href="/" class="nav-logo">
+    <img src="{{ url_for('static', filename='images/myhq-logo.svg') }}" alt="myHQ" height="32" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+    <span style="display:none;font-weight:800;color:#1E22AA;font-size:20px">myHQ</span>
+  </a>
+  <div class="nav-links">
+    <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Dashboard</a>
+    <a href="/centres" class="nav-link {% if '/centres' in request.path %}active{% endif %}">Centres</a>
+    <a href="/projects" class="nav-link {% if '/projects' in request.path %}active{% endif %}">Projects</a>
+    <a href="/proposals" class="nav-link {% if '/proposals' in request.path and '/projects' not in request.path %}active{% endif %}">All Proposals</a>
+  </div>
+  <a href="/proposals/new" class="btn btn-primary">+ New Proposal</a>
+</nav>
+<main class="main-content">
+{% block content %}{% endblock %}
+</main>
+<div id="toast" class="toast"></div>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

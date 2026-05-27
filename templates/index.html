@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — myHQ Proposal Tool{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Dashboard</h1>
+    <p class="subtitle">Create workspace proposals for your clients</p>
+  </div>
+  <a href="/proposals/new" class="btn btn-primary">+ New Proposal</a>
+</div>
+
+<div class="stats-row">
+  <div class="stat-card">
+    <div class="stat-num">{{ centre_count }}</div>
+    <div class="stat-label">Centres in Database</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">{{ proposals|length }}</div>
+    <div class="stat-label">Recent Proposals</div>
+  </div>
+  <div class="stat-card blush">
+    <div class="stat-num">2</div>
+    <div class="stat-label">Templates Available</div>
+  </div>
+</div>
+
+<div class="grid-2col">
+  <div class="card">
+    <div class="card-header">
+      <h2>Recent Proposals</h2>
+      <a href="/proposals" class="link-sm">View all →</a>
+    </div>
+    {% if proposals %}
+    <table class="table">
+      <thead><tr><th>Client</th><th>Company</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+      {% for p in proposals %}
+      <tr>
+        <td>{{ p.client_name or '—' }}</td>
+        <td>{{ p.client_company or '—' }}</td>
+        <td><span class="badge badge-{{ p.status }}">{{ p.status }}</span></td>
+        <td><a href="/proposals/{{ p.id }}" class="link-sm">Edit</a></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+      <p>No proposals yet.</p>
+      <a href="/proposals/new" class="btn btn-primary">Create your first</a>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2>Centre Database</h2>
+      <a href="/centres" class="link-sm">Manage →</a>
+    </div>
+    <div class="import-zone" id="importZone">
+      <div class="import-icon">📂</div>
+      <p><strong>Import from Excel</strong></p>
+      <p class="text-muted">Drag & drop your combined_all_operators.xlsx<br>or click to browse</p>
+      <input type="file" id="excelInput" accept=".xlsx" style="display:none">
+      <button class="btn btn-outline" onclick="document.getElementById('excelInput').click()">Browse File</button>
+    </div>
+    <div id="importResult" style="display:none" class="import-result"></div>
+
+    <div class="card-footer">
+      <a href="/centres/add-page" class="btn btn-ghost">+ Add Centre Manually</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const zone = document.getElementById('importZone');
+const input = document.getElementById('excelInput');
+
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+zone.addEventListener('drop', e => {
+  e.preventDefault();
+  zone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) doImport(file);
+});
+input.addEventListener('change', e => { if (e.target.files[0]) doImport(e.target.files[0]); });
+
+async function doImport(file) {
+  const fd = new FormData();
+  fd.append('file', file);
+  zone.innerHTML = '<div class="spinner"></div><p>Importing…</p>';
+  try {
+    const res = await fetch('/centres/import-excel', { method: 'POST', body: fd });
+    const data = await res.json();
+    const el = document.getElementById('importResult');
+    if (data.ok) {
+      el.innerHTML = `<span class="success">✓ Added ${data.added} centres (${data.skipped} already existed)</span>`;
+      showToast(`Imported ${data.added} centres`);
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      el.innerHTML = `<span class="error">Error: ${data.error}</span>`;
+    }
+    el.style.display = 'block';
+  } catch(e) {
+    showToast('Import failed: ' + e.message, 'error');
+  }
+}
+</script>
+{% endblock %}

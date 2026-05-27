@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+uploads/proposals/
+uploads/tmp_render/
+uploads/centres/
+uploads/templates/
+*.pptx
+*.pdf

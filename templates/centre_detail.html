@@ -1,0 +1,339 @@
+{% extends 'base.html' %}
+{% block title %}{{ centre.name }} — myHQ Proposal Tool{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <a href="/centres" class="back-link">← Centres</a>
+    <h1>{{ centre.name }}</h1>
+    <p class="subtitle">{{ centre.address or '' }}</p>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-outline" onclick="saveChanges()">Save Changes</button>
+    <button class="btn btn-danger" onclick="deleteCentre()">Delete Centre</button>
+  </div>
+</div>
+
+<div class="detail-layout">
+  <!-- Left: Details form -->
+  <div class="card detail-form-card">
+    <h2>Centre Details</h2>
+    <div class="form-grid">
+      <div class="form-group full-width">
+        <label>Name</label>
+        <input class="input" id="f_name" value="{{ centre.name or '' }}">
+      </div>
+      <div class="form-group full-width">
+        <label>Address</label>
+        <input class="input" id="f_address" value="{{ centre.address or '' }}">
+      </div>
+      <div class="form-group">
+        <label>City</label>
+        <input class="input" id="f_city" value="{{ centre.city or '' }}">
+      </div>
+      <div class="form-group">
+        <label>Brand / Operator</label>
+        <input class="input" id="f_brand" value="{{ centre.brand or '' }}">
+      </div>
+      <div class="form-group">
+        <label>Space Type</label>
+        <select class="input" id="f_space_type">
+          {% for t in ['COWORKING','DEDICATED','PRIVATE_OFFICE','VIRTUAL_OFFICE','MEETING_ROOM','MANAGED_OFFICE','EVENT_SPACE'] %}
+          <option value="{{ t }}" {% if centre.space_type == t %}selected{% endif %}>{{ t.replace('_',' ').title() }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Price From (£)</label>
+        <input class="input" type="number" id="f_price" value="{{ centre.price_from or '' }}">
+      </div>
+      <div class="form-group">
+        <label>Price Unit</label>
+        <select class="input" id="f_price_unit">
+          <option value="MONTHLY" {% if centre.price_unit == 'MONTHLY' %}selected{% endif %}>Monthly</option>
+          <option value="DAILY" {% if centre.price_unit == 'DAILY' %}selected{% endif %}>Daily</option>
+          <option value="HOURLY" {% if centre.price_unit == 'HOURLY' %}selected{% endif %}>Hourly</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Open Hours</label>
+        <input class="input" id="f_hours" value="{{ centre.open_hours or '9:00 AM – 6:00 PM' }}">
+      </div>
+      <div class="form-group full-width">
+        <label>Amenities (comma-separated)</label>
+        <input class="input" id="f_amenities" value="{{ centre.amenities | replace('[','') | replace(']','') | replace('"','') | replace("'",'') }}">
+      </div>
+      <div class="form-group full-width">
+        <label>Transport Links</label>
+        <input class="input" id="f_transport" value="{{ centre.transport or '' }}">
+      </div>
+      <div class="form-group">
+        <label>Website</label>
+        <input class="input" id="f_website" value="{{ centre.website or '' }}">
+      </div>
+      <div class="form-group">
+        <label>Map URL</label>
+        <input class="input" id="f_map_url" value="{{ centre.map_url or '' }}">
+      </div>
+      <div class="form-group full-width">
+        <label>About</label>
+        <textarea class="input" id="f_about" rows="4">{{ centre.about or '' }}</textarea>
+      </div>
+      <div class="form-group full-width">
+        <label>Why We Recommend</label>
+        <textarea class="input" id="f_why" rows="3">{{ centre.why_recommend or '' }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: Images -->
+  <div class="card images-card">
+    <div class="card-header">
+      <h2>Images</h2>
+      <span class="text-muted">{{ images|length }} photo{% if images|length != 1 %}s{% endif %}</span>
+    </div>
+
+    <!-- URL import -->
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+      <input id="urlInput" class="input" placeholder="Paste image URL here and press Enter (or drag URL from browser)" style="flex:1;font-size:13px">
+      <button class="btn btn-primary" onclick="importFromUrl()" style="white-space:nowrap;font-size:13px">Add from URL</button>
+    </div>
+
+    <!-- Upload zone -->
+    <div class="upload-zone" id="uploadZone">
+      <div>
+        <p><strong>Drop images or image URLs here</strong></p>
+        <p class="text-muted">Paste from clipboard (⌘V), drag files, or drag images from any browser tab</p>
+        <input type="file" id="imageInput" accept="image/*" multiple style="display:none">
+        <button class="btn btn-outline" onclick="document.getElementById('imageInput').click()">Browse files</button>
+      </div>
+    </div>
+
+    <!-- Image grid -->
+    <div class="images-grid" id="imagesGrid">
+      {% for img in images %}
+      <div class="img-thumb" data-img-id="{{ img.id }}">
+        <img src="/centre-image/{{ centre.id }}/{{ img.filename }}" alt="">
+        {% if img.is_primary %}<div class="primary-badge">Primary</div>{% endif %}
+        <div class="img-actions">
+          {% if not img.is_primary %}
+          <button onclick="setPrimary({{ img.id }})" title="Set as primary">★</button>
+          {% endif %}
+          <button onclick="deleteImage({{ img.id }})" title="Delete">✕</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <p class="hint">First 4 images are used in proposals. Star = set primary (thumbnail).</p>
+
+    <!-- Google Maps photo fetch -->
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid #f1f5f9">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="password" id="gm-api-key" placeholder="Google Maps API key (optional)" class="input" style="flex:1;min-width:160px;font-size:13px" autocomplete="off">
+        <button class="btn btn-outline" id="fetch-photos-btn" onclick="fetchGooglePhotos()" style="white-space:nowrap;font-size:13px">Auto-fetch from Maps</button>
+      </div>
+      <div id="fetch-photos-status" style="margin-top:6px;font-size:12px;color:#6b7280;display:none"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const CENTRE_ID = {{ centre.id }};
+
+// ── Save changes ──────────────────────────────────────────────────────────
+async function saveChanges() {
+  const data = {
+    name: document.getElementById('f_name').value,
+    address: document.getElementById('f_address').value,
+    city: document.getElementById('f_city').value,
+    brand: document.getElementById('f_brand').value,
+    space_type: document.getElementById('f_space_type').value,
+    price_from: document.getElementById('f_price').value || null,
+    price_unit: document.getElementById('f_price_unit').value,
+    open_hours: document.getElementById('f_hours').value,
+    amenities: JSON.stringify(document.getElementById('f_amenities').value.split(',').map(a=>a.trim()).filter(Boolean)),
+    transport: document.getElementById('f_transport').value,
+    website: document.getElementById('f_website').value,
+    map_url: document.getElementById('f_map_url').value,
+    about: document.getElementById('f_about').value,
+    why_recommend: document.getElementById('f_why').value,
+  };
+  const res = await fetch(`/centres/${CENTRE_ID}/update`, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  showToast(json.ok ? 'Saved!' : 'Save failed', json.ok ? 'success' : 'error');
+}
+
+// ── Delete centre ─────────────────────────────────────────────────────────
+async function deleteCentre() {
+  if (!confirm('Delete this centre and all its images?')) return;
+  const res = await fetch(`/centres/${CENTRE_ID}/delete`, { method:'POST' });
+  const json = await res.json();
+  if (json.ok) { showToast('Deleted'); setTimeout(() => window.location.href='/centres', 600); }
+}
+
+// ── Images ────────────────────────────────────────────────────────────────
+const uploadZone = document.getElementById('uploadZone');
+const imageInput = document.getElementById('imageInput');
+const urlInput   = document.getElementById('urlInput');
+
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('drag-over');
+  // Accept dragged files OR dragged URLs / text containing URLs
+  const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+  if (files.length) { uploadFiles(files); return; }
+  // Try plain text / URI-list (dragging an image from a browser)
+  const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+  if (url && url.match(/^https?:\/\//i)) { importUrl(url.trim()); }
+});
+imageInput.addEventListener('change', e => uploadFiles(Array.from(e.target.files)));
+
+// Paste: image data OR copied URL text
+document.addEventListener('paste', async e => {
+  // 1. Try image items first
+  const imgItems = Array.from(e.clipboardData.items).filter(i => i.type.startsWith('image/'));
+  if (imgItems.length) {
+    const fd = new FormData();
+    for (const item of imgItems) fd.append('images', item.getAsFile(), 'pasted.png');
+    await doUpload(fd);
+    return;
+  }
+  // 2. Try pasted text as URL (when user copies an image URL)
+  const text = e.clipboardData.getData('text/plain').trim();
+  if (text.match(/^https?:\/\/.+\.(jpg|jpeg|png|webp|gif|avif)(\?.*)?$/i)) {
+    urlInput.value = text;
+    await importUrl(text);
+  }
+});
+
+// URL input: Enter key triggers import
+urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') importFromUrl(); });
+
+async function importFromUrl() {
+  const url = urlInput.value.trim();
+  if (!url) { showToast('Paste a URL first', 'error'); return; }
+  await importUrl(url);
+}
+
+async function importUrl(url) {
+  urlInput.value = url;
+  showToast('Fetching image…');
+  const res = await fetch(`/centres/${CENTRE_ID}/import-url`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({url})
+  });
+  const data = await res.json();
+  if (data.ok) {
+    showToast('Image added!', 'success');
+    urlInput.value = '';
+    renderImages(data.images);
+  } else {
+    showToast(data.error || 'Failed to fetch URL', 'error');
+  }
+}
+
+async function uploadFiles(files) {
+  if (!files.length) return;
+  const fd = new FormData();
+  files.forEach(f => fd.append('images', f));
+  await doUpload(fd);
+}
+
+async function doUpload(fd) {
+  showToast('Uploading…');
+  const res = await fetch(`/centres/${CENTRE_ID}/upload-image`, { method:'POST', body: fd });
+  const data = await res.json();
+  if (data.ok) {
+    showToast('Uploaded!');
+    renderImages(data.images);
+  } else {
+    showToast('Upload failed', 'error');
+  }
+}
+
+function renderImages(images) {
+  const grid = document.getElementById('imagesGrid');
+  grid.innerHTML = images.map(img => `
+    <div class="img-thumb" data-img-id="${img.id}">
+      <img src="/centre-image/${CENTRE_ID}/${img.filename}?t=${Date.now()}" alt="">
+      ${img.is_primary ? '<div class="primary-badge">Primary</div>' : ''}
+      <div class="img-actions">
+        ${!img.is_primary ? `<button onclick="setPrimary(${img.id})" title="Set primary">★</button>` : ''}
+        <button onclick="deleteImage(${img.id})" title="Delete">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function setPrimary(imgId) {
+  await fetch(`/centres/${CENTRE_ID}/set-primary-image/${imgId}`, { method:'POST' });
+  showToast('Primary image updated');
+  location.reload();
+}
+
+async function deleteImage(imgId) {
+  if (!confirm('Delete this image?')) return;
+  const res = await fetch(`/centres/${CENTRE_ID}/delete-image/${imgId}`, { method:'POST' });
+  const data = await res.json();
+  if (data.ok) {
+    document.querySelector(`.img-thumb[data-img-id="${imgId}"]`)?.remove();
+    showToast('Image deleted');
+  }
+}
+
+// ── Google Maps photo fetch ───────────────────────────────────────────────
+(function() {
+  // Pre-fill API key from localStorage if saved
+  const saved = localStorage.getItem('gm_api_key');
+  if (saved) document.getElementById('gm-api-key').value = saved;
+})();
+
+async function fetchGooglePhotos() {
+  const keyInput = document.getElementById('gm-api-key');
+  const apiKey = keyInput.value.trim();
+  if (!apiKey) { showToast('Enter a Google Maps API key', 'error'); return; }
+  // Save to localStorage for convenience
+  localStorage.setItem('gm_api_key', apiKey);
+
+  const btn = document.getElementById('fetch-photos-btn');
+  const status = document.getElementById('fetch-photos-status');
+  btn.disabled = true;
+  btn.textContent = 'Fetching…';
+  status.style.display = 'block';
+  status.textContent = 'Searching Google Places…';
+
+  try {
+    const res = await fetch(`/centres/${CENTRE_ID}/fetch-photos`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({api_key: apiKey})
+    });
+    const data = await res.json();
+    if (data.ok) {
+      if (data.added > 0) {
+        status.textContent = `Added ${data.added} photo${data.added > 1 ? 's' : ''}. Reloading…`;
+        showToast(`Added ${data.added} photos from Google Maps`);
+        setTimeout(() => location.reload(), 800);
+      } else {
+        status.textContent = data.note || 'No new photos found.';
+        showToast('No new photos found', 'error');
+      }
+    } else {
+      status.textContent = 'Error: ' + (data.error || 'Unknown error');
+      showToast(data.error || 'Fetch failed', 'error');
+    }
+  } catch(e) {
+    status.textContent = 'Request failed: ' + e.message;
+    showToast('Fetch failed', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Fetch from Google Maps';
+  }
+}
+</script>
+{% endblock %}
