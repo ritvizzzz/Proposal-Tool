@@ -687,7 +687,6 @@ async function modalSetPrimary(imgId) {
 }
 
 async function modalDeleteImage(imgId) {
-  if (!confirm('Delete this image?')) return;
   const res = await fetch(`/centres/${_editingCentreId}/delete-image/${imgId}`, {method:'POST'});
   const data = await res.json();
   if (data.ok) { document.querySelector(`#modalImgGrid [data-img-id="${imgId}"]`)?.remove(); showToast('Deleted'); }
