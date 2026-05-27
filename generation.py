@@ -880,13 +880,12 @@ def _testimonials_slide(font, logo, bg_color=WHITE, heading_color=DARK):
 
 
 def generate_proposal_map(centres, out_path):
-    """Screenshot a styled Leaflet map showing only the given centres with numbered pins."""
-    import tempfile, json as _json, threading, http.server
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        return None
+    """Generate a static map image showing the selected centres with numbered pins.
+    Uses OSM tiles + PIL only — no browser/Playwright required."""
+    import math, urllib.request, io as _io
+    from PIL import Image as _PI, ImageDraw as _ID, ImageFont as _IF
 
+    # ── 1. Parse coordinates ────────────────────────────────────────────────
     points = []
     for c in centres:
         coords = c.get('coordinates', '')
@@ -896,88 +895,110 @@ def generate_proposal_map(centres, out_path):
                 points.append({'lat': float(lat), 'lng': float(lng), 'name': c.get('name', '')})
             except Exception:
                 pass
-
     if not points:
         return None
 
-    # Build numbered markers with custom blue pins + name labels
-    markers_js_parts = []
-    for i, p in enumerate(points, 1):
-        label = p['name'].replace("'", "\\'")[:30]
-        icon_js = (
-            f"L.divIcon({{"
-            f"className:'',"
-            f"html:'<div style=\"background:#1E22AA;color:#fff;min-width:28px;height:28px;"
-            f"border-radius:50%;display:flex;align-items:center;justify-content:center;"
-            f"font-family:sans-serif;font-size:13px;font-weight:700;border:2px solid #fff;"
-            f"box-shadow:0 2px 8px rgba(0,0,0,0.45)\">{i}</div>',"
-            f"iconSize:[28,28],iconAnchor:[14,14]"
-            f"}})"
-        )
-        label_icon = (
-            f"L.divIcon({{"
-            f"className:'',"
-            f"html:'<div style=\"background:rgba(255,255,255,0.92);color:#1D1D1B;padding:2px 6px;"
-            f"border-radius:3px;font-family:sans-serif;font-size:10px;font-weight:600;"
-            f"white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.2)\">{label}</div>',"
-            f"iconSize:[180,20],iconAnchor:[-16,10]"
-            f"}})"
-        )
-        markers_js_parts.append(
-            f"L.marker([{p['lat']},{p['lng']}],{{icon:{icon_js}}}).addTo(map);"
-            f"L.marker([{p['lat']},{p['lng']}],{{icon:{label_icon}}}).addTo(map);"
-        )
-    markers_js = '\n'.join(markers_js_parts)
-    bounds_arr = ','.join(f'[{p["lat"]},{p["lng"]}]' for p in points)
+    # ── 2. Tile helpers ─────────────────────────────────────────────────────
+    def _deg2tile(lat, lng, z):
+        n = 2 ** z
+        xt = (lng + 180) / 360 * n
+        yt = (1 - math.log(math.tan(math.radians(lat)) + 1 / math.cos(math.radians(lat))) / math.pi) / 2 * n
+        return xt, yt
 
-    html = f"""<!DOCTYPE html><html><head>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<style>
-  html,body{{margin:0;padding:0;background:#e8edf2}}
-  #map{{width:100vw;height:100vh}}
-  .leaflet-control-attribution,.leaflet-control-zoom{{display:none}}
-</style>
-</head><body>
-<div id="map"></div>
-<script>
-var map = L.map('map',{{zoomControl:false,attributionControl:false}});
-L.tileLayer('https://{{s}}.basemaps.cartocdn.com/rastertiles/voyager/{{z}}/{{x}}/{{y}}{{r}}.png',{{maxZoom:19}}).addTo(map);
-{markers_js}
-var bounds = L.latLngBounds([{bounds_arr}]);
-map.fitBounds(bounds,{{padding:[60,60]}});
-</script></body></html>"""
+    def _pick_zoom(points, img_w, img_h, pad=60):
+        """Pick zoom so all points fit inside the image with padding."""
+        lats = [p['lat'] for p in points]
+        lngs = [p['lng'] for p in points]
+        for z in range(15, 9, -1):
+            xs = [_deg2tile(p['lat'], p['lng'], z)[0] for p in points]
+            ys = [_deg2tile(p['lat'], p['lng'], z)[1] for p in points]
+            span_x = (max(xs) - min(xs)) * 256
+            span_y = (max(ys) - min(ys)) * 256
+            if span_x <= img_w - pad * 2 and span_y <= img_h - pad * 2:
+                return z
+        return 10
 
-    # Serve HTML via local HTTP so tile requests are HTTPS-allowed
-    tmp_dir = tempfile.mkdtemp()
-    html_file = os.path.join(tmp_dir, 'map.html')
-    with open(html_file, 'w') as f:
-        f.write(html)
+    IMG_W, IMG_H = 1200, 675
+    zoom = _pick_zoom(points, IMG_W, IMG_H) if len(points) > 1 else 14
 
-    import functools
-    port = 19871
-    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=tmp_dir)
-    httpd = http.server.HTTPServer(('127.0.0.1', port), handler)
-    httpd.allow_reuse_address = True
-    t = threading.Thread(target=httpd.serve_forever)
-    t.daemon = True
-    t.start()
+    # Centre of all points
+    clat = sum(p['lat'] for p in points) / len(points)
+    clng = sum(p['lng'] for p in points) / len(points)
+    cx, cy = _deg2tile(clat, clng, zoom)
 
+    # Tile range needed
+    tiles_x = math.ceil(IMG_W / 256) + 2
+    tiles_y = math.ceil(IMG_H / 256) + 2
+    tx0 = int(cx) - tiles_x // 2
+    ty0 = int(cy) - tiles_y // 2
+
+    # ── 3. Fetch & stitch tiles ─────────────────────────────────────────────
+    canvas_w = (tiles_x + 1) * 256
+    canvas_h = (tiles_y + 1) * 256
+    canvas = _PI.new('RGB', (canvas_w, canvas_h), (242, 243, 244))
+
+    headers = {'User-Agent': 'myHQ-proposal-tool/1.0'}
+    n_tiles = 2 ** zoom
+    for dx in range(tiles_x + 1):
+        for dy in range(tiles_y + 1):
+            tx = (tx0 + dx) % n_tiles
+            ty = (ty0 + dy) % n_tiles
+            if ty < 0 or ty >= n_tiles:
+                continue
+            url = f'https://a.tile.openstreetmap.org/{zoom}/{tx}/{ty}.png'
+            try:
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=8) as r:
+                    tile = _PI.open(_io.BytesIO(r.read())).convert('RGB')
+                canvas.paste(tile, (dx * 256, dy * 256))
+            except Exception:
+                pass
+
+    # ── 4. Crop to final size centred on the points ─────────────────────────
+    # Pixel position of centre point on canvas
+    px_cx = (cx - tx0) * 256
+    px_cy = (cy - ty0) * 256
+    left  = int(px_cx - IMG_W / 2)
+    top   = int(px_cy - IMG_H / 2)
+    img   = canvas.crop((left, top, left + IMG_W, top + IMG_H))
+
+    # ── 5. Draw numbered markers + labels ───────────────────────────────────
+    draw = _ID.Draw(img)
     try:
-        with sync_playwright() as pw:
-            browser = pw.chromium.launch(args=['--no-sandbox'])
-            page = browser.new_page(viewport={'width': 1200, 'height': 800})
-            page.goto(f'http://127.0.0.1:{port}/map.html', wait_until='networkidle', timeout=20000)
-            page.wait_for_timeout(3000)
-            page.screenshot(path=out_path, full_page=False)
-            browser.close()
-        return out_path
+        font_label = _IF.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 11)
+        font_num   = _IF.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 13)
     except Exception:
-        return None
-    finally:
-        httpd.shutdown()
-        import shutil
-        shutil.rmtree(tmp_dir, ignore_errors=True)
+        font_label = _IF.load_default()
+        font_num   = font_label
+
+    for i, p in enumerate(points, 1):
+        # Convert lat/lng → pixel on final image
+        px, py = _deg2tile(p['lat'], p['lng'], zoom)
+        px = int((px - tx0) * 256) - left
+        py = int((py - ty0) * 256) - top
+
+        # Blue circle marker
+        r = 14
+        draw.ellipse([px - r, py - r, px + r, py + r], fill='#1E22AA', outline='white', width=2)
+        num_text = str(i)
+        bb = draw.textbbox((0, 0), num_text, font=font_num)
+        tw, th = bb[2] - bb[0], bb[3] - bb[1]
+        draw.text((px - tw // 2, py - th // 2 - 1), num_text, fill='white', font=font_num)
+
+        # White label pill to the right
+        label = p['name'][:28]
+        lb = draw.textbbox((0, 0), label, font=font_label)
+        lw, lh = lb[2] - lb[0], lb[3] - lb[1]
+        pad = 5
+        lx, ly = px + r + 6, py - lh // 2 - pad
+        # Keep label inside image
+        if lx + lw + pad * 2 > IMG_W: lx = px - r - lw - pad * 2 - 6
+        draw.rounded_rectangle([lx, ly, lx + lw + pad * 2, ly + lh + pad * 2],
+                                radius=4, fill='white', outline='#d1d5db', width=1)
+        draw.text((lx + pad, ly + pad), label, fill='#1a1a2e', font=font_label)
+
+    img.save(out_path, 'PNG')
+    return out_path
 
 
 _LOCATION_DATA = {
