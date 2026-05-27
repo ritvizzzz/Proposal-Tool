@@ -280,6 +280,33 @@ AMENITY_LABELS = {
     'nursing_room':            'Nursing Room',
     'pantry':                  'Pantry',
     'concierge':               'Concierge',
+    'security_personnel':      'Security',
+    'security_guard':          'Security',
+    '24_7_access':             '24/7 Access',
+    '24x7_access':             '24/7 Access',
+    '24/7_access':             '24/7 Access',
+    '24/7 access':             '24/7 Access',
+    'breakout_room':           'Breakout Room',
+    'recreation_room':         'Recreation',
+    'lounge_area':             'Lounge Area',
+    'ac':                      'Air Con',
+    'power':                   'Power Backup',
+    'wifi_high_speed':         'Wi-Fi',
+    'high_speed_wifi':         'Wi-Fi',
+    'dedicated_desks':         'Ded. Desks',
+    'private_office':          'Private Office',
+    'hot_desk':                'Hot Desks',
+    'video_conferencing':      'Video Conf.',
+    'outdoor_space':           'Outdoor Space',
+    'wellness_room':           'Wellness Room',
+    'fitness_center':          'Gym',
+    'fitness_centre':          'Gym',
+    'on_site_cafe':            'Café',
+    'coffee':                  'Coffee',
+    'natural_light':           'Natural Light',
+    'standing_desks':          'Standing Desks',
+    'accessible':              'Accessible',
+    'wheelchair_access':       'Accessible',
 }
 
 # Dot colours cycling for amenity grid
@@ -298,8 +325,8 @@ def format_amenities(a):
         if not label:
             # Clean up unknown slugs
             label = slug.replace('_', ' ').replace('-', ' ').title()
-            if len(label) > 14:
-                label = label[:13] + '…'
+            if len(label) > 20:
+                label = label[:19] + '…'
         labels.append(label)
     return ', '.join(labels) if labels else 'On request'
 
@@ -325,8 +352,8 @@ def amenity_pill_cmds(amenities_raw, x, y, max_w, font):
         label = AMENITY_LABELS.get(slug)
         if not label:
             label = slug.replace('_', ' ').replace('-', ' ').title()
-            if len(label) > 14:
-                label = label[:13] + '…'
+            if len(label) > 20:
+                label = label[:19] + '…'
 
         col = i % cols
         row = i // cols
@@ -339,7 +366,7 @@ def amenity_pill_cmds(amenities_raw, x, y, max_w, font):
         # Label text beside it
         cmds.append(T(label,
                       ix + dot_size + dot_gap, iy,
-                      col_w - dot_size - dot_gap - 40000, 240000,
+                      col_w - dot_size - dot_gap, 240000,
                       8, DARK, font=font, wrap=False))
 
     return cmds
