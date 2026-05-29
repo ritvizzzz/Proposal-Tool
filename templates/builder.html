@@ -537,7 +537,10 @@ function renderSelectedList() {
       ${c._source==='db' ? `
         <button class="btn-icon" title="Edit details" onclick="openEditModal(${c.id})" style="font-size:13px">✏</button>
         <button class="btn-icon" title="Edit images" onclick="openImgEditor(${c.id},'${c.name.replace(/'/g,"\\'")}')">🖼</button>
-      ` : ''}
+      ` : `
+        <button class="btn-icon" title="Edit details" onclick="openEditModal('${c._tmpId}')" style="font-size:13px">✏</button>
+        <button class="btn-icon" title="Edit images" onclick="openImgEditor('${c._tmpId}','${c.name.replace(/'/g,"\\'")}')">🖼</button>
+      `}
       <button class="btn-icon remove-btn" onclick="removeCentre('${c._source}', ${c._idx})">✕</button>
     </div>
   `).join('');
@@ -564,7 +567,30 @@ function renderSummary() {
 }
 
 async function generateProposal() {
-  if (!proposalId) { showToast('Save details first', 'error'); return; }
+  // Auto-save proposal if not yet created (e.g. came from London map, skipped step 1)
+  if (!proposalId) {
+    const title = document.getElementById('p_title').value || 'New Proposal';
+    const data = {
+      title, template: selectedTemplate,
+      client_name:     document.getElementById('p_client_name').value,
+      client_company:  document.getElementById('p_company').value,
+      client_email:    document.getElementById('p_email').value,
+      client_location: document.getElementById('p_location').value,
+      team_size:       document.getElementById('p_team').value,
+      space_type:      document.getElementById('p_space_type').value,
+      area_required:   document.getElementById('p_area').value,
+      budget:          document.getElementById('p_budget').value,
+      duration:        document.getElementById('p_duration').value,
+    };
+    try {
+      const res = await fetch('/proposals/new', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
+      const json = await res.json();
+      proposalId = json.id;
+      history.replaceState(null,'',`/proposals/${proposalId}`);
+    } catch(e) {
+      showToast('Failed to save proposal', 'error'); return;
+    }
+  }
 
   // Save current state
   const manualData = manualCentres.map(c => ({
@@ -629,16 +655,26 @@ function openImgEditor(centreId, centreName) {
   overlay.style.display = 'flex';
 }
 
+function _isManualId(id) { return typeof id === 'string'; }
+
 function closeImgEditor() {
   document.getElementById('imgEditorOverlay').style.display = 'none';
-  // Refresh the selected centre's images in the list
-  const c = selectedCentres.find(c => c.id === _editingCentreId);
-  if (c) {
-    fetch(`/centres/api/${_editingCentreId}`)
-      .then(r => r.json()).then(fresh => {
-        Object.assign(c, fresh);
-        renderSelectedList();
-      });
+  if (_isManualId(_editingCentreId)) {
+    // For manual entries, update the preview thumbnails from images_b64
+    const mc = manualCentres.find(m => m._tmpId === _editingCentreId);
+    if (mc) {
+      mc.images = (mc.images_b64 || []).map((b, i) => b);
+      renderSelectedList();
+    }
+  } else {
+    const c = selectedCentres.find(c => c.id === _editingCentreId);
+    if (c) {
+      fetch(`/centres/api/${_editingCentreId}`)
+        .then(r => r.json()).then(fresh => {
+          Object.assign(c, fresh);
+          renderSelectedList();
+        });
+    }
   }
   _editingCentreId = null;
 }
@@ -646,9 +682,33 @@ function closeImgEditor() {
 async function loadModalImages() {
   const grid = document.getElementById('modalImgGrid');
   grid.innerHTML = '<p style="color:#9ca3af;font-size:13px">Loading…</p>';
+  if (_isManualId(_editingCentreId)) {
+    const mc = manualCentres.find(m => m._tmpId === _editingCentreId);
+    const b64list = (mc && mc.images_b64) || [];
+    renderManualModalImages(b64list);
+    return;
+  }
   const res = await fetch(`/centres/api/${_editingCentreId}`);
   const c = await res.json();
   renderModalImages(c.images_meta || [], _editingCentreId);
+}
+
+function renderManualModalImages(b64list) {
+  const grid = document.getElementById('modalImgGrid');
+  if (!b64list.length) {
+    grid.innerHTML = '<p style="color:#9ca3af;font-size:13px">No images yet — add some above.</p>';
+    return;
+  }
+  grid.innerHTML = b64list.map((src, i) => `
+    <div class="img-thumb" data-img-id="${i}">
+      <img src="${src}" alt="" loading="lazy">
+      ${i === 0 ? '<div class="primary-badge">Primary</div>' : ''}
+      <div class="img-actions">
+        ${i !== 0 ? `<button onclick="manualSetPrimary(${i})" title="Set primary">★</button>` : ''}
+        <button onclick="manualDeleteImage(${i})" title="Delete">✕</button>
+      </div>
+    </div>
+  `).join('');
 }
 
 function renderModalImages(meta, cid) {
@@ -673,6 +733,21 @@ async function modalImportUrl() {
   const url = document.getElementById('modalUrlInput').value.trim();
   if (!url) { showToast('Paste a URL first', 'error'); return; }
   setModalStatus('Fetching…');
+  if (_isManualId(_editingCentreId)) {
+    // For manual entries, fetch via backend proxy and store as base64
+    const res = await fetch(`/api/fetch-image-b64`, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({url})
+    });
+    const data = await res.json();
+    if (data.b64) {
+      const mc = manualCentres.find(m => m._tmpId === _editingCentreId);
+      if (mc) { mc.images_b64 = mc.images_b64 || []; mc.images_b64.push(data.b64); }
+      document.getElementById('modalUrlInput').value = '';
+      renderManualModalImages((mc && mc.images_b64) || []);
+      setModalStatus('Image added!'); showToast('Image added');
+    } else { setModalStatus('Failed to fetch image'); showToast('Failed','error'); }
+    return;
+  }
   const res = await fetch(`/centres/${_editingCentreId}/import-url`, {
     method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({url})
   });
@@ -691,8 +766,28 @@ async function modalImportUrl() {
 async function modalUploadFiles(files) {
   if (!files.length) return;
   setModalStatus('Uploading…');
+  if (_isManualId(_editingCentreId)) {
+    // Convert files to base64 and store on the manual centre object
+    const mc = manualCentres.find(m => m._tmpId === _editingCentreId);
+    if (!mc) return;
+    mc.images_b64 = mc.images_b64 || [];
+    for (const f of files) {
+      const b64 = await new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.readAsDataURL(f);
+      });
+      mc.images_b64.push(b64);
+    }
+    renderManualModalImages(mc.images_b64);
+    setModalStatus('Uploaded!'); showToast('Uploaded');
+    return;
+  }
   const fd = new FormData();
-  files.forEach(f => fd.append('images', f));
+  for (const f of files) {
+    const compressed = await _compressImage(f);
+    fd.append('images', compressed, f.name.replace(/\.[^.]+$/, '') + '.jpg');
+  }
   const res = await fetch(`/centres/${_editingCentreId}/upload-image`, {method:'POST', body:fd});
   const data = await res.json();
   if (data.ok) { renderModalImages(data.images, _editingCentreId); setModalStatus('Uploaded!'); showToast('Uploaded'); }
@@ -708,6 +803,23 @@ async function modalDeleteImage(imgId) {
   const res = await fetch(`/centres/${_editingCentreId}/delete-image/${imgId}`, {method:'POST'});
   const data = await res.json();
   if (data.ok) { document.querySelector(`#modalImgGrid [data-img-id="${imgId}"]`)?.remove(); showToast('Deleted'); }
+}
+
+// Manual entry image helpers
+function manualSetPrimary(idx) {
+  const mc = manualCentres.find(m => m._tmpId === _editingCentreId);
+  if (!mc || !mc.images_b64) return;
+  const [item] = mc.images_b64.splice(idx, 1);
+  mc.images_b64.unshift(item);
+  renderManualModalImages(mc.images_b64);
+}
+
+function manualDeleteImage(idx) {
+  const mc = manualCentres.find(m => m._tmpId === _editingCentreId);
+  if (!mc || !mc.images_b64) return;
+  mc.images_b64.splice(idx, 1);
+  renderManualModalImages(mc.images_b64);
+  showToast('Deleted');
 }
 
 function setModalStatus(msg) { document.getElementById('modalStatus').textContent = msg; }
@@ -728,13 +840,59 @@ modalDrop.addEventListener('drop', e => {
 });
 document.getElementById('modalFileInput').addEventListener('change', e => modalUploadFiles(Array.from(e.target.files)));
 
+// Compress an image File/Blob to a JPEG Blob, max 1200px wide, quality 0.82
+async function _compressImage(file, maxW=1200, quality=0.82) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const scale = img.width > maxW ? maxW / img.width : 1;
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      c.toBlob(blob => resolve(blob || file), 'image/jpeg', quality);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
 // Paste inside modal
 document.getElementById('imgEditorOverlay').addEventListener('paste', async e => {
   if (!_editingCentreId) return;
   const imgItems = Array.from(e.clipboardData.items).filter(i => i.type.startsWith('image/'));
   if (imgItems.length) {
+    setModalStatus('Processing…');
+    const files = imgItems.map(i => i.getAsFile());
+
+    // Manual entries — stay client-side (base64), no server round-trip
+    if (_isManualId(_editingCentreId)) {
+      const mc = manualCentres.find(m => m._tmpId === _editingCentreId);
+      if (!mc) return;
+      mc.images_b64 = mc.images_b64 || [];
+      for (const f of files) {
+        const compressed = await _compressImage(f);
+        const b64 = await new Promise(res => {
+          const reader = new FileReader();
+          reader.onload = ev => res(ev.target.result);
+          reader.readAsDataURL(compressed);
+        });
+        mc.images_b64.push(b64);
+      }
+      renderManualModalImages(mc.images_b64);
+      setModalStatus('Pasted!');
+      return;
+    }
+
+    // DB centres — compress then upload
     const fd = new FormData();
-    imgItems.forEach(i => fd.append('images', i.getAsFile(), 'pasted.png'));
+    for (const f of files) {
+      const compressed = await _compressImage(f);
+      fd.append('images', compressed, 'pasted.jpg');
+    }
     const res = await fetch(`/centres/${_editingCentreId}/upload-image`, {method:'POST',body:fd});
     const data = await res.json();
     if (data.ok) { renderModalImages(data.images, _editingCentreId); setModalStatus('Pasted!'); }
@@ -759,7 +917,10 @@ document.getElementById('modalUrlInput').addEventListener('keydown', e => { if (
 let _editingCentreForDetails = null;
 
 function openEditModal(centreId) {
-  const c = selectedCentres.find(c => c.id === centreId);
+  // centreId is a number for DB centres, a '_tmpId' string for manual entries
+  const c = typeof centreId === 'string'
+    ? manualCentres.find(m => m._tmpId === centreId)
+    : selectedCentres.find(c => c.id === centreId);
   if (!c) return;
   _editingCentreForDetails = centreId;
   document.getElementById('editModalTitle').textContent = c.name;
@@ -791,17 +952,28 @@ async function saveEditModal() {
   const amenitiesRaw = document.getElementById('em_amenities').value;
   const amenitiesArr = amenitiesRaw.split(',').map(s => s.trim()).filter(Boolean);
   const data = {
-    name:         document.getElementById('em_name').value.trim(),
-    address:      document.getElementById('em_address').value.trim(),
-    about:        document.getElementById('em_about').value.trim(),
-    price_from:   document.getElementById('em_price_from').value || null,
-    price_unit:   document.getElementById('em_price_unit').value,
-    open_hours:   document.getElementById('em_open_hours').value.trim(),
-    brand:        document.getElementById('em_brand').value.trim(),
-    amenities:    JSON.stringify(amenitiesArr),
-    transport:    document.getElementById('em_transport').value.trim(),
+    name:          document.getElementById('em_name').value.trim(),
+    address:       document.getElementById('em_address').value.trim(),
+    about:         document.getElementById('em_about').value.trim(),
+    price_from:    document.getElementById('em_price_from').value || null,
+    price_unit:    document.getElementById('em_price_unit').value,
+    open_hours:    document.getElementById('em_open_hours').value.trim(),
+    brand:         document.getElementById('em_brand').value.trim(),
+    amenities:     JSON.stringify(amenitiesArr),
+    transport:     document.getElementById('em_transport').value.trim(),
     why_recommend: document.getElementById('em_why').value.trim(),
   };
+
+  // Manual entry — update in memory, no API call needed
+  if (typeof _editingCentreForDetails === 'string') {
+    const mc = manualCentres.find(m => m._tmpId === _editingCentreForDetails);
+    if (mc) Object.assign(mc, data, { amenities: amenitiesArr });
+    closeEditModal();
+    renderSelectedList();
+    showToast('Centre details saved!');
+    return;
+  }
+
   document.getElementById('editModalStatus').textContent = 'Saving…';
   const res = await fetch(`/centres/${_editingCentreForDetails}/update`, {
     method: 'POST',
@@ -810,7 +982,6 @@ async function saveEditModal() {
   });
   const json = await res.json();
   if (json.ok) {
-    // Update local centre object so proposal reflects edits without page reload
     const c = selectedCentres.find(c => c.id === _editingCentreForDetails);
     if (c) Object.assign(c, data, { amenities: amenitiesArr });
     closeEditModal();

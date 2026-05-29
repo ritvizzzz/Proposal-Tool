@@ -508,6 +508,27 @@ def serve_centre_image(cid, filename):
     img_dir = os.path.join(CENTRE_IMAGES, str(cid))
     return send_file(os.path.join(img_dir, filename))
 
+# ── Routes: Image proxy (for manual/non-DB centres) ─────────────────────────
+
+@app.route('/api/fetch-image-b64', methods=['POST'])
+def api_fetch_image_b64():
+    """Fetch an image from a URL and return it as a base64 data URI."""
+    data = request.json or {}
+    url = (data.get('url') or '').strip()
+    if not url or not url.startswith('http'):
+        return jsonify({'error': 'Invalid URL'}), 400
+    try:
+        import urllib.request, base64 as _b64
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            content_type = resp.headers.get('Content-Type', 'image/jpeg').split(';')[0].strip()
+            raw = resp.read()
+        b64 = f'data:{content_type};base64,{_b64.b64encode(raw).decode()}'
+        return jsonify({'b64': b64})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 # ── Routes: Map data API ─────────────────────────────────────────────────────
 
 @app.route('/api/map-data')
