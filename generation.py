@@ -1000,9 +1000,9 @@ def generate_proposal_map(centres, out_path):
         return 9  # zoom 9 comfortably shows all of Greater London
 
     # Render at 2x then scale down — gives crisp anti-aliased output.
-    # Map panel on the slide is ~6142000 x 6458000 EMU (ratio ≈ 0.95, nearly square).
+    # Map panel on the slide is nearly square (ratio ≈ 1.0).
     # Generate at matching ratio so cover-crop removes almost nothing.
-    IMG_W, IMG_H = 920, 970
+    IMG_W, IMG_H = 960, 960
     SCALE = 2
     RW, RH = IMG_W * SCALE, IMG_H * SCALE
     TILE = 512  # CartoDB @2x tiles are 512×512
@@ -1050,47 +1050,63 @@ def generate_proposal_map(centres, out_path):
     top   = int(px_cy - RH / 2)
     img   = canvas.crop((left, top, left + RW, top + RH))
 
-    # ── 5. Draw markers at 2x size ──────────────────────────────────────────
+    # ── 5. Draw markers — all pixel values at 2x (canvas is 2x, downscaled later) ──
     draw = _ID.Draw(img)
-    fs_label, fs_num = 22, 26
-    try:
-        font_label = _IF.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', fs_label)
-        font_num   = _IF.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', fs_num)
-    except Exception:
+    # Font sizes at 2x so they appear at correct size after downscale to IMG_W x IMG_H
+    fs_label, fs_num = 44, 52
+
+    def _load_font(size):
+        """Load a bold font at the given size, trying multiple paths."""
+        candidates = [
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',        # Debian/Ubuntu
+            '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf',
+            '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf', # Ubuntu
+            '/usr/share/fonts/liberation/LiberationSans-Bold.ttf',
+            '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
+            '/System/Library/Fonts/Helvetica.ttc',                          # macOS
+            '/Library/Fonts/Arial Bold.ttf',
+        ]
+        for path in candidates:
+            try:
+                return _IF.truetype(path, size)
+            except Exception:
+                pass
+        # Pillow 10.1+ supports size on load_default (uses a bundled TrueType font)
         try:
-            font_label = _IF.truetype('/System/Library/Fonts/Helvetica.ttc', fs_label)
-            font_num   = _IF.truetype('/System/Library/Fonts/Helvetica.ttc', fs_num)
+            return _IF.load_default(size=size)
         except Exception:
-            font_label = _IF.load_default()
-            font_num   = font_label
+            return _IF.load_default()
+
+    font_label = _load_font(fs_label)
+    font_num   = _load_font(fs_num)
 
     for i, p in enumerate(points, 1):
         px, py = _deg2tile(p['lat'], p['lng'], zoom)
         px = int((px - tx0) * TILE) - left
         py = int((py - ty0) * TILE) - top
 
-        # Drop-shadow
-        r = 28
-        draw.ellipse([px - r + 3, py - r + 3, px + r + 3, py + r + 3],
+        # Drop-shadow (2x offsets)
+        r = 56
+        draw.ellipse([px - r + 6, py - r + 6, px + r + 6, py + r + 6],
                      fill=(0, 0, 0, 60) if img.mode == 'RGBA' else '#cccccc')
-        # Blue circle
-        draw.ellipse([px - r, py - r, px + r, py + r], fill='#1E22AA', outline='white', width=3)
+        # Blue circle marker
+        draw.ellipse([px - r, py - r, px + r, py + r], fill='#1E22AA', outline='white', width=6)
         num_text = str(i)
         bb = draw.textbbox((0, 0), num_text, font=font_num)
         tw, th = bb[2] - bb[0], bb[3] - bb[1]
-        draw.text((px - tw // 2, py - th // 2 - 1), num_text, fill='white', font=font_num)
+        draw.text((px - tw // 2, py - th // 2 - 2), num_text, fill='white', font=font_num)
 
-        # Label pill
-        label = p['name'][:32]
+        # Label pill (2x padding, radius, outline)
+        label = p['name'][:28]
         lb = draw.textbbox((0, 0), label, font=font_label)
         lw, lh = lb[2] - lb[0], lb[3] - lb[1]
-        pad = 10
-        lx = px + r + 10
+        pad = 20
+        lx = px + r + 20
         ly = py - lh // 2 - pad
-        if lx + lw + pad * 2 > RW - 10:
-            lx = px - r - lw - pad * 2 - 10
+        if lx + lw + pad * 2 > RW - 20:
+            lx = px - r - lw - pad * 2 - 20
         draw.rounded_rectangle([lx, ly, lx + lw + pad * 2, ly + lh + pad * 2],
-                                radius=6, fill='white', outline='#d1d5db', width=2)
+                                radius=12, fill='white', outline='#d1d5db', width=4)
         draw.text((lx + pad, ly + pad), label, fill='#1E22AA', font=font_label)
 
     # ── 6. Scale down to final size (anti-aliased) ──────────────────────────
@@ -1255,26 +1271,28 @@ def _about_location_slide(proposal, all_centres, font, logo, map_img_path=None):
     loc = proposal.get('client_location') or 'London'
     sl = [R(0, 0, W, H, WHITE)]
 
-    # Split layout: left info panel, right = map (full height, no logo overlap)
+    # Split layout: left info panel, right = map
     left_w  = 5200000
-    map_x   = left_w + 80000        # tight gap between panel and map
-    map_w   = W - map_x             # map fills to right edge
+    map_x   = left_w + 80000
+    map_w   = W - map_x
     map_y   = 0
     map_h   = H
 
-    # Map panel (right side) — full height, no logo on top of it
+    # Map panel — full height right side
     _map_src = map_img_path if (map_img_path and os.path.isfile(map_img_path)) else (MAP_IMG if os.path.isfile(MAP_IMG) else None)
     sl.append(I(_map_src, map_x, map_y, map_w, map_h))
     sl.append(R(map_x, 0, 6000, H, BLUE))   # thin left border on map
 
     about_text, highlights, stations = _get_location_data(loc)
 
-    # Logo in TOP-RIGHT of left panel — sits on white, no map overlap
-    logo_composited = _logo_on(logo, '#FFFFFF')
-    sl.append(I(logo_composited, left_w - 1300000, 120000, 1100000, 412000))
+    # White rectangle over the top-right corner of the map — logo sits on this, no overlap
+    sl.append(R(W - 1700000, 0, 1700000, 660000, WHITE))
 
-    # Left: title (starts at y=180000, left side so it never reaches the logo)
-    sl.append(T(f'About {loc}', M, 180000, left_w - 1500000, 480000,
+    # Logo on top of the white strip
+    sl.append(I(_logo_on(logo, '#FFFFFF'), W - 1500000, 160000, 1100000, 412000))
+
+    # Left: title
+    sl.append(T(f'About {loc}', M, 200000, left_w - M, 480000,
                 22, BLUE, font=font, bold=True))
 
     sl.append(T(about_text, M, 730000, left_w - M, 900000,
@@ -1817,9 +1835,10 @@ def _bold_about_location_slide(proposal, all_centres, font, logo, map_img_path=N
                         left_w - M - 1100000, 250000, 9, '#BCCDE0', font=font))
             row_y += 270000
 
-    # Logo white version — in top-right of left panel, not over the map
+    # Logo — top-right corner, dark navy pill so it sits on map cleanly
     lw = get_logo_png(white=True)
-    sl.append(I(lw, left_w - 1300000, 100000, 1100000, 412000))
+    sl.append(R(W - 1610000, 80000, 1650000, 560000, NAVY))
+    sl.append(I(lw, W - 1550000, 130000, 1100000, 412000))
     return sl
 
 
