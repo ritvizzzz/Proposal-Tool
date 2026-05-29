@@ -1254,24 +1254,27 @@ def _get_location_data(loc_str):
 def _about_location_slide(proposal, all_centres, font, logo, map_img_path=None):
     loc = proposal.get('client_location') or 'London'
     sl = [R(0, 0, W, H, WHITE)]
-    # NOTE: _small_logo is added LAST so it renders above the map image
 
-    # Split layout: left info panel, right = map
+    # Split layout: left info panel, right = map (full height, no logo overlap)
     left_w  = 5200000
-    map_x   = left_w + 300000
-    map_w   = W - map_x - M
-    map_y   = 200000
-    map_h   = H - 400000
+    map_x   = left_w + 80000        # tight gap between panel and map
+    map_w   = W - map_x             # map fills to right edge
+    map_y   = 0
+    map_h   = H
 
-    # Map panel (right side) — drawn first so logo sits on top
+    # Map panel (right side) — full height, no logo on top of it
     _map_src = map_img_path if (map_img_path and os.path.isfile(map_img_path)) else (MAP_IMG if os.path.isfile(MAP_IMG) else None)
     sl.append(I(_map_src, map_x, map_y, map_w, map_h))
-    sl.append(R(map_x, map_y, map_w, 8000, BLUE))
+    sl.append(R(map_x, 0, 6000, H, BLUE))   # thin left border on map
 
     about_text, highlights, stations = _get_location_data(loc)
 
-    # Left: title
-    sl.append(T(f'About {loc}', M, 200000, left_w - M, 480000,
+    # Logo in TOP-RIGHT of left panel — sits on white, no map overlap
+    logo_composited = _logo_on(logo, '#FFFFFF')
+    sl.append(I(logo_composited, left_w - 1300000, 120000, 1100000, 412000))
+
+    # Left: title (starts at y=180000, left side so it never reaches the logo)
+    sl.append(T(f'About {loc}', M, 180000, left_w - 1500000, 480000,
                 22, BLUE, font=font, bold=True))
 
     sl.append(T(about_text, M, 730000, left_w - M, 900000,
@@ -1344,8 +1347,6 @@ def _about_location_slide(proposal, all_centres, font, logo, map_img_path=None):
                 row_y += 80000
             row_y += 275000
 
-    # Logo drawn last — transparent pill so it sits cleanly over map image
-    sl.extend(_small_logo_transparent(logo))
     return sl
 
 
@@ -1746,20 +1747,19 @@ def _bold_about_location_slide(proposal, all_centres, font, logo, map_img_path=N
 
     sl = [R(0, 0, W, H, NAVY)]
 
-    # Map on right half
-    map_x = W // 2 + 100000
-    map_w = W - map_x - 80000
-    map_y = 260000
-    map_h = H - 500000
+    left_w = W // 2 - 100000
+
+    # Map — full height right half, no logo on top of it
+    map_x = left_w + 60000
+    map_w = W - map_x
+    map_y = 0
+    map_h = H
     _map_src = map_img_path if (map_img_path and os.path.isfile(map_img_path)) else \
                (MAP_IMG if os.path.isfile(MAP_IMG) else None)
     sl.append(I(_map_src, map_x, map_y, map_w, map_h))
-    # AQUA top border on map
-    sl.append(R(map_x, map_y, map_w, 10000, AQUA))
+    sl.append(R(map_x, 0, 6000, H, AQUA))   # thin AQUA divider
 
-    left_w = W // 2 - 100000
-
-    # AQUA accent bar at top
+    # AQUA accent bar at top of left panel only
     sl.append(R(0, 0, left_w, 80000, AQUA))
 
     # Title
@@ -1817,9 +1817,9 @@ def _bold_about_location_slide(proposal, all_centres, font, logo, map_img_path=N
                         left_w - M - 1100000, 250000, 9, '#BCCDE0', font=font))
             row_y += 270000
 
-    # Logo white version
-    sl.append(I(_strip_white_bg(get_logo_png(white=True)),
-                W - 1500000, 160000, 1100000, 412000))
+    # Logo white version — in top-right of left panel, not over the map
+    lw = get_logo_png(white=True)
+    sl.append(I(lw, left_w - 1300000, 100000, 1100000, 412000))
     return sl
 
 
