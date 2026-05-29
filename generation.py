@@ -1053,7 +1053,7 @@ def generate_proposal_map(centres, out_path):
     # ── 5. Draw markers — all pixel values at 2x (canvas is 2x, downscaled later) ──
     draw = _ID.Draw(img)
     # Font sizes at 2x so they appear at correct size after downscale to IMG_W x IMG_H
-    fs_label, fs_num = 44, 52
+    fs_label, fs_num = 30, 40
 
     def _load_font(size):
         """Load a bold font at the given size, trying multiple paths."""
@@ -1097,7 +1097,7 @@ def generate_proposal_map(centres, out_path):
         draw.text((px - tw // 2, py - th // 2 - 2), num_text, fill='white', font=font_num)
 
         # Label pill (2x padding, radius, outline)
-        label = p['name'][:28]
+        label = p['name'][:22]
         lb = draw.textbbox((0, 0), label, font=font_label)
         lw, lh = lb[2] - lb[0], lb[3] - lb[1]
         pad = 20
@@ -1263,12 +1263,13 @@ def _get_location_data(loc_str):
             'Close to key London business districts',
             'Growing professional services and tech community',
         ],
-        ['Check local TfL maps for nearest stations'],
+        [],   # stations will be derived from actual centres
     )
 
 
 def _about_location_slide(proposal, all_centres, font, logo, map_img_path=None):
-    loc = proposal.get('client_location') or 'London'
+    loc_raw = proposal.get('client_location') or ''
+    loc = loc_raw if loc_raw and loc_raw.lower() not in ('none', '') else 'London'
     sl = [R(0, 0, W, H, WHITE)]
 
     # Split layout: left info panel, right = map
@@ -1285,11 +1286,17 @@ def _about_location_slide(proposal, all_centres, font, logo, map_img_path=None):
 
     about_text, highlights, stations = _get_location_data(loc)
 
-    # White rectangle over the top-right corner of the map — logo sits on this, no overlap
-    sl.append(R(W - 1700000, 0, 1700000, 660000, WHITE))
+    # If no stations found, derive them from the shortlisted centres' transport info
+    if not stations:
+        seen = set()
+        for c in all_centres:
+            sn = _extract_station_name(c.get('transport', '') or '')
+            if sn and sn not in seen:
+                stations.append(sn)
+                seen.add(sn)
 
-    # Logo on top of the white strip
-    sl.append(I(_logo_on(logo, '#FFFFFF'), W - 1500000, 160000, 1100000, 412000))
+    # Logo — transparent, placed directly on the map (CartoDB light map makes blue logo visible)
+    sl.append(I(logo, W - 1500000, 160000, 1100000, 412000))
 
     # Left: title
     sl.append(T(f'About {loc}', M, 200000, left_w - M, 480000,
@@ -1424,7 +1431,6 @@ def _make_feature_icon(idx, accent_hex):
 def _how_myhq_helps_slide(font, logo, accent_color=BLUE, icon_color=BLUE):
     """How myHQ helps – 3rd from last slide with icons and cropped workspace photo."""
     sl = [R(0, 0, W, H, WHITE)]
-    sl.append(_small_logo(logo))
 
     # Title area
     sl.append(T('How myHQ helps?', M, 280000, 5400000, 520000,
@@ -1479,6 +1485,9 @@ def _how_myhq_helps_slide(font, logo, accent_color=BLUE, icon_color=BLUE):
     photo_w = W - photo_x - 100000
     crop_photo = CROP_IMG if os.path.isfile(CROP_IMG) else None
     sl.append(I(crop_photo, photo_x, 0, photo_w, H))
+
+    # Logo appended last so it renders above the photo panel
+    sl.append(_small_logo(logo))
 
     return sl
 
