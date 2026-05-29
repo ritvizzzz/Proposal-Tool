@@ -130,6 +130,10 @@ STATION_LINE_MAP = {
     'tottenham court road':     'elizabeth',
     'tower hill':               'circle',
     'tower gateway':            'dlr',
+    # G
+    'great portland street':    'circle',
+    'gloucester road':          'circle',
+    'goodge street':            'northern',
     # V
     'vauxhall':                 'victoria',
     'victoria':                 'victoria',
@@ -143,19 +147,37 @@ STATION_LINE_MAP = {
 }
 
 
+def _strip_white_bg(img_path):
+    """Return a version of the PNG with white/near-white pixels made transparent (cached)."""
+    cache = img_path.replace('.png', '_nobg.png')
+    if os.path.exists(cache) and os.path.getsize(cache) > 200:
+        return cache
+    try:
+        from PIL import Image as _PI
+        img = _PI.open(img_path).convert('RGBA')
+        pixels = img.load()
+        w, h = img.size
+        for y in range(h):
+            for x in range(w):
+                r, g, b, a = pixels[x, y]
+                if r > 235 and g > 235 and b > 235:
+                    pixels[x, y] = (r, g, b, 0)
+        img.save(cache, 'PNG')
+        return cache
+    except Exception:
+        return img_path
+
+
 def station_badge_path(station_name):
-    """Return badge PNG for a station name, or None."""
+    """Return transparent badge PNG for a station name, or None."""
     s = station_name.lower().strip()
-    # Exact match
     key = STATION_LINE_MAP.get(s)
     if not key:
-        # Partial match (station name contained in map key)
         for k, v in STATION_LINE_MAP.items():
             if k in s or s in k:
                 key = v
                 break
     if not key:
-        # Fall back to line keyword matching (e.g. "Northern line" in name)
         for keyword, k in TUBE_LINE_KEYS.items():
             if keyword in s:
                 key = k
@@ -163,7 +185,7 @@ def station_badge_path(station_name):
     if key:
         p = os.path.join(TUBE_DIR, f'{key}.png')
         if os.path.isfile(p):
-            return p
+            return _strip_white_bg(p)
     return None
 
 
@@ -343,9 +365,10 @@ def amenity_pill_cmds(amenities_raw, x, y, max_w, font):
     cmds = []
     cols = 3
     col_w = max_w // cols
-    row_h = 290000
-    dot_size = 130000
-    dot_gap = 90000
+    row_h = 300000
+    dot_size = 110000
+    dot_gap  = 80000
+    text_h   = 220000   # approximate height for 8pt text
 
     for i, slug in enumerate(ams[:9]):
         slug = str(slug).lower().strip()
@@ -360,13 +383,15 @@ def amenity_pill_cmds(amenities_raw, x, y, max_w, font):
         ix = x + col * col_w
         iy = y + row * row_h
 
+        # Vertically center both dot and text within the row
+        dot_y  = iy + (row_h - dot_size) // 2
+        text_y = iy + (row_h - text_h)  // 2
+
         color = _AMENITY_COLORS[i % len(_AMENITY_COLORS)]
-        # Small filled square bullet
-        cmds.append(R(ix, iy + 50000, dot_size, dot_size, color))
-        # Label text beside it
+        cmds.append(R(ix, dot_y, dot_size, dot_size, color))
         cmds.append(T(label,
-                      ix + dot_size + dot_gap, iy,
-                      col_w - dot_size - dot_gap, 240000,
+                      ix + dot_size + dot_gap, text_y,
+                      col_w - dot_size - dot_gap - 40000, text_h,
                       8, DARK, font=font, wrap=False))
 
     return cmds
@@ -402,13 +427,19 @@ def extract_transport_parts(transport_str):
 
 
 def tube_badge_path(transport_str):
-    """Return the PNG path for the tube line badge best matching transport_str, or None."""
+    """Return transparent PNG path for the tube line badge matching transport_str, or None."""
     s = (transport_str or '').lower()
+    # First try station name lookup for better accuracy
+    station = _extract_station_name(transport_str)
+    if station:
+        result = station_badge_path(station)
+        if result:
+            return result
     for keyword, key in TUBE_LINE_KEYS.items():
         if keyword in s:
             p = os.path.join(TUBE_DIR, f'{key}.png')
             if os.path.isfile(p):
-                return p
+                return _strip_white_bg(p)
     return None
 
 
@@ -522,22 +553,13 @@ def _logo_on(logo_path, bg_hex):
 # ── Shared slide builders (used by both templates) ─────────────────────────────
 
 def _small_logo(logo_path, bg='#FFFFFF'):
-    """Top-right small logo — composited against bg so it renders cleanly."""
-    composited = _logo_on(logo_path, bg)
-    return I(composited, W - 1500000, 160000, 1100000, 412000)
+    """Top-right small logo — raw transparent PNG, no white composite box."""
+    return I(logo_path, W - 1500000, 160000, 1100000, 412000)
 
 
 def _small_logo_transparent(logo_path):
-    """Top-right small logo on a white pill — for use over dark/map backgrounds."""
-    # White rounded-rect background so logo is readable over map image
-    pad_x, pad_y = 80000, 60000
-    lw, lh = 900000, 300000
-    bx = W - lw - pad_x * 2 - M
-    by = 180000
-    return [
-        R(bx - pad_x, by - pad_y, lw + pad_x * 2, lh + pad_y * 2, '#FFFFFF'),
-        I(logo_path, bx, by, lw, lh),
-    ]
+    """Top-right logo over map/coloured background — raw transparent PNG."""
+    return [I(logo_path, W - 1500000, 160000, 1100000, 412000)]
 
 
 def _comparison_table_slide(all_centres, header_fill, header_text_color, font, logo):
@@ -564,18 +586,49 @@ def _comparison_table_slide(all_centres, header_fill, header_text_color, font, l
     photo_col_w = 900000 if row_h >= 600000 else 0
 
     # Column definitions: (label, fixed_width_or_None, field_fn)
-    def _centre_tube(c):
-        t, b, o = extract_transport_parts(c.get('transport', ''))
-        return t or o or '—'
+    def _centre_tube_text(c):
+        """Station name only — no badge image in comparison table."""
+        transport = c.get('transport', '') or ''
+        station = _extract_station_name(transport)
+        return station or '—'
+
+    def _centre_name(c):
+        name = c.get('name', '—')
+        brand = (c.get('brand') or '').strip()
+        # Prepend brand if it's not already in the name
+        if brand and brand.lower() not in name.lower():
+            return f'{brand} – {name}'
+        return name
+
+    def _centre_hours(c):
+        h = c.get('open_hours') or ''
+        if h and h.strip():
+            return h.strip()
+        return '9:00 AM – 6:00 PM'
+
+    def _centre_type(c):
+        t = c.get('space_type') or ''
+        if not t:
+            # Try to infer from pricing type for London map entries
+            try:
+                import json as _j
+                pricing = c.get('pricing') or []
+                if isinstance(pricing, str):
+                    pricing = _j.loads(pricing)
+                if pricing and isinstance(pricing, list):
+                    t = pricing[0].get('type', '') or ''
+            except Exception:
+                pass
+        return t.replace('_', ' ').title() if t else '—'
 
     fixed_cols = [
         ('#',           380000,  lambda i, c: str(i + 1)),
-        ('NAME',       1900000,  lambda i, c: c.get('name', '—')),
-        ('ADDRESS',    2200000,  lambda i, c: c.get('address', '—')),
-        ('PRICE/SEAT', 1300000,  lambda i, c: price_str(c)),
-        ('TUBE',       1500000,  lambda i, c: _centre_tube(c)),
-        ('HOURS',      1300000,  lambda i, c: c.get('open_hours', '9–6')),
-        ('TYPE',       1212000,  lambda i, c: (c.get('space_type') or '—').title()),
+        ('NAME',       2100000,  lambda i, c: _centre_name(c)),
+        ('ADDRESS',    2000000,  lambda i, c: c.get('address', '—')),
+        ('PRICE/SEAT', 1200000,  lambda i, c: price_str(c)),
+        ('TUBE',       1700000,  lambda i, c: _centre_tube_text(c)),
+        ('HOURS',      1300000,  lambda i, c: _centre_hours(c)),
+        ('TYPE',       1012000,  lambda i, c: _centre_type(c)),
     ]
     if photo_col_w:
         fixed_cols.append(('PHOTO', photo_col_w, None))
@@ -603,22 +656,9 @@ def _comparison_table_slide(all_centres, header_fill, header_text_color, font, l
                             cw - 40000, row_h - 40000))
             else:
                 val = val_fn(ri, centre)
-                # Tube column: try to show badge image
-                if label == 'TUBE':
-                    badge = tube_badge_path(centre.get('transport', ''))
-                    if badge:
-                        badge_h = min(260000, row_h - 80000)
-                        badge_w = int(badge_h * 3.33)  # 320:96 roundel aspect ratio
-                        sl.append(I(badge, cx + 35000, ry + (row_h - badge_h) // 2,
-                                    badge_w, badge_h))
-                    else:
-                        sl.append(T(val, cx + 35000, ry + 60000,
-                                    cw - 70000, row_h - 100000,
-                                    8, DARK, font=font, wrap=True))
-                else:
-                    sl.append(T(val, cx + 35000, ry + 60000,
-                                cw - 70000, row_h - 100000,
-                                8, DARK, font=font, wrap=True))
+                sl.append(T(val, cx + 35000, ry + 60000,
+                            cw - 70000, row_h - 100000,
+                            8, DARK, font=font, wrap=True))
             cx += cw
         sl.append(L(table_x, ry + row_h, table_x + table_w, ry + row_h,
                     color='#E5E7EB', width=1))
@@ -901,13 +941,26 @@ def generate_proposal_map(centres, out_path):
     # ── 1. Parse coordinates ────────────────────────────────────────────────
     points = []
     for c in centres:
-        coords = c.get('coordinates', '')
-        if coords and ';' in coords:
+        lat = lng = None
+        # Direct lat/lng fields (manual entries from London map)
+        if c.get('lat') and c.get('lng'):
             try:
-                lng, lat = coords.split(';')
-                points.append({'lat': float(lat), 'lng': float(lng), 'name': c.get('name', '')})
+                lat, lng = float(c['lat']), float(c['lng'])
             except Exception:
                 pass
+        # Fallback: 'coordinates' field in 'lng;lat' format (DB centres)
+        if lat is None:
+            coords = c.get('coordinates', '')
+            if coords and ';' in coords:
+                try:
+                    lng_s, lat_s = coords.split(';')
+                    lat, lng = float(lat_s), float(lng_s)
+                except Exception:
+                    pass
+        if lat is not None and lng is not None:
+            # Filter to Greater London bounds
+            if 51.2 <= lat <= 51.8 and -0.6 <= lng <= 0.4:
+                points.append({'lat': lat, 'lng': lng, 'name': c.get('name', '')})
     if not points:
         return None
 
@@ -918,18 +971,17 @@ def generate_proposal_map(centres, out_path):
         yt = (1 - math.log(math.tan(math.radians(lat)) + 1 / math.cos(math.radians(lat))) / math.pi) / 2 * n
         return xt, yt
 
-    def _pick_zoom(points, img_w, img_h, pad=60):
+    def _pick_zoom(points, img_w, img_h, pad=120):
         """Pick zoom so all points fit inside the image with padding."""
-        lats = [p['lat'] for p in points]
-        lngs = [p['lng'] for p in points]
-        for z in range(15, 9, -1):
+        for z in range(15, 10, -1):
             xs = [_deg2tile(p['lat'], p['lng'], z)[0] for p in points]
             ys = [_deg2tile(p['lat'], p['lng'], z)[1] for p in points]
-            span_x = (max(xs) - min(xs)) * 256
-            span_y = (max(ys) - min(ys)) * 256
+            # Use actual tile size (512px for @2x tiles) for correct span
+            span_x = (max(xs) - min(xs)) * TILE
+            span_y = (max(ys) - min(ys)) * TILE
             if span_x <= img_w - pad * 2 and span_y <= img_h - pad * 2:
                 return z
-        return 10
+        return 11
 
     # Render at 2x then scale down — gives crisp anti-aliased output
     IMG_W, IMG_H = 1200, 675
@@ -937,7 +989,7 @@ def generate_proposal_map(centres, out_path):
     RW, RH = IMG_W * SCALE, IMG_H * SCALE
     TILE = 512  # CartoDB @2x tiles are 512×512
 
-    zoom = _pick_zoom(points, IMG_W, IMG_H) if len(points) > 1 else 14
+    zoom = _pick_zoom(points, RW, RH) if len(points) > 1 else 14
 
     clat = sum(p['lat'] for p in points) / len(points)
     clng = sum(p['lng'] for p in points) / len(points)
