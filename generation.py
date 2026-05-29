@@ -530,10 +530,9 @@ def get_logo_png(white=False):
 # ── Logo compositing helper ─────────────────────────────────────────────────────
 
 def _logo_on(logo_path, bg_hex):
-    """Return path to logo composited onto a solid background colour (for transparent-safe rendering)."""
-    import hashlib
+    """Return path to logo composited onto a solid background colour (white-stripped first)."""
     key = bg_hex.lstrip('#').upper()
-    cache = os.path.join(BASE_DIR, 'uploads', f'.logo_cache_{key}.png')
+    cache = os.path.join(BASE_DIR, 'uploads', f'.logo_cache_{key}_v2.png')
     os.makedirs(os.path.dirname(cache), exist_ok=True)
     if os.path.exists(cache) and os.path.getsize(cache) > 500:
         return cache
@@ -542,6 +541,14 @@ def _logo_on(logo_path, bg_hex):
         h = bg_hex.lstrip('#')
         r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
         logo = _PI.open(logo_path).convert('RGBA')
+        # Strip white/near-white pixels that are "background" in the logo PNG
+        data = logo.load()
+        lw, lh = logo.size
+        for ly in range(lh):
+            for lx in range(lw):
+                lr, lg, lb, la = data[lx, ly]
+                if lr > 230 and lg > 230 and lb > 230:
+                    data[lx, ly] = (lr, lg, lb, 0)
         bg = _PI.new('RGB', logo.size, (r, g, b))
         bg.paste(logo, mask=logo.split()[3])
         bg.save(cache, 'PNG')
@@ -553,13 +560,13 @@ def _logo_on(logo_path, bg_hex):
 # ── Shared slide builders (used by both templates) ─────────────────────────────
 
 def _small_logo(logo_path, bg='#FFFFFF'):
-    """Top-right small logo — raw transparent PNG, no white composite box."""
-    return I(logo_path, W - 1500000, 160000, 1100000, 412000)
+    """Top-right small logo composited onto the slide background colour."""
+    return I(_logo_on(logo_path, bg), W - 1500000, 160000, 1100000, 412000)
 
 
 def _small_logo_transparent(logo_path):
-    """Top-right logo over map/coloured background — raw transparent PNG."""
-    return [I(logo_path, W - 1500000, 160000, 1100000, 412000)]
+    """Top-right logo over map/coloured background — white-stripped transparent PNG."""
+    return [I(_strip_white_bg(logo_path), W - 1500000, 160000, 1100000, 412000)]
 
 
 def _comparison_table_slide(all_centres, header_fill, header_text_color, font, logo):
@@ -626,7 +633,7 @@ def _comparison_table_slide(all_centres, header_fill, header_text_color, font, l
         ('NAME',       2100000,  lambda i, c: _centre_name(c)),
         ('ADDRESS',    2000000,  lambda i, c: c.get('address', '—')),
         ('PRICE/SEAT', 1200000,  lambda i, c: price_str(c)),
-        ('TUBE',       1700000,  lambda i, c: _centre_tube_text(c)),
+        ('NEAREST TUBE', 1700000, lambda i, c: _centre_tube_text(c)),
         ('HOURS',      1300000,  lambda i, c: _centre_hours(c)),
         ('TYPE',       1012000,  lambda i, c: _centre_type(c)),
     ]
@@ -748,9 +755,9 @@ def _client_requirements_slide(proposal, template, db_centres, manual_centres,
     # Contact
     sl.append(T('YOUR CONSULTANT', inner_x, card_y + 2380000, inner_w, 240000,
                 8, date_label_color, font=font, bold=True))
-    sl.append(T('workspace@myhq.in', inner_x, card_y + 2660000, inner_w, 280000,
+    sl.append(T('arjun.budhiraja@myhq.in', inner_x, card_y + 2660000, inner_w, 280000,
                 11, WHITE, font=font))
-    sl.append(T('+91 98765 43210', inner_x, card_y + 2980000, inner_w, 280000,
+    sl.append(T('+44 7863 754009', inner_x, card_y + 2980000, inner_w, 280000,
                 11, WHITE, font=font))
 
     # Decorative myHQ icon area
@@ -766,22 +773,28 @@ def _extract_station_name(transport_str):
     s = (transport_str or '').strip()
     if not s:
         return ''
-    # Try common patterns: "X mins walk from Y station", "nearest: Y", "Y (5 min)"
     import re
-    m = re.search(r'(?:from|to|nearest[:\s]+)\s*([A-Z][^,\n;(]{2,30}?)(?:\s*station|\s*tube|\s*underground|\s*\(|,|$)',
+
+    def _clean(name):
+        """Strip trailing '(Line name)' parentheticals and whitespace."""
+        return re.sub(r'\s*\([^)]*\)', '', name).strip()
+
+    # Pattern: "X mins walk from Y station", "nearest: Y", etc.
+    # Use \b so "to" inside "Victoria" is not matched as a keyword
+    m = re.search(r'\b(?:from|to|nearest[:\s]+)\s*([A-Z][^,\n;(]{2,30}?)(?:\s*station|\s*tube|\s*underground|\s*\(|,|$)',
                   s, re.IGNORECASE)
     if m:
-        return m.group(1).strip()
-    # Fallback: first proper-noun segment
+        return _clean(m.group(1))
+
+    # Fallback: first proper-noun segment, strip parentheticals
     parts = re.split(r'[,;:\n]', s)
     for p in parts:
         p = p.strip()
-        # Remove leading "Bus:", "Tube:" etc.
         p = re.sub(r'^(bus|tube|underground|overground|rail|dlr|metro)\s*:?\s*', '', p, flags=re.IGNORECASE)
-        p = p.strip()
+        p = _clean(p)
         if len(p) > 3:
             return p[:40]
-    return s[:40]
+    return _clean(s[:40])
 
 
 def _extract_walk_time(transport_str):
@@ -1581,163 +1594,289 @@ def build_india_slides(proposal, db_centres, manual_centres):
 # ── Bold/Creative (3rd) slide deck ─────────────────────────────────────────────
 
 def _bold_centre_slide(idx, centre, font, logo):
-    """Centre detail slide for the Bold template — banner photo + 2-column info + 2 bottom photos."""
-    sl = [R(0, 0, W, H, WHITE)]
+    """Centre detail slide — Trampery-style: dark navy left panel + full-height photo right."""
+    NAVY  = '#0B0E2B'
+    PANEL = '#111740'
+
+    sl = [R(0, 0, W, H, NAVY)]
 
     images = centre.get('images', [])
+    logo_w = get_logo_png(white=True)
 
-    # Full-width banner photo (top 38% of slide)
-    banner_h = int(H * 0.38)
-    banner_img = images[0] if images else None
-    sl.append(R(0, 0, W, banner_h, LGREY))  # placeholder
-    if banner_img:
-        sl.append(I(banner_img, 0, 0, W, banner_h))
+    # ── Right: full-height hero photo ────────────────────────────────────────
+    panel_w = int(W * 0.43)
+    photo_x = panel_w
+    photo_w = W - panel_w
+    hero = images[0] if images else None
+    sl.append(R(photo_x, 0, photo_w, H, '#1A1E40'))
+    if hero:
+        sl.append(I(hero, photo_x, 0, photo_w, H))
 
-    # AQUA accent bar at top of banner
-    sl.append(R(0, 0, W, 14000, AQUA))
+    # AQUA vertical divider
+    sl.append(R(panel_w - 24000, 0, 24000, H, AQUA))
 
-    # Number badge on top of banner photo
-    badge_r = 350000
-    sl.append(R(M, banner_h - badge_r - 30000, badge_r, badge_r, BLUE))
-    sl.append(T(f'{idx:02d}', M + 40000, banner_h - badge_r - 10000,
-                badge_r - 80000, badge_r - 60000, 18, WHITE, font=font, bold=True))
+    # Logo white version — top right of photo panel
+    sl.append(I(_strip_white_bg(logo_w) if os.path.isfile(logo_w) else logo_w,
+                W - 1500000, 160000, 1100000, 412000))
 
-    # Centre name over the gradient on the banner
-    sl.append(R(0, banner_h - 260000, W, 260000, '#00000060'))   # semi-transparent strip
-    sl.append(T(centre.get('name', 'Centre'),
-                M + badge_r + 80000, banner_h - 230000,
-                W - M - badge_r - 160000, 220000,
-                15, WHITE, font=font, bold=True))
+    # ── Secondary image strip at bottom of photo ─────────────────────────────
+    if len(images) > 1:
+        strip_h = int(H * 0.17)
+        strip_y = H - strip_h
+        n_thumbs = min(len(images) - 1, 3)
+        thumb_w  = (photo_w - (n_thumbs - 1) * 20000) // n_thumbs
+        for ti, img in enumerate(images[1:n_thumbs + 1]):
+            tx = photo_x + ti * (thumb_w + 20000)
+            sl.append(I(img, tx, strip_y, thumb_w, strip_h))
+        sl.append(R(photo_x, strip_y - 10000, photo_w, 10000, AQUA))
 
-    # Logo in top right
-    sl.extend(_small_logo_transparent(logo))
+    # ── Left dark panel ───────────────────────────────────────────────────────
+    # Large decorative index number (ghost, very dark)
+    sl.append(T(f'{idx:02d}', M, 80000, 800000, 750000, 68, '#1E2450', font=font, bold=True))
 
-    # ── Info band ─────────────────────────────────────────────────────────────
-    info_y = banner_h + 40000
-    col_w  = (W - 2 * M - 200000) // 3
-    col2_x = M + col_w + 100000
-    col3_x = col2_x + col_w + 100000
+    # Centre name
+    name = centre.get('name', 'Centre')
+    brand = (centre.get('brand') or '').strip()
+    display_name = f'{brand} – {name}' if brand and brand.lower() not in name.lower() else name
 
-    # Column 1: Address + Price + Transport
-    sl.append(T('ADDRESS', M, info_y, col_w, 180000, 7, DGREY, font=font, bold=True))
-    sl.append(T(centre.get('address', '—'), M, info_y + 190000, col_w, 280000, 8.5, DARK, font=font, wrap=True))
+    sl.append(T(display_name.upper(),
+                M, 870000, panel_w - M - 120000, 700000,
+                18, WHITE, font=font, bold=True, wrap=True))
 
-    price_y = info_y + 510000
-    sl.append(T('PRICE', M, price_y, col_w, 180000, 7, DGREY, font=font, bold=True))
-    sl.append(T(price_str(centre), M, price_y + 190000, col_w, 220000, 11, BLUE, font=font, bold=True))
+    # AQUA rule under name
+    sl.append(R(M, 1650000, 700000, 10000, AQUA))
 
-    transport_y = price_y + 480000
+    cy = 1720000
+    info_w = panel_w - M - 120000
+
+    # Address
+    sl.append(T('ADDRESS', M, cy, info_w, 170000, 7, '#6B80A0', font=font, bold=True))
+    cy += 180000
+    sl.append(T(centre.get('address', '—'), M, cy, info_w, 280000, 9, '#BCCDE0', font=font, wrap=True))
+    cy += 330000
+
+    # Price + Hours row
+    half = (info_w - 80000) // 2
+    sl.append(T('PRICE / SEAT', M, cy, half, 170000, 7, '#6B80A0', font=font, bold=True))
+    sl.append(T('OPEN HOURS', M + half + 80000, cy, half, 170000, 7, '#6B80A0', font=font, bold=True))
+    cy += 180000
+    sl.append(T(price_str(centre), M, cy, half, 260000, 13, AQUA, font=font, bold=True))
+    sl.append(T(centre.get('open_hours') or '9:00 AM – 6:00 PM',
+                M + half + 80000, cy, half, 260000, 9, WHITE, font=font))
+    cy += 320000
+
+    # Nearest tube
     transport_raw = centre.get('transport', '') or ''
     station_n = _extract_station_name(transport_raw)
-    walk_t = _extract_walk_time(transport_raw)
-    badge = tube_badge_path(transport_raw)
-    sl.append(T('NEAREST TUBE', M, transport_y, col_w, 180000, 7, DGREY, font=font, bold=True))
-    transport_y += 190000
+    walk_t    = _extract_walk_time(transport_raw)
+    badge     = tube_badge_path(transport_raw)
+
+    sl.append(T('NEAREST TUBE', M, cy, info_w, 170000, 7, '#6B80A0', font=font, bold=True))
+    cy += 180000
     if badge:
-        sl.append(I(badge, M, transport_y, 560000, 168000))
-        sl.append(T(station_n or '', M + 600000, transport_y, col_w - 600000, 180000, 8.5, DARK, font=font, bold=True))
+        sl.append(I(badge, M, cy, 580000, 174000))
+        sl.append(T(station_n or '', M + 620000, cy, info_w - 620000, 180000, 9, WHITE, font=font, bold=True))
         if walk_t:
-            sl.append(T(walk_t, M + 600000, transport_y + 175000, col_w - 600000, 160000, 7.5, GREY, font=font))
+            sl.append(T(walk_t, M + 620000, cy + 185000, info_w - 620000, 160000, 7.5, '#6B80A0', font=font))
+        cy += 360000
     elif station_n:
-        sl.append(R(M, transport_y + 40000, 10000, 110000, BLUE))
-        sl.append(T(station_n, M + 60000, transport_y, col_w - 60000, 190000, 8.5, DARK, font=font, bold=True))
+        sl.append(R(M, cy + 40000, 12000, 130000, AQUA))
+        sl.append(T(station_n, M + 60000, cy, info_w - 60000, 190000, 9, WHITE, font=font, bold=True))
         if walk_t:
-            sl.append(T(walk_t, M + 60000, transport_y + 185000, col_w - 60000, 160000, 7.5, GREY, font=font))
+            sl.append(T(walk_t, M + 60000, cy + 190000, info_w - 60000, 160000, 7.5, '#6B80A0', font=font))
+        cy += 360000
 
-    # Column 2: About + Why Recommend
-    sl.append(T('ABOUT', col2_x, info_y, col_w, 180000, 7, DGREY, font=font, bold=True))
-    about = (centre.get('about') or '').strip() or 'A premium flexible workspace in a prime London location.'
-    sl.append(T(about, col2_x, info_y + 190000, col_w, 580000, 8.5, DARK, font=font, wrap=True))
+    cy += 30000
+    sl.append(R(M, cy, 600000, 6000, '#2A3A5A'))
+    cy += 50000
 
-    why_y = info_y + 820000
-    sl.append(T('WHY WE RECOMMEND', col2_x, why_y, col_w, 180000, 7, BLUE, font=font, bold=True))
-    why = (centre.get('why_recommend') or centre.get('about') or 'Ideal for growing teams seeking a premium, connected workspace.')
-    sl.append(T(why, col2_x, why_y + 190000, col_w, 500000, 8.5, DARK, font=font, wrap=True))
+    # Amenities — 2-column on dark background
+    sl.append(T('AMENITIES', M, cy, info_w, 170000, 7, '#6B80A0', font=font, bold=True))
+    cy += 185000
 
-    # Column 3: Amenities
-    sl.append(T('AMENITIES', col3_x, info_y, col_w, 180000, 7, DGREY, font=font, bold=True))
-    amen_cmds = amenity_pill_cmds(centre.get('amenities', '[]'), col3_x, info_y + 190000, col_w, font)
-    sl.extend(amen_cmds)
+    try:
+        ams_raw = centre.get('amenities', '[]')
+        ams = json.loads(ams_raw) if isinstance(ams_raw, str) else (ams_raw or [])
+    except Exception:
+        ams = []
 
-    # ── Two bottom photos ──────────────────────────────────────────────────────
-    photo_zone_y = H - 1100000
-    photo_zone_h = 1000000
-    GAP = 120000
-    phw = (W - 2 * M - GAP) // 2
+    cols   = 2
+    col_w2 = info_w // cols
+    row_h2 = 270000
+    dot_sz = 90000
+    dot_gp = 65000
+    txt_h2 = 190000
 
-    ph1 = images[1] if len(images) > 1 else None
-    ph2 = images[2] if len(images) > 2 else None
+    for ai, slug in enumerate(ams[:8]):
+        arow = ai // cols
+        if cy + arow * row_h2 + row_h2 > H - 80000:
+            break
+        slug = str(slug).lower().strip()
+        label = AMENITY_LABELS.get(slug, slug.replace('_', ' ').replace('-', ' ').title())
+        if len(label) > 20:
+            label = label[:19] + '…'
+        acol = ai % cols
+        ax   = M + acol * col_w2
+        ay   = cy + arow * row_h2
+        dot_y = ay + (row_h2 - dot_sz) // 2
+        txt_y = ay + (row_h2 - txt_h2) // 2
+        color = _AMENITY_COLORS[ai % len(_AMENITY_COLORS)]
+        sl.append(R(ax, dot_y, dot_sz, dot_sz, color))
+        sl.append(T(label, ax + dot_sz + dot_gp, txt_y,
+                    col_w2 - dot_sz - dot_gp - 40000, txt_h2,
+                    7.5, '#BCCDE0', font=font, wrap=False))
 
-    sl.append(R(M, photo_zone_y, phw, photo_zone_h, LGREY))
-    if ph1:
-        sl.append(I(ph1, M, photo_zone_y, phw, photo_zone_h))
-
-    sl.append(R(M + phw + GAP, photo_zone_y, phw, photo_zone_h, LGREY))
-    if ph2:
-        sl.append(I(ph2, M + phw + GAP, photo_zone_y, phw, photo_zone_h))
-
-    # MINT accent strip between info and photos
-    sl.append(R(0, photo_zone_y - 16000, W, 16000, MINT))
+    # AQUA bottom accent bar
+    sl.append(R(0, H - 55000, panel_w, 55000, AQUA))
 
     return sl
 
 
+def _bold_about_location_slide(proposal, all_centres, font, logo, map_img_path=None):
+    """About Location slide — Trampery-style dark navy + AQUA accents."""
+    NAVY = '#0B0E2B'
+    loc  = proposal.get('client_location') or 'London'
+    about_text, highlights, stations = _get_location_data(loc)
+
+    sl = [R(0, 0, W, H, NAVY)]
+
+    # Map on right half
+    map_x = W // 2 + 100000
+    map_w = W - map_x - 80000
+    map_y = 260000
+    map_h = H - 500000
+    _map_src = map_img_path if (map_img_path and os.path.isfile(map_img_path)) else \
+               (MAP_IMG if os.path.isfile(MAP_IMG) else None)
+    sl.append(I(_map_src, map_x, map_y, map_w, map_h))
+    # AQUA top border on map
+    sl.append(R(map_x, map_y, map_w, 10000, AQUA))
+
+    left_w = W // 2 - 100000
+
+    # AQUA accent bar at top
+    sl.append(R(0, 0, left_w, 80000, AQUA))
+
+    # Title
+    sl.append(T(f'About {loc}'.upper(), M, 160000, left_w - M, 420000,
+                22, WHITE, font=font, bold=True))
+
+    sl.append(T(about_text, M, 680000, left_w - M, 800000,
+                9, '#BCCDE0', font=font, wrap=True))
+
+    sl.append(T('KEY HIGHLIGHTS', M, 1580000, left_w - M, 220000,
+                7.5, AQUA, font=font, bold=True))
+    sl.append(R(M, 1820000, 700000, 8000, AQUA))
+
+    for hi, hl in enumerate(highlights[:4]):
+        sl.append(R(M, 1910000 + hi * 290000 + 90000, 10000, 110000, AQUA))
+        sl.append(T(hl, M + 80000, 1910000 + hi * 290000,
+                    left_w - M - 80000, 260000, 9, '#BCCDE0', font=font))
+
+    sl.append(T('POPULAR STATIONS', M, 3110000, left_w - M, 220000,
+                7.5, AQUA, font=font, bold=True))
+    sl.append(R(M, 3340000, 700000, 8000, AQUA))
+
+    import re as _re
+    station_y = 3410000
+    row_gap   = 290000
+    for si, stn in enumerate(stations[:5]):
+        sy = station_y + si * row_gap
+        walk_m = _re.search(r'\((\d+\s*min[^)]*)\)', stn)
+        walk_label = walk_m.group(1) if walk_m else ''
+        stn_clean  = _re.sub(r'\s*\([^)]*\)', '', stn).strip()
+        badge_path = station_badge_path(stn_clean)
+        if badge_path:
+            sl.append(I(badge_path, M, sy, 580000, 174000))
+            sl.append(T(stn_clean, M + 620000, sy - 8000,
+                        left_w - M - 620000, 190000, 9, WHITE, font=font, bold=True))
+            if walk_label:
+                sl.append(T(walk_label, M + 620000, sy + 165000,
+                            left_w - M - 620000, 150000, 7.5, '#6B80A0', font=font))
+        else:
+            sl.append(R(M, sy + 55000, 12000, 120000, AQUA))
+            sl.append(T(stn_clean, M + 80000, sy - 8000,
+                        left_w - M - 80000, 190000, 9, WHITE, font=font, bold=True))
+
+    # Shortlisted spaces
+    list_y = station_y + len(stations[:5]) * row_gap + 150000
+    if list_y < H - 1000000:
+        sl.append(T('SHORTLISTED SPACES', M, list_y, left_w - M, 220000,
+                    7.5, AQUA, font=font, bold=True))
+        row_y = list_y + 260000
+        for ni, c in enumerate(all_centres):
+            if row_y > H - 320000:
+                break
+            name = c.get('name', '—')
+            sl.append(T(f'{ni + 1}.  {name}', M + 80000, row_y,
+                        left_w - M - 1100000, 250000, 9, '#BCCDE0', font=font))
+            row_y += 270000
+
+    # Logo white version
+    sl.append(I(_strip_white_bg(get_logo_png(white=True)),
+                W - 1500000, 160000, 1100000, 412000))
+    return sl
+
+
 def build_bold_slides(proposal, db_centres, manual_centres):
-    """3rd creative template — bold typography, banner photos, AQUA/MINT palette."""
+    """3rd creative template — Trampery-inspired: dark navy panels, full-bleed photos, AQUA accents."""
     F       = 'Mont'
     logo    = get_logo_png()
     logo_w  = get_logo_png(white=True)
     all_centres = db_centres + manual_centres
     slides  = []
+    NAVY    = '#0B0E2B'
 
     # ── Cover slide ─────────────────────────────────────────────────────────────
     sl = []
-    # Full-bleed photo right panel
     cover_photo = COVER_IMG if os.path.isfile(COVER_IMG) else None
-    sl.append(I(cover_photo, 4800000, 0, W - 4800000, H))
-    # Dark BLUE left panel
-    sl.append(R(0, 0, 4800000, H, BLUE))
-    # AQUA diagonal accent (tall thin rect rotated 15° — approximate with a parallelogram strip)
-    sl.append(R(4600000, 0, 300000, H, AQUA))   # accent bar between panels
-    # myHQ logo on blue panel
-    sl.append(I(_logo_on(logo_w, BLUE), M, 280000, 1600000, 599000))
-    # Title
+    # Full-bleed cover photo right side
+    sl.append(R(0, 0, W, H, NAVY))
+    sl.append(I(cover_photo, int(W * 0.44), 0, int(W * 0.56), H))
+    # Dark panel left
+    sl.append(R(0, 0, int(W * 0.46), H, NAVY))
+    # AQUA vertical divider
+    sl.append(R(int(W * 0.44) - 24000, 0, 24000, H, AQUA))
+    # AQUA top stripe full width
+    sl.append(R(0, 0, W, 75000, AQUA))
+    # White logo top-left
+    sl.append(I(_logo_on(logo_w, NAVY), M, 260000, 1600000, 599000))
+    # Huge title
     client = proposal.get('client_company') or proposal.get('client_name') or 'Your Company'
-    sl.append(T('Workspace\nProposal',
-                M, 1800000, 4400000, 2000000,
-                42, WHITE, font=F, bold=True))
-    sl.append(T(f'Prepared for {client}',
-                M, 3850000, 4400000, 440000,
-                12, AQUA, font=F, bold=True))
-    sl.append(T('Flexible workspaces · Transparent pricing · No brokerage',
-                M, 4400000, 4400000, 400000,
-                9, '#AABBDD', font=F))
-    # MINT bottom accent stripe
-    sl.append(R(0, H - 80000, 4800000, 80000, MINT))
+    sl.append(T('WORKSPACE\nPROPOSAL',
+                M, 1600000, int(W * 0.44) - M - 100000, 2400000,
+                50, WHITE, font=F, bold=True))
+    sl.append(T(f'PREPARED FOR  {client.upper()}',
+                M, 4200000, int(W * 0.44) - M - 100000, 500000,
+                10, AQUA, font=F, bold=True))
+    sl.append(T('Flexible workspaces  ·  Zero brokerage  ·  Expert guidance',
+                M, 4790000, int(W * 0.44) - M - 100000, 380000,
+                8.5, '#4A5A7A', font=F))
+    # AQUA bottom accent bar
+    sl.append(R(0, H - 60000, int(W * 0.46), 60000, AQUA))
     slides.append(sl)
 
-    # ── Comparison table (BLUSH header) ─────────────────────────────────────────
+    # ── Comparison table (BLUE header) ──────────────────────────────────────────
     slides.append(
         _comparison_table_slide(all_centres,
-                                header_fill=BLUSH,
-                                header_text_color=DARK,
+                                header_fill=BLUE,
+                                header_text_color=WHITE,
                                 font=F, logo=logo))
 
-    # ── Client requirements ──────────────────────────────────────────────────────
+    # ── Client requirements (AQUA labels) ───────────────────────────────────────
     slides.append(
         _client_requirements_slide(
             proposal, 'london', db_centres, manual_centres,
             font=F, logo=logo,
-            label_fill=MINT,
+            label_fill=AQUA,
             label_text=DARK,
-            date_label_color=AQUA))
+            date_label_color=MINT))
 
     # ── About location ───────────────────────────────────────────────────────────
     _map_tmp = os.path.join(BASE_DIR, 'uploads', 'proposals', f'map_bold_{id(proposal)}.png')
     _map_path = generate_proposal_map(all_centres, _map_tmp) or MAP_IMG
-    slides.append(_about_location_slide(proposal, all_centres, F, logo, map_img_path=_map_path))
+    slides.append(_bold_about_location_slide(proposal, all_centres, F, logo, map_img_path=_map_path))
 
-    # ── Centre slides (bold layout) ──────────────────────────────────────────────
+    # ── Centre slides (dark panel layout) ───────────────────────────────────────
     for idx, centre in enumerate(all_centres, 1):
         slides.append(_bold_centre_slide(idx, centre, F, logo))
 
