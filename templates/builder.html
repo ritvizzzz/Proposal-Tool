@@ -488,7 +488,7 @@ function addManualCentre() {
   if (!name) { showToast('Centre name is required', 'error'); return; }
   const centre = {
     _manual: true,
-    _tempId: ++manualTempId,
+    _tmpId: 'manual_' + (++manualTempId),
     name,
     address:   document.getElementById('m_address').value,
     price_str: document.getElementById('m_price').value,
@@ -860,13 +860,13 @@ async function _compressImage(file, maxW=1200, quality=0.82) {
   });
 }
 
-// Paste inside modal
-document.getElementById('imgEditorOverlay').addEventListener('paste', async e => {
-  if (!_editingCentreId) return;
+// Paste anywhere on the page while image modal is open
+document.addEventListener('paste', async e => {
+  if (!_editingCentreId) return;  // modal not open
   const imgItems = Array.from(e.clipboardData.items).filter(i => i.type.startsWith('image/'));
   if (imgItems.length) {
     setModalStatus('Processing…');
-    const files = imgItems.map(i => i.getAsFile());
+    const files = imgItems.map(i => i.getAsFile()).filter(Boolean);
 
     // Manual entries — stay client-side (base64), no server round-trip
     if (_isManualId(_editingCentreId)) {
