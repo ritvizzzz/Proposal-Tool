@@ -875,14 +875,15 @@ def _centre_slide(idx, centre, template, font, logo):
     cy += 200000
 
     if badge:
-        sl.append(I(badge, lcol_x, cy, 700000, 230000))
+        badge_h = 210000   # 700000 / 3.33 = matches 320×96 badge ratio exactly
+        sl.append(I(badge, lcol_x, cy, 700000, badge_h))
         txt_x = lcol_x + 760000
         txt_w = lcol_w - 760000
         if station_name:
             sl.append(T(station_name, txt_x, cy, txt_w, 200000, 9, DARK, font=font, bold=True))
         if walk_time:
             sl.append(T(walk_time, txt_x, cy + 190000, txt_w, 180000, 8, GREY, font=font))
-        cy += 320000
+        cy += 300000
     elif tube or station_name or other:
         display = station_name or tube or other
         sl.append(R(lcol_x, cy + 70000, 8000, 140000, BLUE))
@@ -971,6 +972,9 @@ def generate_proposal_map(centres, out_path):
                 except Exception:
                     pass
         if lat is not None and lng is not None:
+            # Try swapping if the values look backwards (lat should be ~51, lng ~-0.x)
+            if not (51.0 <= lat <= 52.0) and (51.0 <= lng <= 52.0):
+                lat, lng = lng, lat
             # Filter to Greater London bounds
             if 51.2 <= lat <= 51.8 and -0.6 <= lng <= 0.4:
                 points.append({'lat': lat, 'lng': lng, 'name': c.get('name', '')})
@@ -984,20 +988,21 @@ def generate_proposal_map(centres, out_path):
         yt = (1 - math.log(math.tan(math.radians(lat)) + 1 / math.cos(math.radians(lat))) / math.pi) / 2 * n
         return xt, yt
 
-    def _pick_zoom(points, img_w, img_h, pad=120):
-        """Pick zoom so all points fit inside the image with padding."""
-        for z in range(15, 10, -1):
+    def _pick_zoom(points, img_w, img_h, pad=100):
+        """Pick highest zoom where all points fit inside the image with padding."""
+        for z in range(15, 8, -1):  # try down to z=9 (covers all of London)
             xs = [_deg2tile(p['lat'], p['lng'], z)[0] for p in points]
             ys = [_deg2tile(p['lat'], p['lng'], z)[1] for p in points]
-            # Use actual tile size (512px for @2x tiles) for correct span
             span_x = (max(xs) - min(xs)) * TILE
             span_y = (max(ys) - min(ys)) * TILE
             if span_x <= img_w - pad * 2 and span_y <= img_h - pad * 2:
                 return z
-        return 11
+        return 9  # zoom 9 comfortably shows all of Greater London
 
-    # Render at 2x then scale down — gives crisp anti-aliased output
-    IMG_W, IMG_H = 1200, 675
+    # Render at 2x then scale down — gives crisp anti-aliased output.
+    # Map panel on the slide is ~6142000 x 6458000 EMU (ratio ≈ 0.95, nearly square).
+    # Generate at matching ratio so cover-crop removes almost nothing.
+    IMG_W, IMG_H = 920, 970
     SCALE = 2
     RW, RH = IMG_W * SCALE, IMG_H * SCALE
     TILE = 512  # CartoDB @2x tiles are 512×512
@@ -1008,8 +1013,8 @@ def generate_proposal_map(centres, out_path):
     clng = sum(p['lng'] for p in points) / len(points)
     cx, cy = _deg2tile(clat, clng, zoom)
 
-    tiles_x = math.ceil(RW / TILE) + 2
-    tiles_y = math.ceil(RH / TILE) + 2
+    tiles_x = math.ceil(RW / TILE) + 4   # extra buffer so edge points aren't cut
+    tiles_y = math.ceil(RH / TILE) + 4
     tx0 = int(cx) - tiles_x // 2
     ty0 = int(cy) - tiles_y // 2
 
@@ -1329,7 +1334,7 @@ def _about_location_slide(proposal, all_centres, font, logo, map_img_path=None):
                         left_w - M - 1100000, 250000, 9, DARK, font=font))
             badge = tube_badge_path(transport_raw)
             if badge:
-                sl.append(I(badge, left_w - 1000000, row_y - 10000, 700000, 200000))
+                sl.append(I(badge, left_w - 1000000, row_y - 10000, 700000, 210000))
             elif station_n:
                 sl.append(T(station_n, left_w - 1100000, row_y,
                             1050000, 250000, 7.5, GREY, font=font))
@@ -1615,9 +1620,8 @@ def _bold_centre_slide(idx, centre, font, logo):
     # AQUA vertical divider
     sl.append(R(panel_w - 24000, 0, 24000, H, AQUA))
 
-    # Logo white version — top right of photo panel
-    sl.append(I(_strip_white_bg(logo_w) if os.path.isfile(logo_w) else logo_w,
-                W - 1500000, 160000, 1100000, 412000))
+    # White logo — use directly (transparent bg, white pixels) over dark panel
+    sl.append(I(logo_w, W - 1500000, 160000, 1100000, 412000))
 
     # ── Secondary image strip at bottom of photo ─────────────────────────────
     if len(images) > 1:
@@ -1674,10 +1678,12 @@ def _bold_centre_slide(idx, centre, font, logo):
     sl.append(T('NEAREST TUBE', M, cy, info_w, 170000, 7, '#6B80A0', font=font, bold=True))
     cy += 180000
     if badge:
+        # Pale navy pill behind the badge so it sits cleanly on the dark panel
+        sl.append(R(M - 30000, cy - 20000, 640000, 214000, '#1C2448'))
         sl.append(I(badge, M, cy, 580000, 174000))
-        sl.append(T(station_n or '', M + 620000, cy, info_w - 620000, 180000, 9, WHITE, font=font, bold=True))
+        sl.append(T(station_n or '', M + 640000, cy, info_w - 640000, 180000, 9, WHITE, font=font, bold=True))
         if walk_t:
-            sl.append(T(walk_t, M + 620000, cy + 185000, info_w - 620000, 160000, 7.5, '#6B80A0', font=font))
+            sl.append(T(walk_t, M + 640000, cy + 185000, info_w - 640000, 160000, 7.5, '#6B80A0', font=font))
         cy += 360000
     elif station_n:
         sl.append(R(M, cy + 40000, 12000, 130000, AQUA))
@@ -1839,7 +1845,7 @@ def build_bold_slides(proposal, db_centres, manual_centres):
     # AQUA top stripe full width
     sl.append(R(0, 0, W, 75000, AQUA))
     # White logo top-left
-    sl.append(I(_logo_on(logo_w, NAVY), M, 260000, 1600000, 599000))
+    sl.append(I(logo_w, M, 260000, 1600000, 599000))
     # Huge title
     client = proposal.get('client_company') or proposal.get('client_name') or 'Your Company'
     sl.append(T('WORKSPACE\nPROPOSAL',
@@ -2155,26 +2161,57 @@ def render_pdf(slides, out_path):
                         from PIL import Image as _PILImg
                         import io as _io
                         _raw = _PILImg.open(str(path))
-                        # Convert palette/RGBA modes safely to RGB
+
+                        # Detect meaningful transparency (logos, badges, stripped PNGs)
+                        has_alpha = False
+                        if _raw.mode in ('RGBA', 'LA', 'P'):
+                            _test = _raw.convert('RGBA')
+                            alpha = _test.split()[3]
+                            has_alpha = min(alpha.getdata()) < 200
+
+                        if has_alpha:
+                            # Preserve transparency — draw as PNG with mask='auto'
+                            _rgba = _raw.convert('RGBA')
+                            iw, ih = _rgba.size
+                            target_ratio = sw / sh if sh > 0 else 1.0
+                            src_ratio    = iw / ih if ih > 0 else 1.0
+                            # Only cover-crop if ratio mismatch > 5% to avoid cutting badges
+                            if src_ratio > target_ratio * 1.05:
+                                new_w = int(ih * target_ratio)
+                                x0    = (iw - new_w) // 2
+                                _rgba = _rgba.crop((x0, 0, x0 + new_w, ih))
+                            elif src_ratio < target_ratio * 0.95:
+                                new_h = int(iw / target_ratio)
+                                y0    = (ih - new_h) // 2
+                                _rgba = _rgba.crop((0, y0, iw, y0 + new_h))
+                            buf = _io.BytesIO()
+                            _rgba.save(buf, 'PNG')
+                            buf.seek(0)
+                            ir = ImageReader(buf)
+                            c.drawImage(ir, sx, pdf_y, sw, sh,
+                                        preserveAspectRatio=False, mask='auto')
+                            continue
+
+                        # Opaque image — composite any RGBA onto white, save as JPEG
                         if _raw.mode in ('P', 'RGBA', 'LA'):
                             _raw = _raw.convert('RGBA')
-                            bg = _PILImg.new('RGB', _raw.size, (255, 255, 255))
+                            bg   = _PILImg.new('RGB', _raw.size, (255, 255, 255))
                             bg.paste(_raw, mask=_raw.split()[3])
-                            _im = bg
+                            _im  = bg
                         else:
                             _im = _raw.convert('RGB')
                         iw, ih = _im.size
-                        # Cover-crop: trim to exact target aspect ratio (center)
+                        # Cover-crop to target aspect ratio
                         target_ratio = sw / sh if sh > 0 else 1.0
                         src_ratio    = iw / ih if ih > 0 else 1.0
                         if src_ratio > target_ratio:
                             new_w = int(ih * target_ratio)
-                            x0 = (iw - new_w) // 2
-                            _im = _im.crop((x0, 0, x0 + new_w, ih))
+                            x0    = (iw - new_w) // 2
+                            _im   = _im.crop((x0, 0, x0 + new_w, ih))
                         elif src_ratio < target_ratio:
                             new_h = int(iw / target_ratio)
-                            y0 = (ih - new_h) // 2
-                            _im = _im.crop((0, y0, iw, y0 + new_h))
+                            y0    = (ih - new_h) // 2
+                            _im   = _im.crop((0, y0, iw, y0 + new_h))
                         buf = _io.BytesIO()
                         _im.save(buf, 'JPEG', quality=90)
                         buf.seek(0)
