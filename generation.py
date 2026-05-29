@@ -214,7 +214,7 @@ def R(x, y, w, h, fill):
 
 
 def T(text, x, y, w, h, size, color,
-      font='Calibri', bold=False, italic=False, align='L', wrap=True):
+      font='Mont', bold=False, italic=False, align='L', wrap=True):
     return {
         'cmd':    'text',
         'text':   str(text or ''),
@@ -525,6 +525,19 @@ def _small_logo(logo_path, bg='#FFFFFF'):
     """Top-right small logo — composited against bg so it renders cleanly."""
     composited = _logo_on(logo_path, bg)
     return I(composited, W - 1500000, 160000, 1100000, 412000)
+
+
+def _small_logo_transparent(logo_path):
+    """Top-right small logo on a white pill — for use over dark/map backgrounds."""
+    # White rounded-rect background so logo is readable over map image
+    pad_x, pad_y = 80000, 60000
+    lw, lh = 900000, 300000
+    bx = W - lw - pad_x * 2 - M
+    by = 180000
+    return [
+        R(bx - pad_x, by - pad_y, lw + pad_x * 2, lh + pad_y * 2, '#FFFFFF'),
+        I(logo_path, bx, by, lw, lh),
+    ]
 
 
 def _comparison_table_slide(all_centres, header_fill, header_text_color, font, logo):
@@ -918,86 +931,101 @@ def generate_proposal_map(centres, out_path):
                 return z
         return 10
 
+    # Render at 2x then scale down — gives crisp anti-aliased output
     IMG_W, IMG_H = 1200, 675
+    SCALE = 2
+    RW, RH = IMG_W * SCALE, IMG_H * SCALE
+    TILE = 512  # CartoDB @2x tiles are 512×512
+
     zoom = _pick_zoom(points, IMG_W, IMG_H) if len(points) > 1 else 14
 
-    # Centre of all points
     clat = sum(p['lat'] for p in points) / len(points)
     clng = sum(p['lng'] for p in points) / len(points)
     cx, cy = _deg2tile(clat, clng, zoom)
 
-    # Tile range needed
-    tiles_x = math.ceil(IMG_W / 256) + 2
-    tiles_y = math.ceil(IMG_H / 256) + 2
+    tiles_x = math.ceil(RW / TILE) + 2
+    tiles_y = math.ceil(RH / TILE) + 2
     tx0 = int(cx) - tiles_x // 2
     ty0 = int(cy) - tiles_y // 2
 
-    # ── 3. Fetch & stitch tiles ─────────────────────────────────────────────
-    canvas_w = (tiles_x + 1) * 256
-    canvas_h = (tiles_y + 1) * 256
-    canvas = _PI.new('RGB', (canvas_w, canvas_h), (242, 243, 244))
-
+    # ── 3. Fetch & stitch CartoDB Voyager @2x tiles ─────────────────────────
+    import ssl as _ssl
+    _ctx = _ssl._create_unverified_context()
+    canvas = _PI.new('RGB', ((tiles_x + 1) * TILE, (tiles_y + 1) * TILE), (242, 243, 244))
     headers = {'User-Agent': 'myHQ-proposal-tool/1.0'}
     n_tiles = 2 ** zoom
+    subdomain = ['a', 'b', 'c', 'd']
     for dx in range(tiles_x + 1):
         for dy in range(tiles_y + 1):
             tx = (tx0 + dx) % n_tiles
             ty = (ty0 + dy) % n_tiles
             if ty < 0 or ty >= n_tiles:
                 continue
-            url = f'https://a.tile.openstreetmap.org/{zoom}/{tx}/{ty}.png'
+            s = subdomain[(tx + ty) % 4]
+            url = f'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{zoom}/{tx}/{ty}@2x.png'
             try:
                 req = urllib.request.Request(url, headers=headers)
-                with urllib.request.urlopen(req, timeout=8) as r:
+                with urllib.request.urlopen(req, timeout=8, context=_ctx) as r:
                     tile = _PI.open(_io.BytesIO(r.read())).convert('RGB')
-                canvas.paste(tile, (dx * 256, dy * 256))
+                    if tile.size != (TILE, TILE):
+                        tile = tile.resize((TILE, TILE), _PI.LANCZOS)
+                canvas.paste(tile, (dx * TILE, dy * TILE))
             except Exception:
                 pass
 
-    # ── 4. Crop to final size centred on the points ─────────────────────────
-    # Pixel position of centre point on canvas
-    px_cx = (cx - tx0) * 256
-    px_cy = (cy - ty0) * 256
-    left  = int(px_cx - IMG_W / 2)
-    top   = int(px_cy - IMG_H / 2)
-    img   = canvas.crop((left, top, left + IMG_W, top + IMG_H))
+    # ── 4. Crop to render size centred on points ────────────────────────────
+    px_cx = (cx - tx0) * TILE
+    px_cy = (cy - ty0) * TILE
+    left  = int(px_cx - RW / 2)
+    top   = int(px_cy - RH / 2)
+    img   = canvas.crop((left, top, left + RW, top + RH))
 
-    # ── 5. Draw numbered markers + labels ───────────────────────────────────
+    # ── 5. Draw markers at 2x size ──────────────────────────────────────────
     draw = _ID.Draw(img)
+    fs_label, fs_num = 22, 26
     try:
-        font_label = _IF.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 11)
-        font_num   = _IF.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 13)
+        font_label = _IF.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', fs_label)
+        font_num   = _IF.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', fs_num)
     except Exception:
-        font_label = _IF.load_default()
-        font_num   = font_label
+        try:
+            font_label = _IF.truetype('/System/Library/Fonts/Helvetica.ttc', fs_label)
+            font_num   = _IF.truetype('/System/Library/Fonts/Helvetica.ttc', fs_num)
+        except Exception:
+            font_label = _IF.load_default()
+            font_num   = font_label
 
     for i, p in enumerate(points, 1):
-        # Convert lat/lng → pixel on final image
         px, py = _deg2tile(p['lat'], p['lng'], zoom)
-        px = int((px - tx0) * 256) - left
-        py = int((py - ty0) * 256) - top
+        px = int((px - tx0) * TILE) - left
+        py = int((py - ty0) * TILE) - top
 
-        # Blue circle marker
-        r = 14
-        draw.ellipse([px - r, py - r, px + r, py + r], fill='#1E22AA', outline='white', width=2)
+        # Drop-shadow
+        r = 28
+        draw.ellipse([px - r + 3, py - r + 3, px + r + 3, py + r + 3],
+                     fill=(0, 0, 0, 60) if img.mode == 'RGBA' else '#cccccc')
+        # Blue circle
+        draw.ellipse([px - r, py - r, px + r, py + r], fill='#1E22AA', outline='white', width=3)
         num_text = str(i)
         bb = draw.textbbox((0, 0), num_text, font=font_num)
         tw, th = bb[2] - bb[0], bb[3] - bb[1]
         draw.text((px - tw // 2, py - th // 2 - 1), num_text, fill='white', font=font_num)
 
-        # White label pill to the right
-        label = p['name'][:28]
+        # Label pill
+        label = p['name'][:32]
         lb = draw.textbbox((0, 0), label, font=font_label)
         lw, lh = lb[2] - lb[0], lb[3] - lb[1]
-        pad = 5
-        lx, ly = px + r + 6, py - lh // 2 - pad
-        # Keep label inside image
-        if lx + lw + pad * 2 > IMG_W: lx = px - r - lw - pad * 2 - 6
+        pad = 10
+        lx = px + r + 10
+        ly = py - lh // 2 - pad
+        if lx + lw + pad * 2 > RW - 10:
+            lx = px - r - lw - pad * 2 - 10
         draw.rounded_rectangle([lx, ly, lx + lw + pad * 2, ly + lh + pad * 2],
-                                radius=4, fill='white', outline='#d1d5db', width=1)
-        draw.text((lx + pad, ly + pad), label, fill='#1a1a2e', font=font_label)
+                                radius=6, fill='white', outline='#d1d5db', width=2)
+        draw.text((lx + pad, ly + pad), label, fill='#1E22AA', font=font_label)
 
-    img.save(out_path, 'PNG')
+    # ── 6. Scale down to final size (anti-aliased) ──────────────────────────
+    img = img.resize((IMG_W, IMG_H), _PI.LANCZOS)
+    img.save(out_path, 'PNG', optimize=True)
     return out_path
 
 
@@ -1192,19 +1220,31 @@ def _about_location_slide(proposal, all_centres, font, logo, map_img_path=None):
 
     station_x = M
     station_y = 3400000
-    row_gap = 260000
+    row_gap = 290000
     for si, stn in enumerate(stations[:5]):
         sy = station_y + si * row_gap
-        badge_path = station_badge_path(stn)
+        # stations list entries: plain name string OR "Name (walk time)"
+        import re as _re
+        walk_m = _re.search(r'\((\d+\s*min[^)]*)\)', stn)
+        walk_label = walk_m.group(1) if walk_m else ''
+        stn_clean = _re.sub(r'\s*\([^)]*\)', '', stn).strip()
+        badge_path = station_badge_path(stn_clean)
         if badge_path:
-            bw, bh = 580000, 174000   # 320:96 = 3.33:1 ratio
+            bw, bh = 580000, 174000
             sl.append(I(badge_path, station_x, sy, bw, bh))
-            sl.append(T(stn, station_x + bw + 60000, sy + 20000,
-                        left_w - M - bw - 60000, 200000, 9, DARK, font=font))
+            name_x = station_x + bw + 60000
+            sl.append(T(stn_clean, name_x, sy - 10000,
+                        left_w - M - bw - 60000, 190000, 9, DARK, font=font, bold=True))
+            if walk_label:
+                sl.append(T(walk_label, name_x, sy + 170000,
+                            left_w - M - bw - 60000, 150000, 7.5, GREY, font=font))
         else:
             sl.append(R(station_x, sy + 55000, 12000, 120000, BLUE))
-            sl.append(T(stn, station_x + 80000, sy,
-                        left_w - M - 80000, 220000, 9, DARK, font=font))
+            sl.append(T(stn_clean, station_x + 80000, sy - 10000,
+                        left_w - M - 80000, 190000, 9, DARK, font=font, bold=True))
+            if walk_label:
+                sl.append(T(walk_label, station_x + 80000, sy + 170000,
+                            left_w - M - 80000, 150000, 7.5, GREY, font=font))
 
     # Shortlisted spaces
     list_y = station_y + len(stations[:5]) * row_gap + 150000
@@ -1216,16 +1256,26 @@ def _about_location_slide(proposal, all_centres, font, logo, map_img_path=None):
             if row_y > H - 350000:
                 break
             name = c.get('name', '—')
+            transport_raw = c.get('transport', '') or ''
+            walk_t = _extract_walk_time(transport_raw)
+            station_n = _extract_station_name(transport_raw)
             sl.append(T(f'{ni + 1}.  {name}',
                         M + 80000, row_y,
-                        left_w - M - 1000000, 250000, 9, DARK, font=font))
-            badge = tube_badge_path(c.get('transport', ''))
+                        left_w - M - 1100000, 250000, 9, DARK, font=font))
+            badge = tube_badge_path(transport_raw)
             if badge:
-                sl.append(I(badge, left_w - 900000, row_y - 10000, 700000, 200000))
+                sl.append(I(badge, left_w - 1000000, row_y - 10000, 700000, 200000))
+            elif station_n:
+                sl.append(T(station_n, left_w - 1100000, row_y,
+                            1050000, 250000, 7.5, GREY, font=font))
+            if walk_t:
+                sl.append(T(walk_t, M + 80000, row_y + 190000,
+                            left_w - M - 1100000, 160000, 7, GREY, font=font))
+                row_y += 80000
             row_y += 275000
 
-    # Logo drawn last — renders on top of the map image
-    sl.append(_small_logo(logo))
+    # Logo drawn last — transparent pill so it sits cleanly over map image
+    sl.extend(_small_logo_transparent(logo))
     return sl
 
 
@@ -1347,7 +1397,7 @@ def _how_myhq_helps_slide(font, logo, accent_color=BLUE, icon_color=BLUE):
 # ── London slide deck ───────────────────────────────────────────────────────────
 
 def build_london_slides(proposal, db_centres, manual_centres):
-    F       = 'Calibri'
+    F       = 'Mont'
     logo    = get_logo_png()
     logo_w  = get_logo_png(white=True)
     all_centres = db_centres + manual_centres
@@ -1416,7 +1466,7 @@ def build_london_slides(proposal, db_centres, manual_centres):
 # ── India slide deck ────────────────────────────────────────────────────────────
 
 def build_india_slides(proposal, db_centres, manual_centres):
-    F       = 'Calibri'
+    F       = 'Mont'
     logo    = get_logo_png()
     logo_w  = get_logo_png(white=True)
     all_centres = db_centres + manual_centres
@@ -1474,6 +1524,227 @@ def build_india_slides(proposal, db_centres, manual_centres):
     slides.append(_testimonials_slide(F, logo, bg_color=WHITE, heading_color=DARK))
 
     return slides
+
+
+# ── Bold/Creative (3rd) slide deck ─────────────────────────────────────────────
+
+def _bold_centre_slide(idx, centre, font, logo):
+    """Centre detail slide for the Bold template — banner photo + 2-column info + 2 bottom photos."""
+    sl = [R(0, 0, W, H, WHITE)]
+
+    images = centre.get('images', [])
+
+    # Full-width banner photo (top 38% of slide)
+    banner_h = int(H * 0.38)
+    banner_img = images[0] if images else None
+    sl.append(R(0, 0, W, banner_h, LGREY))  # placeholder
+    if banner_img:
+        sl.append(I(banner_img, 0, 0, W, banner_h))
+
+    # AQUA accent bar at top of banner
+    sl.append(R(0, 0, W, 14000, AQUA))
+
+    # Number badge on top of banner photo
+    badge_r = 350000
+    sl.append(R(M, banner_h - badge_r - 30000, badge_r, badge_r, BLUE))
+    sl.append(T(f'{idx:02d}', M + 40000, banner_h - badge_r - 10000,
+                badge_r - 80000, badge_r - 60000, 18, WHITE, font=font, bold=True))
+
+    # Centre name over the gradient on the banner
+    sl.append(R(0, banner_h - 260000, W, 260000, '#00000060'))   # semi-transparent strip
+    sl.append(T(centre.get('name', 'Centre'),
+                M + badge_r + 80000, banner_h - 230000,
+                W - M - badge_r - 160000, 220000,
+                15, WHITE, font=font, bold=True))
+
+    # Logo in top right
+    sl.extend(_small_logo_transparent(logo))
+
+    # ── Info band ─────────────────────────────────────────────────────────────
+    info_y = banner_h + 40000
+    col_w  = (W - 2 * M - 200000) // 3
+    col2_x = M + col_w + 100000
+    col3_x = col2_x + col_w + 100000
+
+    # Column 1: Address + Price + Transport
+    sl.append(T('ADDRESS', M, info_y, col_w, 180000, 7, DGREY, font=font, bold=True))
+    sl.append(T(centre.get('address', '—'), M, info_y + 190000, col_w, 280000, 8.5, DARK, font=font, wrap=True))
+
+    price_y = info_y + 510000
+    sl.append(T('PRICE', M, price_y, col_w, 180000, 7, DGREY, font=font, bold=True))
+    sl.append(T(price_str(centre), M, price_y + 190000, col_w, 220000, 11, BLUE, font=font, bold=True))
+
+    transport_y = price_y + 480000
+    transport_raw = centre.get('transport', '') or ''
+    station_n = _extract_station_name(transport_raw)
+    walk_t = _extract_walk_time(transport_raw)
+    badge = tube_badge_path(transport_raw)
+    sl.append(T('NEAREST TUBE', M, transport_y, col_w, 180000, 7, DGREY, font=font, bold=True))
+    transport_y += 190000
+    if badge:
+        sl.append(I(badge, M, transport_y, 560000, 168000))
+        sl.append(T(station_n or '', M + 600000, transport_y, col_w - 600000, 180000, 8.5, DARK, font=font, bold=True))
+        if walk_t:
+            sl.append(T(walk_t, M + 600000, transport_y + 175000, col_w - 600000, 160000, 7.5, GREY, font=font))
+    elif station_n:
+        sl.append(R(M, transport_y + 40000, 10000, 110000, BLUE))
+        sl.append(T(station_n, M + 60000, transport_y, col_w - 60000, 190000, 8.5, DARK, font=font, bold=True))
+        if walk_t:
+            sl.append(T(walk_t, M + 60000, transport_y + 185000, col_w - 60000, 160000, 7.5, GREY, font=font))
+
+    # Column 2: About + Why Recommend
+    sl.append(T('ABOUT', col2_x, info_y, col_w, 180000, 7, DGREY, font=font, bold=True))
+    about = (centre.get('about') or '').strip() or 'A premium flexible workspace in a prime London location.'
+    sl.append(T(about, col2_x, info_y + 190000, col_w, 580000, 8.5, DARK, font=font, wrap=True))
+
+    why_y = info_y + 820000
+    sl.append(T('WHY WE RECOMMEND', col2_x, why_y, col_w, 180000, 7, BLUE, font=font, bold=True))
+    why = (centre.get('why_recommend') or centre.get('about') or 'Ideal for growing teams seeking a premium, connected workspace.')
+    sl.append(T(why, col2_x, why_y + 190000, col_w, 500000, 8.5, DARK, font=font, wrap=True))
+
+    # Column 3: Amenities
+    sl.append(T('AMENITIES', col3_x, info_y, col_w, 180000, 7, DGREY, font=font, bold=True))
+    amen_cmds = amenity_pill_cmds(centre.get('amenities', '[]'), col3_x, info_y + 190000, col_w, font)
+    sl.extend(amen_cmds)
+
+    # ── Two bottom photos ──────────────────────────────────────────────────────
+    photo_zone_y = H - 1100000
+    photo_zone_h = 1000000
+    GAP = 120000
+    phw = (W - 2 * M - GAP) // 2
+
+    ph1 = images[1] if len(images) > 1 else None
+    ph2 = images[2] if len(images) > 2 else None
+
+    sl.append(R(M, photo_zone_y, phw, photo_zone_h, LGREY))
+    if ph1:
+        sl.append(I(ph1, M, photo_zone_y, phw, photo_zone_h))
+
+    sl.append(R(M + phw + GAP, photo_zone_y, phw, photo_zone_h, LGREY))
+    if ph2:
+        sl.append(I(ph2, M + phw + GAP, photo_zone_y, phw, photo_zone_h))
+
+    # MINT accent strip between info and photos
+    sl.append(R(0, photo_zone_y - 16000, W, 16000, MINT))
+
+    return sl
+
+
+def build_bold_slides(proposal, db_centres, manual_centres):
+    """3rd creative template — bold typography, banner photos, AQUA/MINT palette."""
+    F       = 'Mont'
+    logo    = get_logo_png()
+    logo_w  = get_logo_png(white=True)
+    all_centres = db_centres + manual_centres
+    slides  = []
+
+    # ── Cover slide ─────────────────────────────────────────────────────────────
+    sl = []
+    # Full-bleed photo right panel
+    cover_photo = COVER_IMG if os.path.isfile(COVER_IMG) else None
+    sl.append(I(cover_photo, 4800000, 0, W - 4800000, H))
+    # Dark BLUE left panel
+    sl.append(R(0, 0, 4800000, H, BLUE))
+    # AQUA diagonal accent (tall thin rect rotated 15° — approximate with a parallelogram strip)
+    sl.append(R(4600000, 0, 300000, H, AQUA))   # accent bar between panels
+    # myHQ logo on blue panel
+    sl.append(I(_logo_on(logo_w, BLUE), M, 280000, 1600000, 599000))
+    # Title
+    client = proposal.get('client_company') or proposal.get('client_name') or 'Your Company'
+    sl.append(T('Workspace\nProposal',
+                M, 1800000, 4400000, 2000000,
+                42, WHITE, font=F, bold=True))
+    sl.append(T(f'Prepared for {client}',
+                M, 3850000, 4400000, 440000,
+                12, AQUA, font=F, bold=True))
+    sl.append(T('Flexible workspaces · Transparent pricing · No brokerage',
+                M, 4400000, 4400000, 400000,
+                9, '#AABBDD', font=F))
+    # MINT bottom accent stripe
+    sl.append(R(0, H - 80000, 4800000, 80000, MINT))
+    slides.append(sl)
+
+    # ── Comparison table (BLUSH header) ─────────────────────────────────────────
+    slides.append(
+        _comparison_table_slide(all_centres,
+                                header_fill=BLUSH,
+                                header_text_color=DARK,
+                                font=F, logo=logo))
+
+    # ── Client requirements ──────────────────────────────────────────────────────
+    slides.append(
+        _client_requirements_slide(
+            proposal, 'london', db_centres, manual_centres,
+            font=F, logo=logo,
+            label_fill=MINT,
+            label_text=DARK,
+            date_label_color=AQUA))
+
+    # ── About location ───────────────────────────────────────────────────────────
+    _map_tmp = os.path.join(BASE_DIR, 'uploads', 'proposals', f'map_bold_{id(proposal)}.png')
+    _map_path = generate_proposal_map(all_centres, _map_tmp) or MAP_IMG
+    slides.append(_about_location_slide(proposal, all_centres, F, logo, map_img_path=_map_path))
+
+    # ── Centre slides (bold layout) ──────────────────────────────────────────────
+    for idx, centre in enumerate(all_centres, 1):
+        slides.append(_bold_centre_slide(idx, centre, F, logo))
+
+    # ── How myHQ helps ───────────────────────────────────────────────────────────
+    slides.append(_how_myhq_helps_slide(F, logo, accent_color=AQUA, icon_color=BLUE))
+
+    # ── Existing clients ─────────────────────────────────────────────────────────
+    slides.append(_existing_clients_slide(F, logo))
+
+    # ── Testimonials ─────────────────────────────────────────────────────────────
+    slides.append(_testimonials_slide(F, logo, bg_color=WHITE, heading_color=DARK))
+
+    return slides
+
+
+# ── Template auto-detection ─────────────────────────────────────────────────────
+
+def detect_template_features(pptx_path):
+    """Analyse a PPTX template and return a dict describing its features."""
+    try:
+        from pptx import Presentation
+        from pptx.enum.shapes import PP_PLACEHOLDER
+        prs = Presentation(pptx_path)
+        slides_info = []
+        for sli, slide in enumerate(prs.slides):
+            img_placeholders = 0
+            text_placeholders = 0
+            has_title = False
+            for shape in slide.shapes:
+                if shape.shape_type == 13:  # MSO_SHAPE_TYPE.PICTURE
+                    img_placeholders += 1
+                elif hasattr(shape, 'placeholder_format') and shape.placeholder_format:
+                    ph_type = shape.placeholder_format.type
+                    if ph_type in (PP_PLACEHOLDER.TITLE, PP_PLACEHOLDER.CENTER_TITLE):
+                        has_title = True
+                    elif ph_type == PP_PLACEHOLDER.PICTURE:
+                        img_placeholders += 1
+                    else:
+                        text_placeholders += 1
+                elif hasattr(shape, 'text') and shape.text.strip():
+                    text_placeholders += 1
+            slides_info.append({
+                'slide': sli + 1,
+                'images': img_placeholders,
+                'texts': text_placeholders,
+                'has_title': has_title,
+            })
+        # Heuristic: the slide with the most image placeholders is the centre slide
+        max_imgs = max((s['images'] for s in slides_info), default=0)
+        # Slides with max images are likely centre slides
+        centre_slides = [s for s in slides_info if s['images'] == max_imgs and max_imgs > 0]
+        images_per_centre = max_imgs if centre_slides else 4
+        return {
+            'images_per_centre': images_per_centre,
+            'total_slides': len(prs.slides),
+            'slides_detail': slides_info,
+        }
+    except Exception as e:
+        return {'images_per_centre': 4, 'total_slides': 0, 'error': str(e)}
 
 
 # ── PPTX renderer ──────────────────────────────────────────────────────────────
@@ -1534,7 +1805,7 @@ def render_pptx(slides, out_path):
                     p.alignment = align
                     run = p.add_run()
                     run.text = line
-                    run.font.name    = cmd.get('font', 'Calibri')
+                    run.font.name    = cmd.get('font', 'Mont')
                     run.font.size    = Pt(cmd['size'])
                     run.font.color.rgb = _rgb(cmd['color'])
                     run.font.bold    = cmd.get('bold', False)

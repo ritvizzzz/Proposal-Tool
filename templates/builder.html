@@ -31,11 +31,15 @@
         <div class="toggle-group" id="templateToggle">
           <button class="toggle-btn active" data-val="london" onclick="setTemplate('london')">
             London
-            <span class="toggle-hint">Plus Jakarta Sans · Blush/Mint/Aqua palette</span>
+            <span class="toggle-hint">Mont font · Blush/Mint/Aqua palette</span>
           </button>
           <button class="toggle-btn" data-val="india" onclick="setTemplate('india')">
             India
             <span class="toggle-hint">Mont font · Blue backgrounds</span>
+          </button>
+          <button class="toggle-btn" data-val="bold" onclick="setTemplate('bold')">
+            Bold
+            <span class="toggle-hint">Creative · Banner photos · Aqua/Mint palette</span>
           </button>
         </div>
       </div>
@@ -295,8 +299,10 @@ let manualCentres = [];      // array of manual centre objects
 })();
 let manualImages = {};  // key: temp id → array of base64 strings
 
-// Preselected IDs from map (passed as query param ?map_names=...)
+// Preselected IDs from map (passed as query param — DB-matched centres)
 const PRESELECTED_IDS = {{ preselected_ids | tojson }};
+// Workspaces from London map that are NOT in DB — passed as manual entries
+const MAP_WORKSPACES = {{ map_workspaces | tojson }};
 // Unified init: load full centre objects (for existing proposals or map preselections)
 (async function initCentres() {
   // When editing an existing proposal, selected_centres stores raw IDs — load full objects
@@ -312,7 +318,7 @@ const PRESELECTED_IDS = {{ preselected_ids | tojson }};
     }
     renderSelectedList();
   }
-  // Load centres preselected from London map (?map_names=...)
+  // Load DB-matched centres preselected from London map
   if (PRESELECTED_IDS && PRESELECTED_IDS.length) {
     for (const id of PRESELECTED_IDS) {
       if (selectedCentres.find(c => c.id === id)) continue;
@@ -322,6 +328,18 @@ const PRESELECTED_IDS = {{ preselected_ids | tojson }};
         if (centre && centre.id) { _centreCache[centre.id] = centre; selectedCentres.push(centre); }
       } catch(e) {}
     }
+    renderSelectedList();
+  }
+  // Add non-DB workspaces from London map as manual entries
+  if (MAP_WORKSPACES && MAP_WORKSPACES.length) {
+    for (const ws of MAP_WORKSPACES) {
+      const tmpId = 'map_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+      const mc = Object.assign({ _tmpId: tmpId, images: [], images_meta: [] }, ws);
+      manualCentres.push(mc);
+    }
+  }
+  // Auto-advance to step 2 if any centres were pre-populated
+  if ((PRESELECTED_IDS && PRESELECTED_IDS.length) || (MAP_WORKSPACES && MAP_WORKSPACES.length)) {
     renderSelectedList();
     goStep(2);
   }
@@ -537,7 +555,7 @@ function renderSummary() {
   const all = [...selectedCentres.map(c=>c.name), ...manualCentres.map(c=>c.name)];
   el.innerHTML = `
     <div class="summary-grid">
-      <div><label>Template</label><strong>${selectedTemplate === 'london' ? 'London' : 'India'}</strong></div>
+      <div><label>Template</label><strong>${selectedTemplate === 'india' ? 'India' : selectedTemplate === 'bold' ? 'Bold Creative' : 'London'}</strong></div>
       <div><label>Client</label><strong>${document.getElementById('p_company').value || document.getElementById('p_client_name').value || '—'}</strong></div>
       <div><label>Centres</label><strong>${all.length} selected</strong></div>
     </div>

@@ -570,21 +570,49 @@ def proposal_new():
                  data.get('duration')))
             pid = cur.lastrowid
         return jsonify({'ok': True, 'id': pid})
-    # Handle map_names query param for preselection from the London map
+    # Handle map_ws param (base64 JSON workspace array from London map)
     preselected_ids = []
-    map_names = request.args.get('map_names', '').strip()
-    if map_names:
-        names = [n.strip() for n in map_names.split(',') if n.strip()]
-        if names:
-            with get_db() as conn:
-                for name in names:
-                    row = conn.execute(
-                        'SELECT id FROM centres WHERE LOWER(name) LIKE LOWER(?) LIMIT 1',
-                        (f'%{name}%',)
-                    ).fetchone()
+    map_workspaces = []
+    map_ws_b64 = request.args.get('map_ws', '').strip()
+    if map_ws_b64:
+        try:
+            import base64
+            decoded = base64.b64decode(map_ws_b64).decode('utf-8')
+            spaces = json.loads(decoded)
+            if isinstance(spaces, list):
+                for sp in spaces:
+                    if not isinstance(sp, dict) or not sp.get('name'):
+                        continue
+                    # Check if this workspace exists in the DB
+                    with get_db() as conn:
+                        row = conn.execute(
+                            'SELECT id FROM centres WHERE LOWER(name) LIKE LOWER(?) LIMIT 1',
+                            (f'%{sp["name"]}%',)
+                        ).fetchone()
                     if row:
                         preselected_ids.append(row['id'])
-    return render_template('builder.html', step=1, proposal=None, preselected_ids=preselected_ids)
+                    else:
+                        # Workspace not in DB — pass as manual entry
+                        if isinstance(sp.get('amenities'), list):
+                            sp['amenities'] = json.dumps(sp['amenities'])
+                        map_workspaces.append(sp)
+        except Exception:
+            pass
+    # Legacy fallback: map_names param
+    elif request.args.get('map_names', '').strip():
+        map_names = request.args.get('map_names', '').strip()
+        names = [n.strip() for n in map_names.split(',') if n.strip()]
+        with get_db() as conn:
+            for name in names:
+                row = conn.execute(
+                    'SELECT id FROM centres WHERE LOWER(name) LIKE LOWER(?) LIMIT 1',
+                    (f'%{name}%',)
+                ).fetchone()
+                if row:
+                    preselected_ids.append(row['id'])
+    return render_template('builder.html', step=1, proposal=None,
+                           preselected_ids=preselected_ids,
+                           map_workspaces=map_workspaces)
 
 @app.route('/proposals/<int:pid>')
 def proposal_builder(pid):
@@ -592,7 +620,7 @@ def proposal_builder(pid):
         proposal = conn.execute('SELECT * FROM proposals WHERE id=?', (pid,)).fetchone()
         if not proposal:
             return 'Not found', 404
-    return render_template('builder.html', step=1, proposal=dict(proposal), preselected_ids=[])
+    return render_template('builder.html', step=1, proposal=dict(proposal), preselected_ids=[], map_workspaces=[])
 
 @app.route('/proposals/<int:pid>/update', methods=['POST'])
 def proposal_update(pid):
@@ -667,7 +695,12 @@ def proposal_generate(pid):
 
     template = p.get('template','london')
     try:
-        slides = build_london_slides(p, db_centres, manual_centres) if template != 'india' else build_india_slides(p, db_centres, manual_centres)
+        if template == 'india':
+            slides = build_india_slides(p, db_centres, manual_centres)
+        elif template == 'bold':
+            slides = build_bold_slides(p, db_centres, manual_centres)
+        else:
+            slides = build_london_slides(p, db_centres, manual_centres)
         base_name = f'proposal_{pid}_{os.urandom(4).hex()}'
         pptx_path = render_pptx(slides, os.path.join(PROPOSAL_FILES, base_name + '.pptx'))
         pdf_path  = render_pdf(slides,  os.path.join(PROPOSAL_FILES, base_name + '.pdf'))
@@ -685,6 +718,22 @@ def proposal_generate(pid):
         conn.execute('UPDATE proposals SET pptx_filename=?, pdf_filename=?, status=? WHERE id=?',
                      (pptx_name, pdf_name, 'generated', pid))
     return jsonify({'ok': True, 'pptx': pptx_name, 'pdf': pdf_name})
+
+@app.route('/api/detect-template', methods=['POST'])
+def api_detect_template():
+    """Analyse an uploaded PPTX template and return feature metadata."""
+    f = request.files.get('file')
+    if not f:
+        return jsonify({'error': 'No file'}), 400
+    tmp = os.path.join(TEMPLATE_FILES, 'detect_tmp.pptx')
+    f.save(tmp)
+    features = detect_template_features(tmp)
+    try:
+        os.remove(tmp)
+    except Exception:
+        pass
+    return jsonify(features)
+
 
 @app.route('/proposals/<int:pid>/download')
 @app.route('/proposals/<int:pid>/download/<fmt>')
@@ -709,6 +758,8 @@ def proposal_download(pid, fmt='pptx'):
 from generation import (
     build_london_slides,
     build_india_slides,
+    build_bold_slides,
+    detect_template_features,
     render_pptx,
     render_pdf,
     get_logo_png,
