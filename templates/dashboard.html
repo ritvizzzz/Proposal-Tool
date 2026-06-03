@@ -2,12 +2,28 @@
 {% block title %}Share Link Dashboard – myHQ{% endblock %}
 
 {% block content %}
-<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px">
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
   <div>
     <h1 style="font-size:24px;font-weight:800;color:#1A1A2E">Share Link Dashboard</h1>
     <p style="margin-top:4px;font-size:14px;color:#6B7280">Track client engagement with comparison links</p>
   </div>
   <button class="btn btn-primary" onclick="openCreateModal()">+ Create Share Link</button>
+</div>
+
+<!-- Quick import bar — paste map link directly here -->
+<div style="background:#EEF2FF;border-radius:12px;padding:14px 18px;margin-bottom:24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+  <div style="font-size:13px;font-weight:700;color:#1E22AA;white-space:nowrap">📎 Register map link:</div>
+  <input id="quick-map-url" type="text" placeholder="Paste the 'Share Comparison' link copied from the workspace map…"
+    style="flex:1;min-width:200px;padding:9px 12px;border:1.5px solid #C7D2FE;border-radius:8px;font-size:13px;outline:none;font-family:inherit"
+    onfocus="this.style.borderColor='#1E22AA'" onblur="this.style.borderColor='#C7D2FE'">
+  <input id="quick-client-name" type="text" placeholder="Client name"
+    style="width:160px;padding:9px 12px;border:1.5px solid #C7D2FE;border-radius:8px;font-size:13px;outline:none;font-family:inherit"
+    onfocus="this.style.borderColor='#1E22AA'" onblur="this.style.borderColor='#C7D2FE'">
+  <button onclick="quickRegister()"
+    style="padding:9px 18px;background:#1E22AA;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">
+    Track this link →
+  </button>
+  <div id="quick-status" style="font-size:12px;color:#059669;display:none"></div>
 </div>
 
 {% if not links %}
@@ -312,6 +328,62 @@ function showToast(msg) {
 }
 
 // Close modal on backdrop click
+// ── Quick register: paste map URL directly from the dashboard top bar ────
+async function quickRegister() {
+  const url   = document.getElementById('quick-map-url').value.trim();
+  const label = document.getElementById('quick-client-name').value.trim();
+  const status = document.getElementById('quick-status');
+
+  if (!url) { alert('Paste the map link first.'); return; }
+
+  // Parse ids and names from the URL
+  let ids = [], names = [];
+  try {
+    const u = new URL(url);
+    const idsP = u.searchParams.get('ids');
+    const namesP = u.searchParams.get('names');
+    if (idsP) ids = idsP.split(',').map(s=>s.trim()).filter(Boolean);
+    if (namesP) names = namesP.split(',').map(s=>decodeURIComponent(s).trim());
+  } catch(e) {
+    const m = url.match(/ids=([^&\s]+)/);
+    if (m) ids = m[1].split(',').map(s=>s.trim());
+    const n = url.match(/names=([^&\s]+)/);
+    if (n) names = n[1].split(',').map(s=>decodeURIComponent(s));
+  }
+
+  if (!ids.length) { alert('Could not find space IDs in the link. Make sure you paste the full map link.'); return; }
+
+  status.style.display = 'block';
+  status.style.color = '#6B7280';
+  status.textContent = 'Creating tracked link…';
+
+  try {
+    const r = await fetch('/api/share-link/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        centre_ids: ids,
+        label: label || names.slice(0,2).join(', ') || 'Map link'
+      })
+    });
+    const data = await r.json();
+    if (data.token) {
+      status.style.color = '#059669';
+      status.textContent = `✓ Tracked link created! Sharing: ${data.url}`;
+      // Copy to clipboard
+      navigator.clipboard.writeText(data.url).catch(()=>{});
+      // Reload page to show new link
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      status.style.color = '#ef4444';
+      status.textContent = 'Error: ' + (data.error || 'Unknown');
+    }
+  } catch(e) {
+    status.style.color = '#ef4444';
+    status.textContent = 'Failed to create link.';
+  }
+}
+
 document.getElementById('create-modal').addEventListener('click', function(e) {
   if (e.target === this) closeCreateModal();
 });

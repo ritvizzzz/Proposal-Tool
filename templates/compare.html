@@ -59,7 +59,12 @@
     margin-left: auto;
     font-size: 13px;
     color: #8B90B0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 160px;
   }
+  @media (max-width: 400px) { .header-label { display: none; } }
 
   /* ── Main ── */
   .main {
@@ -304,12 +309,79 @@
   }
   .footer strong { color: #1E22AA; }
 
-  /* ── Responsive ── */
+  /* ── Mobile (phone) ── */
   @media (max-width: 640px) {
-    .header { padding: 12px 16px; }
-    .main { padding: 24px 16px; }
-    .cards-grid { grid-template-columns: 1fr; }
-    .page-intro h1 { font-size: 22px; }
+    /* Header */
+    .header { padding: 10px 14px; gap: 10px; }
+    .logo-text { font-size: 18px; }
+    .header-label { font-size: 11px; }
+    .header-divider { display: none; }
+    .header-title { font-size: 13px; }
+
+    /* Main layout */
+    .main { padding: 16px 12px 24px; }
+    .page-intro { margin-bottom: 20px; }
+    .page-intro h1 { font-size: 20px; }
+    .page-intro p { font-size: 13px; }
+
+    /* Cards: full width, no hover lift */
+    .cards-grid { grid-template-columns: 1fr; gap: 16px; }
+    .space-card:hover { transform: none; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+
+    /* Photo area: slightly shorter on phone */
+    .photo-area { max-height: 220px; }
+    .photo-main { max-height: 220px; }
+    .photo-thumbs { gap: 4px; padding: 4px; }
+    .photo-thumb { width: 48px; height: 36px; }
+
+    /* Card body */
+    .card-body { padding: 12px 14px; }
+    .card-name { font-size: 16px; }
+    .card-address { font-size: 12px; }
+
+    /* Meta table */
+    .card-meta { grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
+    .meta-value { font-size: 16px; }
+    .meta-value.price { font-size: 20px; }
+
+    /* Amenity pills — wrap tightly */
+    .amenities { gap: 4px; }
+    .amenity-pill { font-size: 11px; padding: 3px 8px; }
+
+    /* Interest + action buttons: stack full width */
+    .interest-row { flex-direction: row; gap: 8px; padding: 10px 14px 0; }
+    .btn-interest { font-size: 13px; padding: 10px 6px; }
+    .card-actions { flex-direction: column; gap: 8px; padding: 10px 14px 14px; }
+    .btn-map, .btn-book { width: 100%; justify-content: center; padding: 12px; font-size: 14px; }
+
+    /* Map section */
+    #compare-map { height: 280px !important; }
+
+    /* Lightbox */
+    .lightbox-close { top: 12px; right: 12px; width: 36px; height: 36px; font-size: 20px; }
+
+    /* Booking modal: full screen on phone */
+    #booking-modal > div {
+      width: 100% !important;
+      max-width: 100% !important;
+      border-radius: 20px 20px 0 0 !important;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      max-height: 85vh;
+    }
+    #booking-modal {
+      align-items: flex-end !important;
+    }
+    #slots-grid { grid-template-columns: repeat(3,1fr) !important; gap: 6px; }
+    .slot-btn { font-size: 12px; padding: 10px 4px; }
+  }
+
+  /* ── Touch: bigger tap targets ── */
+  @media (hover: none) {
+    .btn-interest, .btn-book, .btn-map, .slot-btn { min-height: 44px; }
+    .amenity-pill { padding: 5px 10px; }
   }
 </style>
 </head>

@@ -845,7 +845,15 @@ from generation import (
 
 # ── Routes: Share Links & Tracking ──────────────────────────────────────────
 
-BASE_URL = os.environ.get('BASE_URL', 'https://web-production-df90c.up.railway.app')
+_RAILWAY_URL = 'https://web-production-df90c.up.railway.app'
+BASE_URL = os.environ.get('BASE_URL', '')  # resolved dynamically per request below
+
+def _base_url():
+    """Use request host URL so links always work wherever Flask is running."""
+    try:
+        return request.host_url.rstrip('/')
+    except Exception:
+        return BASE_URL or _RAILWAY_URL
 
 @app.route('/api/share-link/create', methods=['POST'])
 def share_link_create():
@@ -870,7 +878,7 @@ def share_link_create():
             'INSERT INTO share_links (token, label, centre_ids, centre_names) VALUES (?,?,?,?)',
             (token, label, json.dumps(centre_ids), json.dumps(centre_names))
         )
-    return jsonify({'token': token, 'url': f'{BASE_URL}/compare/{token}'})
+    return jsonify({'token': token, 'url': f'{_base_url()}/compare/{token}'})
 
 
 def _load_centres_for_compare(conn, hubble_ids):
@@ -1011,7 +1019,7 @@ def dashboard():
                 lnk['centre_names_list'] = json.loads(lnk.get('centre_names') or '[]')
             except Exception:
                 lnk['centre_names_list'] = []
-    return render_template('dashboard.html', links=links, base_url=BASE_URL)
+    return render_template('dashboard.html', links=links, base_url=_base_url())
 
 
 @app.route('/dashboard/<token>')
@@ -1073,7 +1081,7 @@ def dashboard_detail(token):
 
     return render_template('dashboard_detail.html', link=link, events=events,
                            chart_labels=chart_labels, chart_data=chart_data,
-                           centres=centres, base_url=BASE_URL, token=token)
+                           centres=centres, base_url=_base_url(), token=token)
 
 
 if __name__ == '__main__':
