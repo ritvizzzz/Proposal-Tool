@@ -3298,5 +3298,65 @@
     "name": "WeWork - Aldwych House",
     "rating": 4.4,
     "review_count": null
+  },
+  "4285": {
+    "hubble_id": "4285",
+    "name": "Workspace - Record Hall: Hatton Garden",
+    "rating": 4.5,
+    "review_count": null
+  },
+  "4303": {
+    "hubble_id": "4303",
+    "name": "LABS - Hogarth House",
+    "rating": 3.6,
+    "review_count": null
+  },
+  "4533": {
+    "hubble_id": "4533",
+    "name": "First Base Victoria Ltd",
+    "rating": 4.6,
+    "review_count": null
+  },
+  "4629": {
+    "hubble_id": "4629",
+    "name": "LABS Lockside",
+    "rating": 4.4,
+    "review_count": null
+  },
+  "4630": {
+    "hubble_id": "4630",
+    "name": "LABS House",
+    "rating": 4.3,
+    "review_count": null
+  },
+  "4631": {
+    "hubble_id": "4631",
+    "name": "LABS - Southampton Place",
+    "rating": 3.5,
+    "review_count": null
+  },
+  "4967": {
+    "hubble_id": "4967",
+    "name": "Halkin - Blackfriars - The Mermaid",
+    "rating": 4.3,
+    "review_count": null
+  },
+  "4992": {
+    "hubble_id": "4992",
+    "name": "Halkin - Monument - Lower Thames St",
+    "rating": 4.8,
+    "review_count": 12
+  },
+  "4993": {
+    "hubble_id": "4993",
+    "name": "Halkin - Watford Junction",
+    "rating": 4.2,
+    "review_count": 33
+  },
+  "5041": {
+    "hubble_id": "5041",
+    "name": "Workspace - The Frames",
+    "rating": 4.4,
+    "review_count": null
   }
 }
