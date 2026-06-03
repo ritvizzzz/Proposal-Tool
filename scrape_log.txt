@@ -588,4 +588,6 @@ no rating found
 [530/1487] Workspace - Cargo Works... ★ 4.5 (? reviews)
   → Progress saved (530 total)
 [531/1487] Workspace - Metal Box Factory... ★ 4.1 (186 reviews)
-[532/1487] Workspace - Grand Union Studios... 
+[532/1487] Workspace - Grand Union Studios... ★ 4.5 (101 reviews)
+[533/1487] Workspace - The Print Rooms... ★ 4.2 (? reviews)
+[534/1487] Workspace - Parkhall Business Centre... 
