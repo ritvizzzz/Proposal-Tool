@@ -496,7 +496,12 @@ def api_centre_detail(cid):
     centre = dict(c)
     img_list = [dict(i) for i in imgs]
     # images: list of URLs (for builder display)
-    centre['images'] = [f'/centre-image/{cid}/{i["filename"]}' for i in img_list]
+    def _img_url(cid, filename):
+        if filename.startswith('http'):
+            return filename  # Hubble CDN URL — use directly
+        return f'/centre-image/{cid}/{filename}'
+
+    centre['images'] = [_img_url(cid, i['filename']) for i in img_list]
     # images_meta: full records (for image editor modal)
     centre['images_meta'] = img_list
     return jsonify(centre)
@@ -505,6 +510,10 @@ def api_centre_detail(cid):
 
 @app.route('/centre-image/<int:cid>/<path:filename>')
 def serve_centre_image(cid, filename):
+    # If filename is a full URL (shouldn't normally happen but handle gracefully)
+    if filename.startswith('http'):
+        from flask import redirect
+        return redirect(filename)
     img_dir = os.path.join(CENTRE_IMAGES, str(cid))
     return send_file(os.path.join(img_dir, filename))
 

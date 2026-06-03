@@ -422,11 +422,19 @@ function searchCentres(q) {
   }, 300);
 }
 
-function addCentreFromDB(id) {
-  const centre = _centreCache[id];
+async function addCentreFromDB(id) {
+  let centre = _centreCache[id];
   if (!centre) return;
   if (selectedCentres.find(c => c.id === centre.id)) {
     showToast('Already added', 'error'); return;
+  }
+  // Fetch full detail (includes images array with real URLs)
+  if (!centre.images) {
+    try {
+      const res = await fetch(`/centres/api/${id}`);
+      const full = await res.json();
+      if (full && full.id) { centre = full; _centreCache[id] = full; }
+    } catch(e) {}
   }
   selectedCentres.push(centre);
   renderSelectedList();
@@ -719,7 +727,7 @@ function renderModalImages(meta, cid) {
   }
   grid.innerHTML = meta.map(img => `
     <div class="img-thumb" data-img-id="${img.id}">
-      <img src="/centre-image/${cid}/${img.filename}?t=${Date.now()}" alt="" loading="lazy">
+      <img src="${img.filename.startsWith('http') ? img.filename : `/centre-image/${cid}/${img.filename}?t=${Date.now()}`}" alt="" loading="lazy">
       ${img.is_primary ? '<div class="primary-badge">Primary</div>' : ''}
       <div class="img-actions">
         ${!img.is_primary ? `<button onclick="modalSetPrimary(${img.id})" title="Set primary">★</button>` : ''}
