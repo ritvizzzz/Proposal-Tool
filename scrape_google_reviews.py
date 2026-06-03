@@ -63,50 +63,66 @@ def search_google_maps(page, name, address):
         rating = None
         review_count = None
 
-        # Method 1: structured aria-label e.g. "4.2 stars 128 reviews"
-        for sel in [
-            '[aria-label*=" stars"]',
-            '[aria-label*="star"]',
-            'span.fontDisplayLarge',
-            'div.F7nice span',
-        ]:
-            try:
-                el = page.query_selector(sel)
-                if el:
-                    txt = el.get_attribute('aria-label') or el.inner_text()
-                    m = re.search(r'([\d.]+)\s*star', txt, re.IGNORECASE)
-                    if m:
-                        rating = float(m.group(1))
-                        mr = re.search(r'([\d,]+)\s*review', txt, re.IGNORECASE)
+        # Get full page source + visible text once
+        try:
+            page_html = page.content()
+            visible   = page.inner_text('body')
+        except Exception:
+            page_html = ''
+            visible   = ''
+
+        # Method 1: JSON-LD / structured data (most reliable)
+        m = re.search(r'"ratingValue"\s*:\s*"?([\d.]+)', page_html)
+        if m:
+            rating = float(m.group(1))
+        m2 = re.search(r'"reviewCount"\s*:\s*"?(\d+)', page_html)
+        if m2:
+            review_count = int(m2.group(1))
+        if not review_count:
+            m3 = re.search(r'"userRatingCount"\s*:\s*(\d+)', page_html)
+            if m3:
+                review_count = int(m3.group(1))
+
+        # Method 2: aria-label on rating element
+        if rating is None:
+            for sel in ['[aria-label*="star"]', '[aria-label*="Star"]',
+                        'span.fontDisplayLarge', 'div.F7nice span', '.DkEaL']:
+                try:
+                    el = page.query_selector(sel)
+                    if el:
+                        txt = el.get_attribute('aria-label') or el.inner_text()
+                        mr = re.search(r'([\d.]+)\s*star', txt, re.IGNORECASE)
                         if mr:
-                            review_count = int(mr.group(1).replace(',', ''))
-                        break
-            except Exception:
-                pass
+                            rating = float(mr.group(1))
+                            rc = re.search(r'([\d,]+)\s*review', txt, re.IGNORECASE)
+                            if rc:
+                                review_count = int(rc.group(1).replace(',', ''))
+                            break
+                except Exception:
+                    pass
 
-        # Method 2: look for rating text directly
-        if rating is None:
-            try:
-                txt = page.content()
-                m = re.search(r'"aggregateRating".*?"ratingValue"\s*:\s*"?([\d.]+)', txt)
-                if m:
-                    rating = float(m.group(1))
-                m2 = re.search(r'"reviewCount"\s*:\s*"?(\d+)', txt)
-                if m2:
-                    review_count = int(m2.group(1))
-            except Exception:
-                pass
-
-        # Method 3: page text for patterns like "4.2 (128)"
-        if rating is None:
-            try:
-                visible = page.inner_text('body')
-                m = re.search(r'\b([\d.]+)\s*\(([,\d]+)\)', visible)
-                if m and 1.0 <= float(m.group(1)) <= 5.0:
-                    rating = float(m.group(1))
-                    review_count = int(m.group(2).replace(',', ''))
-            except Exception:
-                pass
+        # Method 3: visible text pattern "4.2 (1,234)" or "4.2\n1,234 reviews"
+        if rating is None or not review_count:
+            # Rating from visible text
+            if rating is None:
+                mr = re.search(r'\b([1-5]\.[0-9])\s*\n', visible)
+                if mr:
+                    rating = float(mr.group(1))
+            # Review count — look for "(1,234)" or "1,234 reviews"
+            if not review_count:
+                rc = re.search(r'\(([\d,]+)\s*\)', visible)
+                if rc:
+                    try:
+                        review_count = int(rc.group(1).replace(',', ''))
+                    except Exception:
+                        pass
+            if not review_count:
+                rc2 = re.search(r'([\d,]+)\s+review', visible, re.IGNORECASE)
+                if rc2:
+                    try:
+                        review_count = int(rc2.group(1).replace(',', ''))
+                    except Exception:
+                        pass
 
         return rating, review_count
 

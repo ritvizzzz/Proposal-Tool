@@ -1,4 +1,4 @@
-import os, sqlite3, json, shutil, base64, io, re, secrets, hashlib
+import os, sqlite3, json, shutil, base64, io, re, secrets, hashlib, urllib.parse
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
 from werkzeug.utils import secure_filename
 from PIL import Image
@@ -871,6 +871,70 @@ def share_link_create():
     return jsonify({'token': token, 'url': f'{BASE_URL}/compare/{token}'})
 
 
+def _load_centres_for_compare(conn, hubble_ids):
+    """Fetch centre data + images for a list of hubble_ids."""
+    centres = []
+    for hid in hubble_ids:
+        c = conn.execute('SELECT * FROM centres WHERE hubble_id=?', (hid,)).fetchone()
+        if not c:
+            # fallback: treat as DB id
+            c = conn.execute('SELECT * FROM centres WHERE id=?', (hid,)).fetchone()
+        if c:
+            c = dict(c)
+            cid = c['id']
+            imgs = conn.execute(
+                'SELECT filename FROM centre_images WHERE centre_id=? ORDER BY is_primary DESC, sort_order LIMIT 4',
+                (cid,)
+            ).fetchall()
+            c['image_urls'] = [
+                r['filename'] if r['filename'].startswith('http')
+                else f'/centre-image/{cid}/{r["filename"]}'
+                for r in imgs
+            ]
+            try:
+                c['amenities_list'] = json.loads(c.get('amenities') or '[]')
+            except Exception:
+                c['amenities_list'] = []
+            centres.append(c)
+    return centres
+
+
+@app.route('/compare')
+def compare_direct():
+    """Entry point from map — ?ids=hubble_id1,hubble_id2&names=name1,name2.
+    Auto-creates a share_link token for tracking and renders the comparison page."""
+    import secrets as _sec
+    ids_param   = request.args.get('ids', '').strip()
+    names_param = request.args.get('names', '').strip()
+    if not ids_param:
+        return 'No space IDs provided', 400
+
+    hubble_ids = [i.strip() for i in ids_param.split(',') if i.strip()]
+    names      = [urllib.parse.unquote(n) for n in names_param.split(',') if n.strip()]
+
+    token = _sec.token_urlsafe(8)
+    ip      = request.remote_addr or ''
+    ip_hash = hashlib.md5(ip.encode()).hexdigest()[:8]
+    ua      = request.headers.get('User-Agent', '')
+
+    with get_db() as conn:
+        centres = _load_centres_for_compare(conn, hubble_ids)
+        centre_names = [c['name'] for c in centres] or names
+        conn.execute(
+            'INSERT INTO share_links (token, label, centre_ids, centre_names) VALUES (?,?,?,?)',
+            (token, ', '.join(centre_names[:2]) + (' + more' if len(centre_names) > 2 else ''),
+             json.dumps(hubble_ids), json.dumps(centre_names))
+        )
+        conn.execute(
+            'INSERT INTO link_events (token, event_type, ip_hash, user_agent) VALUES (?,?,?,?)',
+            (token, 'open', ip_hash, ua)
+        )
+
+    link = {'token': token, 'label': ', '.join(centre_names[:2]),
+            'centre_ids': json.dumps(hubble_ids), 'centre_names': json.dumps(centre_names)}
+    return render_template('compare.html', link=link, centres=centres, token=token)
+
+
 @app.route('/compare/<token>')
 def compare_page(token):
     with get_db() as conn:
@@ -878,33 +942,11 @@ def compare_page(token):
         if not link:
             return 'Link not found', 404
         link = dict(link)
-        centre_ids = json.loads(link['centre_ids'])
-        centres = []
-        for cid in centre_ids:
-            c = conn.execute('SELECT * FROM centres WHERE id=?', (cid,)).fetchone()
-            if c:
-                c = dict(c)
-                imgs = conn.execute(
-                    'SELECT id, filename FROM centre_images WHERE centre_id=? ORDER BY is_primary DESC, sort_order LIMIT 3',
-                    (cid,)
-                ).fetchall()
-                img_urls = []
-                for img in imgs:
-                    fn = img['filename']
-                    if fn.startswith('http'):
-                        img_urls.append(fn)
-                    else:
-                        img_urls.append(f'/centre-image/{cid}/{fn}')
-                c['image_urls'] = img_urls
-                try:
-                    c['amenities_list'] = json.loads(c.get('amenities') or '[]')
-                except Exception:
-                    c['amenities_list'] = []
-                centres.append(c)
-        # Log open event
-        ip = request.remote_addr or ''
+        hubble_ids = json.loads(link['centre_ids'])
+        centres = _load_centres_for_compare(conn, hubble_ids)
+        ip      = request.remote_addr or ''
         ip_hash = hashlib.md5(ip.encode()).hexdigest()[:8]
-        ua = request.headers.get('User-Agent', '')
+        ua      = request.headers.get('User-Agent', '')
         conn.execute(
             'INSERT INTO link_events (token, event_type, ip_hash, user_agent) VALUES (?,?,?,?)',
             (token, 'open', ip_hash, ua)

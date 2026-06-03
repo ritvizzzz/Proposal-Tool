@@ -176,10 +176,19 @@ def parse_inventory(geo):
     return rows
 
 
-def parse_coworking(geo):
+def parse_coworking(geo, inv_building_ids, inv_names):
+    """Only include coworking spaces NOT already in the inventory CSV."""
     rows = []
+    skipped = 0
     with open(COW_CSV, newline='', encoding='utf-8-sig') as f:
         for r in csv.DictReader(f):
+            # Skip if already in inventory (duplicate centre)
+            if r['building_id'] in inv_building_ids:
+                skipped += 1
+                continue
+            if _clean(r['name']).lower() in inv_names:
+                skipped += 1
+                continue
             pc = r.get('postcode', '').strip().upper()
             coords = geo.get(pc)
             if not coords:
@@ -206,6 +215,7 @@ def parse_coworking(geo):
                 'offices_count':  '',
                 'images':         _parse_images(r.get('image_urls', '')),
             })
+    print(f'  Coworking: {len(rows)} unique kept, {skipped} duplicates skipped')
     return rows
 
 
@@ -429,12 +439,15 @@ def main():
     # 2. Geocode
     geo = geocode_postcodes(all_postcodes)
 
-    # 3. Parse
+    # 3. Parse — coworking only gets unique centres not in inventory
     print('\nParsing CSVs …')
     inv = parse_inventory(geo)
-    cow = parse_coworking(geo)
+    # Build lookup sets from inventory to deduplicate coworking
+    inv_ids   = {sp['hubble_id'] for sp in inv}
+    inv_names = {sp['name'].lower() for sp in inv}
+    cow = parse_coworking(geo, inv_ids, inv_names)
     all_spaces = inv + cow
-    print(f'  {len(inv)} office spaces + {len(cow)} coworking = {len(all_spaces)} total')
+    print(f'  {len(inv)} inventory (monthly) + {len(cow)} unique coworking (daily) = {len(all_spaces)} total')
     no_images = sum(1 for s in all_spaces if not s['images'])
     print(f'  {len(all_spaces) - no_images} have images, {no_images} have none')
 
