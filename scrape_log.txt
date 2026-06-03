@@ -601,4 +601,6 @@ no rating found
 [541/1487] Workspace - The Light Bulb... ★ 4.1 (? reviews)
 [542/1487] Workspace - E1 Studios... ★ 3.9 (37 reviews)
 [543/1487] Workspace - Pill Box... ★ 4.1 (? reviews)
-[544/1487] Workspace - The Light Box... 
+[544/1487] Workspace - The Light Box... ★ 4.2 (? reviews)
+[545/1487] Workspace - China Works... ★ 4.1 (? reviews)
+[546/1487] Workspace - Screenworks... 
