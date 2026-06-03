@@ -3118,5 +3118,65 @@
     "name": "Workthere - Lacon House",
     "rating": 4.6,
     "review_count": 78
+  },
+  "19856": {
+    "hubble_id": "19856",
+    "name": "Workthere - 100 Clifton Street",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "19858": {
+    "hubble_id": "19858",
+    "name": "The Langham Estate - 23-25 Eastcastle Street",
+    "rating": 5.0,
+    "review_count": null
+  },
+  "19865": {
+    "hubble_id": "19865",
+    "name": "Spacemade - The Bedford",
+    "rating": null,
+    "review_count": null
+  },
+  "1032": {
+    "hubble_id": "1032",
+    "name": "Servcorp: One Mayfair Place",
+    "rating": 4.5,
+    "review_count": null
+  },
+  "1331": {
+    "hubble_id": "1331",
+    "name": "Servcorp: The Leadenhall Building",
+    "rating": 4.6,
+    "review_count": 57
+  },
+  "1333": {
+    "hubble_id": "1333",
+    "name": "Servcorp: Bank Street - Canary Wharf",
+    "rating": 4.5,
+    "review_count": null
+  },
+  "1715": {
+    "hubble_id": "1715",
+    "name": "Curve Serviced Offices - London Bridge",
+    "rating": 3.4,
+    "review_count": 8
+  },
+  "1992": {
+    "hubble_id": "1992",
+    "name": "Crown House Business Centre",
+    "rating": null,
+    "review_count": null
+  },
+  "3219": {
+    "hubble_id": "3219",
+    "name": "WorkLife - Bermondsey",
+    "rating": 4.4,
+    "review_count": null
+  },
+  "3891": {
+    "hubble_id": "3891",
+    "name": "Workspace - Cargo Works",
+    "rating": 4.5,
+    "review_count": null
   }
 }

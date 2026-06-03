@@ -585,4 +585,7 @@ no rating found
 [527/1487] Curve Serviced Offices - London Bridge... ★ 3.4 (8 reviews)
 [528/1487] Crown House Business Centre... no rating found
 [529/1487] WorkLife - Bermondsey... ★ 4.4 (? reviews)
-[530/1487] Workspace - Cargo Works... 
+[530/1487] Workspace - Cargo Works... ★ 4.5 (? reviews)
+  → Progress saved (530 total)
+[531/1487] Workspace - Metal Box Factory... ★ 4.1 (186 reviews)
+[532/1487] Workspace - Grand Union Studios... 
