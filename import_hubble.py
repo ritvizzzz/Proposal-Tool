@@ -139,31 +139,39 @@ def parse_inventory(geo):
             if not coords:
                 continue
             lat, lng = coords
-            price, unit = _parse_price(r.get('price_per_desk', ''))
-            offices_str = r.get('offices_count', '') or ''
-            cap_min = r.get('capacity_min', '') or ''
-            cap_max = r.get('capacity_max', '') or ''
+            total_price, unit = _parse_price(r.get('price_per_desk', ''))
+            offices_str = _clean(r.get('offices_count', '') or '')
+            cap_min_raw = r.get('capacity_min', '').strip()
+            cap_max_raw = r.get('capacity_max', '').strip()
             try:
-                cap_label = f"{int(cap_min)}-{int(cap_max)} desks" if cap_min and cap_max else offices_str
+                cap_min_int = int(cap_min_raw) if cap_min_raw else None
+                cap_max_int = int(cap_max_raw) if cap_max_raw else None
             except Exception:
-                cap_label = offices_str
+                cap_min_int = cap_max_int = None
+            # Per-desk price = total price / min capacity
+            if total_price and cap_min_int and cap_min_int > 0:
+                price = round(total_price / cap_min_int)
+            else:
+                price = total_price
             rows.append({
-                'hubble_id':   r['building_id'],
-                'name':        _clean(r['name']),
-                'address':     f"{_clean(r['address'])}, {pc}",
-                'postcode':    pc,
-                'brand':       _extract_brand(_clean(r['name'])),
-                'lat':         lat,
-                'lng':         lng,
-                'transport':   _clean(r.get('nearest_tube', '')),
-                'amenities':   _normalise_amenities(r.get('amenities', '')),
-                'price':       price,
-                'price_unit':  unit or 'MONTHLY',
-                'seat_type':   'PRIVATE_OFFICE',
-                'space_type':  'Serviced Office',
-                'hubble_url':  _clean(r.get('hubble_url', '')),
-                'capacity':    _clean(cap_label),
-                'images':      _parse_images(r.get('image_urls', '')),
+                'hubble_id':      r.get('building_id', ''),
+                'name':           _clean(r['name']),
+                'address':        f"{_clean(r['address'])}, {pc}",
+                'postcode':       pc,
+                'brand':          _extract_brand(_clean(r['name'])),
+                'lat':            lat,
+                'lng':            lng,
+                'transport':      _clean(r.get('nearest_tube', '')),
+                'amenities':      _normalise_amenities(r.get('amenities', '')),
+                'price':          price,
+                'price_unit':     unit or 'MONTHLY',
+                'seat_type':      'PRIVATE_OFFICE',
+                'space_type':     _clean(r.get('product_type', 'Serviced')),
+                'hubble_url':     _clean(r.get('hubble_url', '')),
+                'capacity_min':   cap_min_int,
+                'capacity_max':   cap_max_int,
+                'offices_count':  offices_str,
+                'images':         _parse_images(r.get('image_urls', '')),
             })
     return rows
 
@@ -179,22 +187,24 @@ def parse_coworking(geo):
             lat, lng = coords
             price, unit = _parse_price(r.get('price_day_gbp', ''))
             rows.append({
-                'hubble_id':   r['building_id'],
-                'name':        _clean(r['name']),
-                'address':     f"{_clean(r['address'])}, {pc}",
-                'postcode':    pc,
-                'brand':       _extract_brand(_clean(r['name'])),
-                'lat':         lat,
-                'lng':         lng,
-                'transport':   _clean(r.get('nearest_tube', '')),
-                'amenities':   _normalise_amenities(r.get('facilities', '')),
-                'price':       price,
-                'price_unit':  'DAILY',
-                'seat_type':   'DEDICATED_DESK',
-                'space_type':  'Coworking',
-                'hubble_url':  _clean(r.get('hubble_url', '')),
-                'capacity':    '',
-                'images':      _parse_images(r.get('image_urls', '')),
+                'hubble_id':      r.get('building_id', ''),
+                'name':           _clean(r['name']),
+                'address':        f"{_clean(r['address'])}, {pc}",
+                'postcode':       pc,
+                'brand':          _extract_brand(_clean(r['name'])),
+                'lat':            lat,
+                'lng':            lng,
+                'transport':      _clean(r.get('nearest_tube', '')),
+                'amenities':      _normalise_amenities(r.get('facilities', '')),
+                'price':          price,
+                'price_unit':     'DAILY',
+                'seat_type':      'DEDICATED_DESK',
+                'space_type':     'Coworking',
+                'hubble_url':     _clean(r.get('hubble_url', '')),
+                'capacity_min':   None,
+                'capacity_max':   None,
+                'offices_count':  '',
+                'images':         _parse_images(r.get('image_urls', '')),
             })
     return rows
 
@@ -298,6 +308,27 @@ def update_onboarding_db(spaces):
     print(f'  Inserted {len(spaces)} spaces into onboarding library.')
 
 
+# Partnered brands (exact brand-name match, from myHQ partnership sheet)
+# IWG group sub-brands + direct partners
+_PARTNERED_EXACT = {
+    'regus','spaces','hq','hq by regus','clubhouse','signature','homework',
+    'runway east','xandy','x+y','mindspace','uncommon','workspace',
+    'techspace','labs',
+}
+# Prefix match (brand starts with these)
+_PARTNERED_PREFIX = ('regus','spaces','hq ','hq by','clubhouse','signature','homework',
+                     'runway east','mindspace','uncommon','workspace','techspace','labs')
+
+def _is_partnered(brand):
+    b = brand.lower().strip()
+    if b in _PARTNERED_EXACT:
+        return True
+    for p in _PARTNERED_PREFIX:
+        if b.startswith(p):
+            return True
+    return False
+
+
 # ── Update Map HTML ──────────────────────────────────────────────────────────
 def update_map(spaces):
     print(f'\nUpdating Map ({MAP_HTML}) …')
@@ -314,42 +345,52 @@ def update_map(spaces):
                 'type': 'Private Office' if sp['seat_type'] == 'PRIVATE_OFFICE' else 'Dedicated Desk',
                 'cycle': sp['price_unit'],
                 'amount': sp['price'],
-                'capacity': sp.get('capacity', ''),
+                'capacityMin': sp.get('capacity_min'),
+                'capacityMax': sp.get('capacity_max'),
             })
 
         # metro list from transport string
         metro = []
+        tube_station = ''
+        walk_time = ''
         if sp['transport']:
-            # "Leicester Square — 2 min walk" → "Leicester Square (2 min)"
             m = re.match(r'^(.+?)\s*[—–-]\s*(.+)$', sp['transport'])
             if m:
-                metro = [f"{m.group(1).strip()} ({m.group(2).strip()})"]
+                tube_station = m.group(1).strip()
+                walk_time = m.group(2).strip()
+                metro = [f"{tube_station} ({walk_time})"]
             else:
                 metro = [sp['transport']]
+                tube_station = sp['transport']
 
         ws_list.append({
-            'id':          str(i),
-            'hubble_id':   sp['hubble_id'],
-            'name':        sp['name'],
-            'address':     sp['address'],
-            'postcode':    sp['postcode'],
-            'city':        'London',
-            'lat':         round(sp['lat'], 6),
-            'lng':         round(sp['lng'], 6),
-            'mapurl':      f"https://www.google.com/maps/search/{urllib.parse.quote(sp['address'])}",
-            'about':       '',
-            'brand':       sp['brand'],
-            'spaceType':   sp['space_type'],
-            'landmark':    '',
-            'metro':       metro,
-            'transport':   sp['transport'],
-            'totalSeats':  None,
-            'amenities':   sp['amenities'],
-            'pricing':     pricing,
-            'photos':      sp['images'][:8],
-            'hubble_url':  sp['hubble_url'],
-            'meetingRooms': [],
-            'partnered':   False,
+            'id':            str(i),
+            'hubble_id':     sp['hubble_id'],
+            'name':          sp['name'],
+            'address':       sp['address'],
+            'postcode':      sp['postcode'],
+            'city':          'London',
+            'lat':           round(sp['lat'], 6),
+            'lng':           round(sp['lng'], 6),
+            'mapurl':        f"https://www.google.com/maps/search/{urllib.parse.quote(sp['address'])}",
+            'about':         '',
+            'brand':         sp['brand'],
+            'spaceType':     sp['space_type'],
+            'landmark':      '',
+            'metro':         metro,
+            'tubeStation':   tube_station,
+            'walkTime':      walk_time,
+            'transport':     sp['transport'],
+            'totalSeats':    None,
+            'capacityMin':   sp.get('capacity_min'),
+            'capacityMax':   sp.get('capacity_max'),
+            'officesCount':  sp.get('offices_count', ''),
+            'amenities':     sp['amenities'],
+            'pricing':       pricing,
+            'photos':        sp['images'][:8],
+            'hubble_url':    sp['hubble_url'],
+            'meetingRooms':  [],
+            'partnered':     _is_partnered(sp['brand']),
         })
 
     ws_json = json.dumps(ws_list, ensure_ascii=False, separators=(',', ':'))

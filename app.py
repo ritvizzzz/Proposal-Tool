@@ -604,18 +604,35 @@ def proposal_new():
                 for sp in spaces:
                     if not isinstance(sp, dict) or not sp.get('name'):
                         continue
-                    # Check if this workspace exists in the DB
+                    row = None
                     with get_db() as conn:
-                        row = conn.execute(
-                            'SELECT id FROM centres WHERE LOWER(name) LIKE LOWER(?) LIMIT 1',
-                            (f'%{sp["name"]}%',)
-                        ).fetchone()
+                        # Try hubble_id first (most reliable)
+                        hid = sp.get('hubble_id', '').strip()
+                        if hid:
+                            row = conn.execute(
+                                'SELECT id FROM centres WHERE hubble_id=? LIMIT 1', (hid,)
+                            ).fetchone()
+                        # Fall back to exact name match
+                        if not row:
+                            row = conn.execute(
+                                'SELECT id FROM centres WHERE LOWER(name)=LOWER(?) LIMIT 1',
+                                (sp['name'].strip(),)
+                            ).fetchone()
+                        # Fall back to partial name match
+                        if not row:
+                            row = conn.execute(
+                                'SELECT id FROM centres WHERE LOWER(name) LIKE LOWER(?) LIMIT 1',
+                                (f'%{sp["name"]}%',)
+                            ).fetchone()
                     if row:
                         preselected_ids.append(row['id'])
                     else:
-                        # Workspace not in DB — pass as manual entry
+                        # Workspace not in DB — pass as manual entry with Hubble image URLs
                         if isinstance(sp.get('amenities'), list):
                             sp['amenities'] = json.dumps(sp['amenities'])
+                        # Store image URLs so generation.py can download them
+                        if not sp.get('images') and sp.get('image_urls'):
+                            sp['images'] = sp['image_urls']
                         map_workspaces.append(sp)
         except Exception:
             pass
@@ -696,7 +713,7 @@ def proposal_generate(pid):
                     ]
                     db_centres.append(centre_data)
 
-    # Convert base64 images in manual centres to temp files
+    # Convert base64 images in manual centres to temp files; pass URL images directly
     tmp_files = []
     manual_centres = []
     tmp_dir = os.path.join(UPLOADS, 'tmp_render')
@@ -704,7 +721,11 @@ def proposal_generate(pid):
     for mc in raw_manual:
         b64_list = mc.get('images_b64') or []
         img_paths = []
-        for b64 in b64_list[:4]:
+        # URL images (from Hubble CDN via map)
+        for url in (mc.get('image_urls') or mc.get('images') or [])[:4]:
+            if isinstance(url, str) and url.startswith('http'):
+                img_paths.append(url)
+        for b64 in b64_list[:max(0, 4 - len(img_paths))]:
             if b64 and b64.startswith('data:image'):
                 try:
                     _, data = b64.split(',', 1)
