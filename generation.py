@@ -527,46 +527,58 @@ def get_logo_png(white=False):
     return png_path
 
 
-# ── Logo compositing helper ─────────────────────────────────────────────────────
+# ── Logo helpers ────────────────────────────────────────────────────────────────
 
-def _logo_on(logo_path, bg_hex):
-    """Return path to logo composited onto a solid background colour (white-stripped first)."""
-    key = bg_hex.lstrip('#').upper()
-    cache = os.path.join(BASE_DIR, 'uploads', f'.logo_cache_{key}_v2.png')
-    os.makedirs(os.path.dirname(cache), exist_ok=True)
-    if os.path.exists(cache) and os.path.getsize(cache) > 500:
-        return cache
+def _logo_bg_brightness(image_path):
+    """Return average brightness (0-255) of the image region behind the top-right logo."""
     try:
         from PIL import Image as _PI
+        img = _PI.open(image_path).convert('RGB')
+        iw, ih = img.size
+        # Logo sits at top-right: x = W-1200000, y=160000, w=1100000, h=412000 (EMU)
+        px = max(0, int((W - 1200000) / W * iw))
+        py = max(0, int(160000 / H * ih))
+        pw = max(1, int(1100000 / W * iw))
+        ph = max(1, int(412000 / H * ih))
+        px = min(px, iw - pw)
+        py = min(py, ih - ph)
+        region = img.crop((px, py, px + pw, py + ph))
+        pixels = list(region.getdata())
+        return sum(0.299 * r + 0.587 * g + 0.114 * b for r, g, b in pixels) / max(len(pixels), 1)
+    except Exception:
+        return 255  # assume light → colored logo
+
+
+def _pick_logo_path(bg_hex=None, bg_image=None):
+    """Return logo path — white variant on dark bg, colored on light bg.
+    Both logos already have transparent backgrounds so no stripping needed."""
+    use_white = False
+    if bg_image and os.path.isfile(str(bg_image)):
+        try:
+            use_white = _logo_bg_brightness(bg_image) < 140
+        except Exception:
+            pass
+    elif bg_hex:
         h = bg_hex.lstrip('#')
         r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
-        logo = _PI.open(logo_path).convert('RGBA')
-        # Strip white/near-white pixels that are "background" in the logo PNG
-        data = logo.load()
-        lw, lh = logo.size
-        for ly in range(lh):
-            for lx in range(lw):
-                lr, lg, lb, la = data[lx, ly]
-                if lr > 230 and lg > 230 and lb > 230:
-                    data[lx, ly] = (lr, lg, lb, 0)
-        bg = _PI.new('RGB', logo.size, (r, g, b))
-        bg.paste(logo, mask=logo.split()[3])
-        bg.save(cache, 'PNG')
-        return cache
-    except Exception:
-        return logo_path
+        use_white = (0.299 * r + 0.587 * g + 0.114 * b) < 128
+    return get_logo_png(white=use_white)
 
 
 # ── Shared slide builders (used by both templates) ─────────────────────────────
 
-def _small_logo(logo_path, bg='#FFFFFF'):
-    """Top-right small logo composited onto the slide background colour."""
-    return I(_logo_on(logo_path, bg), W - 1500000, 160000, 1100000, 412000)
+_LOGO_X, _LOGO_Y, _LOGO_W, _LOGO_H = W - 1200000, 140000, 1100000, 412000
+
+
+def _small_logo(logo_path, bg='#FFFFFF', bg_image=None):
+    """Top-right logo — transparent, white or colored chosen by background brightness."""
+    path = _pick_logo_path(bg_hex=bg, bg_image=bg_image)
+    return I(path, _LOGO_X, _LOGO_Y, _LOGO_W, _LOGO_H)
 
 
 def _small_logo_transparent(logo_path):
     """Top-right logo over map/coloured background — white-stripped transparent PNG."""
-    return [I(_strip_white_bg(logo_path), W - 1500000, 160000, 1100000, 412000)]
+    return [I(_strip_white_bg(logo_path), _LOGO_X, _LOGO_Y, _LOGO_W, _LOGO_H)]
 
 
 def _comparison_table_slide(all_centres, header_fill, header_text_color, font, logo):
@@ -819,7 +831,6 @@ def _centre_slide(idx, centre, template, font, logo):
     sl.append(T(centre.get('name', 'Centre'),
                 M + 380000, 160000, 7600000, 420000,
                 18, DARK, font=font, bold=True))
-    sl.append(_small_logo(logo))
     sl.append(L(M, 680000, W - M, 680000, color=LGREY, width=1))
 
     # ── Left column ──────────────────────────────────────────────────────────────
@@ -930,6 +941,10 @@ def _centre_slide(idx, centre, template, font, logo):
     sl.append(_cell(1, rx + cw + GAP, ry))
     sl.append(_cell(2, rx,            ry + ch + GAP))
     sl.append(_cell(3, rx + cw + GAP, ry + ch + GAP))
+
+    # Logo last so it sits on top — pick white/colored based on top-right image brightness
+    top_right = images[1] if len(images) > 1 else (images[0] if images else None)
+    sl.append(_small_logo(logo, bg_image=top_right))
 
     return sl
 
@@ -1096,15 +1111,23 @@ def generate_proposal_map(centres, out_path):
         tw, th = bb[2] - bb[0], bb[3] - bb[1]
         draw.text((px - tw // 2, py - th // 2 - 2), num_text, fill='white', font=font_num)
 
-        # Label pill (2x padding, radius, outline)
-        label = p['name'][:22]
+        # Label pill — show full name, shift left if it would clip the right edge
+        label = p['name']
         lb = draw.textbbox((0, 0), label, font=font_label)
         lw, lh = lb[2] - lb[0], lb[3] - lb[1]
         pad = 20
         lx = px + r + 20
         ly = py - lh // 2 - pad
+        # Prefer right of pin; flip left if it clips; truncate with ellipsis if still too wide
         if lx + lw + pad * 2 > RW - 20:
             lx = px - r - lw - pad * 2 - 20
+        if lx < 10:
+            max_w = RW - (px + r + 20) - pad * 2 - 20
+            while lw > max_w and len(label) > 6:
+                label = label[:-2] + '…'
+                lb = draw.textbbox((0, 0), label, font=font_label)
+                lw, lh = lb[2] - lb[0], lb[3] - lb[1]
+            lx = px + r + 20
         draw.rounded_rectangle([lx, ly, lx + lw + pad * 2, ly + lh + pad * 2],
                                 radius=12, fill='white', outline='#d1d5db', width=4)
         draw.text((lx + pad, ly + pad), label, fill='#1E22AA', font=font_label)
@@ -1295,8 +1318,8 @@ def _about_location_slide(proposal, all_centres, font, logo, map_img_path=None):
                 stations.append(sn)
                 seen.add(sn)
 
-    # Logo — transparent, placed directly on the map (CartoDB light map makes blue logo visible)
-    sl.append(I(logo, W - 1500000, 160000, 1100000, 412000))
+    # Logo — pick white vs colored based on map image brightness at logo position
+    sl.append(_small_logo(logo, bg_image=_map_src))
 
     # Left: title
     sl.append(T(f'About {loc}', M, 200000, left_w - M, 480000,
@@ -1344,33 +1367,44 @@ def _about_location_slide(proposal, all_centres, font, logo, map_img_path=None):
                 sl.append(T(walk_label, station_x + 80000, sy + 170000,
                             left_w - M - 80000, 150000, 7.5, GREY, font=font))
 
-    # Shortlisted spaces
-    list_y = station_y + len(stations[:5]) * row_gap + 150000
-    if list_y < H - 1200000:
-        sl.append(T('SHORTLISTED SPACES', M, list_y, left_w - M, 250000,
-                    8, BLUE, font=font, bold=True))
-        row_y = list_y + 270000
+    # Shortlisted spaces — compact cards with subtle background
+    list_y = station_y + len(stations[:5]) * row_gap + 120000
+    card_w = left_w - M - 40000
+    card_h = 220000
+    card_gap = 16000
+    if list_y < H - 900000:
+        sl.append(T('SHORTLISTED SPACES', M, list_y, card_w, 210000,
+                    7.5, BLUE, font=font, bold=True))
+        row_y = list_y + 230000
         for ni, c in enumerate(all_centres):
-            if row_y > H - 350000:
+            if row_y + card_h > H - 80000:
                 break
             name = c.get('name', '—')
             transport_raw = c.get('transport', '') or ''
             walk_t = _extract_walk_time(transport_raw)
             station_n = _extract_station_name(transport_raw)
-            sl.append(T(f'{ni + 1}.  {name}',
-                        M + 80000, row_y,
-                        left_w - M - 1100000, 250000, 9, DARK, font=font))
+            # Card background
+            sl.append(R(M, row_y, card_w, card_h, '#F8F9FF'))
+            # Index number pill
+            sl.append(R(M, row_y, 160000, card_h, BLUE))
+            sl.append(T(str(ni + 1), M + 30000, row_y + 60000, 100000, 100000,
+                        8, WHITE, font=font, bold=True))
+            # Space name — truncate to fit
+            name_w = card_w - 200000 - 780000 - 20000
+            sl.append(T(name, M + 185000, row_y + 30000,
+                        name_w, 110000, 8, DARK, font=font, bold=True))
+            # Walk time under name
+            if walk_t:
+                sl.append(T(walk_t, M + 185000, row_y + 140000,
+                            name_w, 80000, 6.5, GREY, font=font))
+            # Tube badge right-aligned inside card
             badge = tube_badge_path(transport_raw)
             if badge:
-                sl.append(I(badge, left_w - 1000000, row_y - 10000, 700000, 210000))
+                sl.append(I(badge, M + card_w - 760000, row_y + 65000, 720000, 108000))
             elif station_n:
-                sl.append(T(station_n, left_w - 1100000, row_y,
-                            1050000, 250000, 7.5, GREY, font=font))
-            if walk_t:
-                sl.append(T(walk_t, M + 80000, row_y + 190000,
-                            left_w - M - 1100000, 160000, 7, GREY, font=font))
-                row_y += 80000
-            row_y += 275000
+                sl.append(T(station_n, M + card_w - 780000, row_y + 70000,
+                            740000, 120000, 6.5, GREY, font=font))
+            row_y += card_h + card_gap
 
     return sl
 
@@ -1509,7 +1543,7 @@ def build_london_slides(proposal, db_centres, manual_centres):
     cover_photo = COVER_IMG if os.path.isfile(COVER_IMG) else None
     sl.append(I(cover_photo, 5100000, 0, W - 5100000, H))
     # myHQ logo top-left composited on blush panel
-    sl.append(I(_logo_on(logo, BLUSH), M, 280000, 1700000, 637000))
+    sl.append(I(get_logo_png(white=False), M, 280000, 1700000, 637000))
     # Title
     client = proposal.get('client_company') or proposal.get('client_name') or 'Your Company'
     sl.append(T(f'Workspace Proposal\nfor {client}',
@@ -1575,7 +1609,7 @@ def build_india_slides(proposal, db_centres, manual_centres):
     sl.append(R(0, 0, 5100000, H, WHITE))
     cover_photo = COVER_IMG if os.path.isfile(COVER_IMG) else None
     sl.append(I(cover_photo, 5100000, 0, W - 5100000, H))
-    sl.append(I(_logo_on(logo, WHITE), M, 280000, 1700000, 637000))
+    sl.append(I(get_logo_png(white=False), M, 280000, 1700000, 637000))
     sl.append(T("The search for your\nperfect workspace\nends here",
                 M, 2100000, 4600000, 1800000,
                 30, BLUE, font=F, bold=True))
@@ -1648,8 +1682,8 @@ def _bold_centre_slide(idx, centre, font, logo):
     # AQUA vertical divider
     sl.append(R(panel_w - 24000, 0, 24000, H, AQUA))
 
-    # White logo — use directly (transparent bg, white pixels) over dark panel
-    sl.append(I(logo_w, W - 1500000, 160000, 1100000, 412000))
+    # Logo — dynamic: white on dark hero, colored on light hero
+    sl.append(_small_logo(logo_w, bg_image=hero))
 
     # ── Secondary image strip at bottom of photo ─────────────────────────────
     if len(images) > 1:
@@ -2040,6 +2074,24 @@ def render_pptx(slides, out_path):
                 x = Emu(cmd['x']); y = Emu(cmd['y'])
                 w = Emu(cmd['w']); h = Emu(cmd['h'])
                 path = cmd.get('path')
+                # Download remote URL to local cache if needed
+                if path and str(path).startswith('http'):
+                    import hashlib as _hlib, urllib.request as _ur2, ssl as _ssl2
+                    _cache_dir = os.path.join(BASE_DIR, 'uploads', '.img_cache')
+                    os.makedirs(_cache_dir, exist_ok=True)
+                    _ext = str(path).split('?')[0].rsplit('.', 1)[-1][:4] or 'jpg'
+                    _cache = os.path.join(_cache_dir, _hlib.md5(str(path).encode()).hexdigest() + '.' + _ext)
+                    if not os.path.isfile(_cache):
+                        try:
+                            _ctx2 = _ssl2._create_unverified_context()
+                            _req2 = _ur2.Request(str(path), headers={'User-Agent': 'myHQ/1.0'})
+                            with _ur2.urlopen(_req2, timeout=12, context=_ctx2) as _r2:
+                                with open(_cache, 'wb') as _cf:
+                                    _cf.write(_r2.read())
+                        except Exception:
+                            path = None
+                    if path:
+                        path = _cache
                 if path and os.path.isfile(str(path)):
                     try:
                         from PIL import Image as _PILImg
@@ -2184,6 +2236,24 @@ def render_pdf(slides, out_path):
 
             elif ct == 'img':
                 path = cmd.get('path')
+                # Download remote URL to local cache if needed
+                if path and str(path).startswith('http'):
+                    import hashlib as _hlib, urllib.request as _ur2, ssl as _ssl2
+                    _cache_dir = os.path.join(BASE_DIR, 'uploads', '.img_cache')
+                    os.makedirs(_cache_dir, exist_ok=True)
+                    _ext = str(path).split('?')[0].rsplit('.', 1)[-1][:4] or 'jpg'
+                    _cache = os.path.join(_cache_dir, _hlib.md5(str(path).encode()).hexdigest() + '.' + _ext)
+                    if not os.path.isfile(_cache):
+                        try:
+                            _ctx2 = _ssl2._create_unverified_context()
+                            _req2 = _ur2.Request(str(path), headers={'User-Agent': 'myHQ/1.0'})
+                            with _ur2.urlopen(_req2, timeout=12, context=_ctx2) as _r2:
+                                with open(_cache, 'wb') as _cf:
+                                    _cf.write(_r2.read())
+                        except Exception:
+                            path = None
+                    if path:
+                        path = _cache
                 if path and os.path.isfile(str(path)):
                     try:
                         from PIL import Image as _PILImg

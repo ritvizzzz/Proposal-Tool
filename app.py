@@ -689,7 +689,11 @@ def proposal_generate(pid):
                         'SELECT filename FROM centre_images WHERE centre_id=? ORDER BY is_primary DESC, sort_order LIMIT 4',
                         (cid,)).fetchall()
                     centre_data = dict(c)
-                    centre_data['images'] = [os.path.join(CENTRE_IMAGES, str(cid), r['filename']) for r in imgs]
+                    centre_data['images'] = [
+                        r['filename'] if r['filename'].startswith('http')
+                        else os.path.join(CENTRE_IMAGES, str(cid), r['filename'])
+                        for r in imgs
+                    ]
                     db_centres.append(centre_data)
 
     # Convert base64 images in manual centres to temp files
