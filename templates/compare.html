@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Workspace Comparison – myHQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: #F7F8FC;
+    color: #1A1A2E;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: #fff;
+    border-bottom: 1px solid #E8E9F3;
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+  }
+  .logo-text {
+    font-weight: 800;
+    font-size: 22px;
+    color: #1E22AA;
+    letter-spacing: -0.5px;
+  }
+  .header-divider {
+    width: 1px;
+    height: 28px;
+    background: #E8E9F3;
+  }
+  .header-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #4B4F6A;
+  }
+  .header-label {
+    margin-left: auto;
+    font-size: 13px;
+    color: #8B90B0;
+  }
+
+  /* ── Main ── */
+  .main {
+    flex: 1;
+    padding: 40px 32px;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .page-intro {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+  .page-intro h1 {
+    font-size: 28px;
+    font-weight: 800;
+    color: #1A1A2E;
+  }
+  .page-intro p {
+    margin-top: 8px;
+    font-size: 15px;
+    color: #6B7280;
+  }
+
+  /* ── Cards Grid ── */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 24px;
+  }
+
+  .space-card {
+    background: #fff;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(30,34,170,0.06);
+    transition: box-shadow 0.2s, transform 0.2s;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+  }
+  .space-card:hover {
+    box-shadow: 0 4px 20px rgba(30,34,170,0.12);
+    transform: translateY(-2px);
+  }
+
+  /* ── Photo carousel ── */
+  .photo-area {
+    position: relative;
+    height: 200px;
+    overflow: hidden;
+    background: #E8E9F3;
+  }
+  .photo-main {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .photo-thumbs {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+  }
+  .photo-thumb {
+    width: 44px;
+    height: 34px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 2px solid rgba(255,255,255,0.8);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .photo-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .photo-thumb.active {
+    border-color: #1E22AA;
+  }
+  .photo-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #E8E9F3 0%, #D0D3F0 100%);
+    color: #8B90B0;
+    font-size: 40px;
+  }
+
+  /* ── Card body ── */
+  .card-body {
+    padding: 20px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .card-brand {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #1E22AA;
+  }
+  .card-name {
+    font-size: 17px;
+    font-weight: 700;
+    color: #1A1A2E;
+    line-height: 1.3;
+  }
+  .card-address {
+    font-size: 13px;
+    color: #6B7280;
+    line-height: 1.5;
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+  }
+  .card-address svg { flex-shrink: 0; margin-top: 2px; }
+
+  .card-meta {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .meta-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #9CA3AF;
+  }
+  .meta-value {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1A1A2E;
+  }
+  .meta-value.price {
+    color: #1E22AA;
+  }
+
+  .amenities {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .amenity-pill {
+    font-size: 11px;
+    font-weight: 500;
+    background: #F0F1FA;
+    color: #4B4F6A;
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+
+  .card-actions {
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px solid #F3F4F6;
+    display: flex;
+    gap: 10px;
+  }
+  .btn-map {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1E22AA;
+    text-decoration: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    background: #F0F1FA;
+    transition: background 0.15s;
+  }
+  .btn-map:hover { background: #E0E3F5; }
+
+  /* ── Lightbox ── */
+  .lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+  .lightbox.open { display: flex; }
+  .lightbox img {
+    max-width: 90vw;
+    max-height: 85vh;
+    object-fit: contain;
+    border-radius: 8px;
+  }
+  .lightbox-close {
+    position: absolute;
+    top: 20px;
+    right: 24px;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 32px;
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    text-align: center;
+    padding: 24px 32px;
+    font-size: 13px;
+    color: #9CA3AF;
+    border-top: 1px solid #E8E9F3;
+    background: #fff;
+  }
+  .footer strong { color: #1E22AA; }
+
+  /* ── Responsive ── */
+  @media (max-width: 640px) {
+    .header { padding: 12px 16px; }
+    .main { padding: 24px 16px; }
+    .cards-grid { grid-template-columns: 1fr; }
+    .page-intro h1 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <a href="/" class="header-logo">
+    <span class="logo-text">myHQ</span>
+  </a>
+  <div class="header-divider"></div>
+  <span class="header-title">Workspace Comparison</span>
+  {% if link.label %}
+  <span class="header-label">{{ link.label }}</span>
+  {% endif %}
+</header>
+
+<main class="main">
+  <div class="page-intro">
+    <h1>Compare Workspaces</h1>
+    <p>{{ centres|length }} space{{ 's' if centres|length != 1 }} curated for you</p>
+  </div>
+
+  <div class="cards-grid">
+    {% for c in centres %}
+    <div class="space-card"
+         data-centre-id="{{ c.id }}"
+         data-centre-name="{{ c.name }}"
+         onclick="trackClick('{{ c.id }}', '{{ c.name|replace("'","\\'")|replace('"','\\"') }}')">
+
+      <!-- Photo area -->
+      <div class="photo-area" id="photo-area-{{ c.id }}">
+        {% if c.image_urls %}
+          <img class="photo-main" id="main-img-{{ c.id }}"
+               src="{{ c.image_urls[0] }}"
+               alt="{{ c.name }}"
+               onclick="openLightbox(this.src, event)">
+          {% if c.image_urls|length > 1 %}
+          <div class="photo-thumbs">
+            {% for img_url in c.image_urls %}
+            <div class="photo-thumb {% if loop.first %}active{% endif %}" id="thumb-{{ c.id }}-{{ loop.index0 }}"
+                 onclick="switchPhoto('{{ c.id }}', '{{ img_url }}', {{ loop.index0 }}, event)">
+              <img src="{{ img_url }}" alt="">
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        {% else %}
+          <div class="photo-placeholder">🏢</div>
+        {% endif %}
+      </div>
+
+      <!-- Card body -->
+      <div class="card-body">
+        {% if c.brand %}
+        <div class="card-brand">{{ c.brand }}</div>
+        {% endif %}
+        <div class="card-name">{{ c.name }}</div>
+
+        {% if c.address %}
+        <div class="card-address">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+          </svg>
+          <span>{{ c.address }}{% if c.transport %}<br><small style="color:#1E22AA">🚇 {{ c.transport }}</small>{% endif %}</span>
+        </div>
+        {% endif %}
+
+        <div class="card-meta">
+          {% if c.price_from %}
+          <div class="meta-item">
+            <span class="meta-label">Price / desk</span>
+            <span class="meta-value price">£{{ c.price_from }}<small style="font-weight:400;font-size:12px">/{{ c.price_unit or 'mo' }}</small></span>
+          </div>
+          {% endif %}
+          {% if c.space_type %}
+          <div class="meta-item">
+            <span class="meta-label">Type</span>
+            <span class="meta-value">{{ c.space_type|replace('_',' ')|title }}</span>
+          </div>
+          {% endif %}
+        </div>
+
+        {% if c.amenities_list %}
+        <div class="amenities">
+          {% for a in c.amenities_list[:6] %}
+          <span class="amenity-pill">{{ a|replace('_',' ')|title }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="card-actions">
+          {% if c.map_url %}
+          <a class="btn-map" href="{{ c.map_url }}" target="_blank" rel="noopener"
+             onclick="event.stopPropagation()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+            </svg>
+            View on map
+          </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</main>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+  <img id="lightbox-img" src="" alt="">
+</div>
+
+<footer class="footer">
+  Powered by <strong>myHQ by Anarock</strong>
+</footer>
+
+<script>
+const TOKEN = {{ token|tojson }};
+const pageStart = Date.now();
+
+// ── Track open ──
+function post(url, data) {
+  try {
+    navigator.sendBeacon
+      ? navigator.sendBeacon(url, JSON.stringify(data))
+      : fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data), keepalive:true });
+  } catch(e) {}
+}
+
+// ── Track click ──
+function trackClick(centreId, centreName) {
+  post('/track', { token: TOKEN, event_type: 'click', centre_id: centreId, centre_name: centreName });
+}
+
+// ── Track dwell on unload ──
+window.addEventListener('beforeunload', function() {
+  const secs = Math.round((Date.now() - pageStart) / 1000);
+  post('/track', { token: TOKEN, event_type: 'dwell', dwell_seconds: secs });
+});
+
+// ── Photo carousel ──
+function switchPhoto(centreId, url, idx, event) {
+  event.stopPropagation();
+  const mainImg = document.getElementById('main-img-' + centreId);
+  if (mainImg) mainImg.src = url;
+  // update active thumb
+  const area = document.getElementById('photo-area-' + centreId);
+  area.querySelectorAll('.photo-thumb').forEach((t, i) => {
+    t.classList.toggle('active', i === idx);
+  });
+}
+
+// ── Lightbox ──
+function openLightbox(src, event) {
+  event.stopPropagation();
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeLightbox();
+});
+</script>
+</body>
+</html>

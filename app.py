@@ -1,4 +1,4 @@
-import os, sqlite3, json, shutil, base64, io, re
+import os, sqlite3, json, shutil, base64, io, re, secrets, hashlib
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
 from werkzeug.utils import secure_filename
 from PIL import Image
@@ -76,6 +76,26 @@ def init_db():
             pptx_filename TEXT,
             pdf_filename TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS share_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            token TEXT UNIQUE NOT NULL,
+            label TEXT,
+            centre_ids TEXT NOT NULL,
+            centre_names TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_by TEXT DEFAULT 'myHQ'
+        );
+        CREATE TABLE IF NOT EXISTS link_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            token TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            centre_id TEXT,
+            centre_name TEXT,
+            dwell_seconds INTEGER,
+            ip_hash TEXT,
+            user_agent TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         ''')
     # migrate: add pdf_filename if missing
@@ -819,6 +839,158 @@ from generation import (
     render_pdf,
     get_logo_png,
 )
+
+
+# ── Routes: Share Links & Tracking ──────────────────────────────────────────
+
+BASE_URL = os.environ.get('BASE_URL', 'https://web-production-df90c.up.railway.app')
+
+@app.route('/api/share-link/create', methods=['POST'])
+def share_link_create():
+    data = request.json or {}
+    centre_ids = data.get('centre_ids', [])
+    label = data.get('label', '')
+    if not centre_ids:
+        return jsonify({'error': 'centre_ids required'}), 400
+    # Resolve names from DB if not provided
+    centre_names = data.get('centre_names', [])
+    if not centre_names:
+        with get_db() as conn:
+            for cid in centre_ids:
+                row = conn.execute(
+                    'SELECT name FROM centres WHERE id=? OR source=? LIMIT 1',
+                    (cid, cid)
+                ).fetchone()
+                centre_names.append(row['name'] if row else str(cid))
+    token = secrets.token_urlsafe(8)
+    with get_db() as conn:
+        conn.execute(
+            'INSERT INTO share_links (token, label, centre_ids, centre_names) VALUES (?,?,?,?)',
+            (token, label, json.dumps(centre_ids), json.dumps(centre_names))
+        )
+    return jsonify({'token': token, 'url': f'{BASE_URL}/compare/{token}'})
+
+
+@app.route('/compare/<token>')
+def compare_page(token):
+    with get_db() as conn:
+        link = conn.execute('SELECT * FROM share_links WHERE token=?', (token,)).fetchone()
+        if not link:
+            return 'Link not found', 404
+        link = dict(link)
+        centre_ids = json.loads(link['centre_ids'])
+        centres = []
+        for cid in centre_ids:
+            c = conn.execute('SELECT * FROM centres WHERE id=?', (cid,)).fetchone()
+            if c:
+                c = dict(c)
+                imgs = conn.execute(
+                    'SELECT id, filename FROM centre_images WHERE centre_id=? ORDER BY is_primary DESC, sort_order LIMIT 3',
+                    (cid,)
+                ).fetchall()
+                img_urls = []
+                for img in imgs:
+                    fn = img['filename']
+                    if fn.startswith('http'):
+                        img_urls.append(fn)
+                    else:
+                        img_urls.append(f'/centre-image/{cid}/{fn}')
+                c['image_urls'] = img_urls
+                try:
+                    c['amenities_list'] = json.loads(c.get('amenities') or '[]')
+                except Exception:
+                    c['amenities_list'] = []
+                centres.append(c)
+        # Log open event
+        ip = request.remote_addr or ''
+        ip_hash = hashlib.md5(ip.encode()).hexdigest()[:8]
+        ua = request.headers.get('User-Agent', '')
+        conn.execute(
+            'INSERT INTO link_events (token, event_type, ip_hash, user_agent) VALUES (?,?,?,?)',
+            (token, 'open', ip_hash, ua)
+        )
+    return render_template('compare.html', link=link, centres=centres, token=token)
+
+
+@app.route('/track', methods=['POST'])
+def track_event():
+    data = request.json or {}
+    token = data.get('token', '')
+    event_type = data.get('event_type', '')
+    if not token or not event_type:
+        return jsonify({'ok': False, 'error': 'token and event_type required'}), 400
+    ip = request.remote_addr or ''
+    ip_hash = hashlib.md5(ip.encode()).hexdigest()[:8]
+    ua = request.headers.get('User-Agent', '')
+    with get_db() as conn:
+        conn.execute(
+            '''INSERT INTO link_events (token, event_type, centre_id, centre_name, dwell_seconds, ip_hash, user_agent)
+               VALUES (?,?,?,?,?,?,?)''',
+            (token, event_type, data.get('centre_id'), data.get('centre_name'),
+             data.get('dwell_seconds'), ip_hash, ua)
+        )
+    return jsonify({'ok': True})
+
+
+@app.route('/dashboard')
+def dashboard():
+    with get_db() as conn:
+        links = conn.execute('SELECT * FROM share_links ORDER BY created_at DESC').fetchall()
+        links = [dict(l) for l in links]
+        for lnk in links:
+            token = lnk['token']
+            opens = conn.execute(
+                "SELECT COUNT(*) FROM link_events WHERE token=? AND event_type='open'",
+                (token,)
+            ).fetchone()[0]
+            clicks = conn.execute(
+                "SELECT COUNT(*) FROM link_events WHERE token=? AND event_type='click'",
+                (token,)
+            ).fetchone()[0]
+            top_row = conn.execute(
+                """SELECT centre_name, COUNT(*) as cnt FROM link_events
+                   WHERE token=? AND event_type='click' AND centre_name IS NOT NULL
+                   GROUP BY centre_name ORDER BY cnt DESC LIMIT 1""",
+                (token,)
+            ).fetchone()
+            lnk['opens'] = opens
+            lnk['clicks'] = clicks
+            lnk['top_space'] = top_row['centre_name'] if top_row else None
+            try:
+                lnk['centre_names_list'] = json.loads(lnk.get('centre_names') or '[]')
+            except Exception:
+                lnk['centre_names_list'] = []
+    return render_template('dashboard.html', links=links, base_url=BASE_URL)
+
+
+@app.route('/dashboard/<token>')
+def dashboard_detail(token):
+    with get_db() as conn:
+        link = conn.execute('SELECT * FROM share_links WHERE token=?', (token,)).fetchone()
+        if not link:
+            return 'Link not found', 404
+        link = dict(link)
+        events = conn.execute(
+            'SELECT * FROM link_events WHERE token=? ORDER BY created_at DESC',
+            (token,)
+        ).fetchall()
+        events = [dict(e) for e in events]
+        # Bar chart data: clicks per space
+        click_rows = conn.execute(
+            """SELECT centre_name, COUNT(*) as cnt FROM link_events
+               WHERE token=? AND event_type='click' AND centre_name IS NOT NULL
+               GROUP BY centre_name ORDER BY cnt DESC""",
+            (token,)
+        ).fetchall()
+        chart_labels = [r['centre_name'] for r in click_rows]
+        chart_data = [r['cnt'] for r in click_rows]
+        try:
+            link['centre_names_list'] = json.loads(link.get('centre_names') or '[]')
+        except Exception:
+            link['centre_names_list'] = []
+    return render_template('dashboard_detail.html', link=link, events=events,
+                           chart_labels=chart_labels, chart_data=chart_data,
+                           base_url=BASE_URL, token=token)
 
 
 if __name__ == '__main__':

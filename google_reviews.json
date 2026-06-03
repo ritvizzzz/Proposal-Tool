@@ -1,0 +1,3062 @@
+{
+  "5777": {
+    "hubble_id": "5777",
+    "name": "Fora - Covent Garden - Orion House",
+    "rating": 3.8,
+    "review_count": null
+  },
+  "12377": {
+    "hubble_id": "12377",
+    "name": "WorkLife - Borough",
+    "rating": 4.8,
+    "review_count": null
+  },
+  "1733": {
+    "hubble_id": "1733",
+    "name": "Fora - Albert House",
+    "rating": 4.2,
+    "review_count": 61
+  },
+  "8638": {
+    "hubble_id": "8638",
+    "name": "Runway East - London Bridge",
+    "rating": 4.6,
+    "review_count": 41
+  },
+  "9360": {
+    "hubble_id": "9360",
+    "name": "beyond Aldgate Tower",
+    "rating": 4.6,
+    "review_count": null
+  },
+  "12380": {
+    "hubble_id": "12380",
+    "name": "Landmark - Wogan House",
+    "rating": 4.7,
+    "review_count": 3
+  },
+  "6497": {
+    "hubble_id": "6497",
+    "name": "WeWork - 30 Churchill Place",
+    "rating": 4.3,
+    "review_count": 110
+  },
+  "5368": {
+    "hubble_id": "5368",
+    "name": "WeWork - Aviation House",
+    "rating": 4.1,
+    "review_count": 99
+  },
+  "11942": {
+    "hubble_id": "11942",
+    "name": "Canvas Offices - 88 Kingsway",
+    "rating": 5.0,
+    "review_count": 10
+  },
+  "11211": {
+    "hubble_id": "11211",
+    "name": "UNCOMMON - Holborn",
+    "rating": 4.6,
+    "review_count": 47
+  },
+  "1987": {
+    "hubble_id": "1987",
+    "name": "Podium Space - Longcroft House",
+    "rating": 4.2,
+    "review_count": 33
+  },
+  "14662": {
+    "hubble_id": "14662",
+    "name": "Yellow Ladybird",
+    "rating": null,
+    "review_count": null
+  },
+  "5037": {
+    "hubble_id": "5037",
+    "name": "Workspace - Leroy House",
+    "rating": 3.7,
+    "review_count": 57
+  },
+  "2729": {
+    "hubble_id": "2729",
+    "name": "Keyboards & Dreams - Farringdon",
+    "rating": 4.9,
+    "review_count": 65
+  },
+  "4677": {
+    "hubble_id": "4677",
+    "name": "Eastside",
+    "rating": null,
+    "review_count": null
+  },
+  "5709": {
+    "hubble_id": "5709",
+    "name": "WeWork - 5 Merchant Square",
+    "rating": 4.1,
+    "review_count": 126
+  },
+  "12651": {
+    "hubble_id": "12651",
+    "name": "Runway East - Soho - Wardour Street",
+    "rating": 5.0,
+    "review_count": 2
+  },
+  "16230": {
+    "hubble_id": "16230",
+    "name": "Runway East - Tottenham Court Road",
+    "rating": 5.0,
+    "review_count": 1
+  },
+  "5265": {
+    "hubble_id": "5265",
+    "name": "Canvas Offices - Luke Street",
+    "rating": 4.8,
+    "review_count": 23
+  },
+  "11987": {
+    "hubble_id": "11987",
+    "name": "Orega - 51 Lime Street",
+    "rating": 5.0,
+    "review_count": 8
+  },
+  "778": {
+    "hubble_id": "778",
+    "name": "The Brew: Eagle House -  City Road",
+    "rating": 4.5,
+    "review_count": 150
+  },
+  "6387": {
+    "hubble_id": "6387",
+    "name": "26 Britton Street",
+    "rating": null,
+    "review_count": null
+  },
+  "8048": {
+    "hubble_id": "8048",
+    "name": "The Workers' League - Blackheath",
+    "rating": 4.8,
+    "review_count": 56
+  },
+  "18807": {
+    "hubble_id": "18807",
+    "name": "Oneder - Kindling, White City Place",
+    "rating": 5.0,
+    "review_count": 14
+  },
+  "11935": {
+    "hubble_id": "11935",
+    "name": "Oneder - Shoreditch Exchange",
+    "rating": 4.7,
+    "review_count": 201
+  },
+  "12604": {
+    "hubble_id": "12604",
+    "name": "Qube Elephant",
+    "rating": 4.9,
+    "review_count": 107
+  },
+  "9976": {
+    "hubble_id": "9976",
+    "name": "One Avenue Group - Farringdon",
+    "rating": 3.7,
+    "review_count": 3
+  },
+  "3898": {
+    "hubble_id": "3898",
+    "name": "Workspace - Vox Studios",
+    "rating": 4.2,
+    "review_count": 114
+  },
+  "3954": {
+    "hubble_id": "3954",
+    "name": "Workspace - The Leather Market",
+    "rating": 4.3,
+    "review_count": 58
+  },
+  "5828": {
+    "hubble_id": "5828",
+    "name": "LABS - 90 High Holborn",
+    "rating": 3.9,
+    "review_count": 34
+  },
+  "9578": {
+    "hubble_id": "9578",
+    "name": "LABS - Dockray Place",
+    "rating": 4.4,
+    "review_count": 9
+  },
+  "14709": {
+    "hubble_id": "14709",
+    "name": "Vallist - Finlaison House",
+    "rating": 5.0,
+    "review_count": 11
+  },
+  "2519": {
+    "hubble_id": "2519",
+    "name": "WeWork - 3 Waterhouse Square",
+    "rating": 4.4,
+    "review_count": 320
+  },
+  "7941": {
+    "hubble_id": "7941",
+    "name": "The Department Store Studios",
+    "rating": 5.0,
+    "review_count": 16
+  },
+  "4818": {
+    "hubble_id": "4818",
+    "name": "Mindspace - Liverpool Street",
+    "rating": 4.6,
+    "review_count": 121
+  },
+  "6767": {
+    "hubble_id": "6767",
+    "name": "The Fisheries",
+    "rating": 4.9,
+    "review_count": 83
+  },
+  "266": {
+    "hubble_id": "266",
+    "name": "Fora - Liverpool Street Station",
+    "rating": 4.6,
+    "review_count": 30
+  },
+  "268": {
+    "hubble_id": "268",
+    "name": "Fora - Green Park House",
+    "rating": 4.5,
+    "review_count": 20
+  },
+  "293": {
+    "hubble_id": "293",
+    "name": "Fora - Greville Street",
+    "rating": 3.8,
+    "review_count": 13
+  },
+  "857": {
+    "hubble_id": "857",
+    "name": "Boutique Workplace - Tottenham Court Rd",
+    "rating": 4.9,
+    "review_count": 11
+  },
+  "931": {
+    "hubble_id": "931",
+    "name": "Fora - Marylebone - Melcombe Place",
+    "rating": 5.0,
+    "review_count": 6
+  },
+  "933": {
+    "hubble_id": "933",
+    "name": "Fora - Henry Wood House",
+    "rating": 4.2,
+    "review_count": 150
+  },
+  "3204": {
+    "hubble_id": "3204",
+    "name": "Matrix Studios",
+    "rating": 4.5,
+    "review_count": 48
+  },
+  "4329": {
+    "hubble_id": "4329",
+    "name": "Boutique Workplace - 5 Southampton Place",
+    "rating": 5.0,
+    "review_count": 3
+  },
+  "4416": {
+    "hubble_id": "4416",
+    "name": "Fora - Victoria Station - Belle House",
+    "rating": 4.7,
+    "review_count": 17
+  },
+  "4627": {
+    "hubble_id": "4627",
+    "name": "Fora - Wardour Street",
+    "rating": 4.6,
+    "review_count": 8
+  },
+  "4647": {
+    "hubble_id": "4647",
+    "name": "Penway Place",
+    "rating": 5.0,
+    "review_count": 39
+  },
+  "5455": {
+    "hubble_id": "5455",
+    "name": "Fora - Lyric Square - Hammersmith",
+    "rating": 4.5,
+    "review_count": 40
+  },
+  "5550": {
+    "hubble_id": "5550",
+    "name": "Fora - Soho - Broadwick Street",
+    "rating": 4.7,
+    "review_count": 58
+  },
+  "5664": {
+    "hubble_id": "5664",
+    "name": "Studio SE1",
+    "rating": 4.5,
+    "review_count": 992
+  },
+  "5933": {
+    "hubble_id": "5933",
+    "name": "Market",
+    "rating": 3.9,
+    "review_count": 53228
+  },
+  "6052": {
+    "hubble_id": "6052",
+    "name": "Fora - Fitzrovia - 42 Berners Street",
+    "rating": 5.0,
+    "review_count": 4
+  },
+  "6241": {
+    "hubble_id": "6241",
+    "name": "Adam House",
+    "rating": 3.9,
+    "review_count": 78
+  },
+  "6337": {
+    "hubble_id": "6337",
+    "name": "Boutique Workplace - The Connolly Works",
+    "rating": 5.0,
+    "review_count": 10
+  },
+  "7629": {
+    "hubble_id": "7629",
+    "name": "Boutique Workplace - Theobalds Road",
+    "rating": 4.8,
+    "review_count": 11
+  },
+  "7978": {
+    "hubble_id": "7978",
+    "name": "Boutique Workplace - The Smith, Kingston",
+    "rating": 4.6,
+    "review_count": 28
+  },
+  "8153": {
+    "hubble_id": "8153",
+    "name": "Fora - Brock House",
+    "rating": 4.5,
+    "review_count": 16
+  },
+  "8421": {
+    "hubble_id": "8421",
+    "name": "Missionworks - Hammersmith",
+    "rating": 4.9,
+    "review_count": 53
+  },
+  "8779": {
+    "hubble_id": "8779",
+    "name": "Boutique Workplace - 222 Bishopsgate",
+    "rating": 5.0,
+    "review_count": 7
+  },
+  "8914": {
+    "hubble_id": "8914",
+    "name": "Fora - 210 Euston Road",
+    "rating": 4.5,
+    "review_count": 17
+  },
+  "9405": {
+    "hubble_id": "9405",
+    "name": "Boutique Workplace - 73 Watling Street",
+    "rating": 4.9,
+    "review_count": 67
+  },
+  "9812": {
+    "hubble_id": "9812",
+    "name": "Boutique Workplace - Hoxton Square",
+    "rating": 4.9,
+    "review_count": 11
+  },
+  "10346": {
+    "hubble_id": "10346",
+    "name": "10 Ironmonger Lane",
+    "rating": null,
+    "review_count": null
+  },
+  "10719": {
+    "hubble_id": "10719",
+    "name": "Boutique Workplace - Holborn Town Hall",
+    "rating": 5.0,
+    "review_count": 11
+  },
+  "10802": {
+    "hubble_id": "10802",
+    "name": "Penway Squared",
+    "rating": null,
+    "review_count": null
+  },
+  "10948": {
+    "hubble_id": "10948",
+    "name": "Rivvia - Covent Garden",
+    "rating": 5.0,
+    "review_count": 13
+  },
+  "14692": {
+    "hubble_id": "14692",
+    "name": "Alma Offices - Shoreditch",
+    "rating": 5.0,
+    "review_count": 12
+  },
+  "1637": {
+    "hubble_id": "1637",
+    "name": "Smithfield - Farringdon",
+    "rating": 4.8,
+    "review_count": 30
+  },
+  "3888": {
+    "hubble_id": "3888",
+    "name": "Halkin - Paris Gardens - SE1",
+    "rating": 4.5,
+    "review_count": 35
+  },
+  "4399": {
+    "hubble_id": "4399",
+    "name": "WorkLife - Hammersmith",
+    "rating": 4.7,
+    "review_count": 66
+  },
+  "4824": {
+    "hubble_id": "4824",
+    "name": "Camden Gateway",
+    "rating": 4.9,
+    "review_count": 36
+  },
+  "5160": {
+    "hubble_id": "5160",
+    "name": "WorkLife - Fitzrovia",
+    "rating": 4.7,
+    "review_count": 51
+  },
+  "6162": {
+    "hubble_id": "6162",
+    "name": "WorkLife - Soho",
+    "rating": 4.9,
+    "review_count": 50
+  },
+  "10365": {
+    "hubble_id": "10365",
+    "name": "FigFlex - London - King William Street",
+    "rating": 5.0,
+    "review_count": 15
+  },
+  "11968": {
+    "hubble_id": "11968",
+    "name": "beyond The Bower",
+    "rating": 5.0,
+    "review_count": 16
+  },
+  "12277": {
+    "hubble_id": "12277",
+    "name": "118 Piccadilly",
+    "rating": null,
+    "review_count": null
+  },
+  "4307": {
+    "hubble_id": "4307",
+    "name": "Second Home - Holland Park",
+    "rating": 4.5,
+    "review_count": 91
+  },
+  "5712": {
+    "hubble_id": "5712",
+    "name": "HubHub Farringdon",
+    "rating": 4.5,
+    "review_count": 25
+  },
+  "6630": {
+    "hubble_id": "6630",
+    "name": "Beaumont - Farringdon",
+    "rating": 3.8,
+    "review_count": 11
+  },
+  "7238": {
+    "hubble_id": "7238",
+    "name": "Beaumont - Chancery",
+    "rating": 3.8,
+    "review_count": 4
+  },
+  "11423": {
+    "hubble_id": "11423",
+    "name": "The Trampery Tottenham",
+    "rating": 4.7,
+    "review_count": 75
+  },
+  "11812": {
+    "hubble_id": "11812",
+    "name": "The Trampery Fish Island Village",
+    "rating": 2.7,
+    "review_count": 96
+  },
+  "14249": {
+    "hubble_id": "14249",
+    "name": "RE-DEFINED - 1EdCity",
+    "rating": null,
+    "review_count": null
+  },
+  "14626": {
+    "hubble_id": "14626",
+    "name": "Runway East - Covent Garden",
+    "rating": 5.0,
+    "review_count": 7
+  },
+  "19777": {
+    "hubble_id": "19777",
+    "name": "27 Swinton Street",
+    "rating": null,
+    "review_count": null
+  },
+  "19784": {
+    "hubble_id": "19784",
+    "name": "Christopher Street",
+    "rating": 4.0,
+    "review_count": 88
+  },
+  "19786": {
+    "hubble_id": "19786",
+    "name": "Holmes Road",
+    "rating": null,
+    "review_count": null
+  },
+  "4479": {
+    "hubble_id": "4479",
+    "name": "Fora - Tintagel House",
+    "rating": 4.2,
+    "review_count": 100
+  },
+  "5912": {
+    "hubble_id": "5912",
+    "name": "The Green House  - Bethnal Green",
+    "rating": 4.5,
+    "review_count": 36
+  },
+  "6616": {
+    "hubble_id": "6616",
+    "name": "LRP - Westlink House - Brentford",
+    "rating": 4.0,
+    "review_count": 83
+  },
+  "8416": {
+    "hubble_id": "8416",
+    "name": "Queen Mary University Enterprise Zone",
+    "rating": 5.0,
+    "review_count": 10
+  },
+  "12384": {
+    "hubble_id": "12384",
+    "name": "Boutique Workplace - 32 Threadneedle St.",
+    "rating": 4.9,
+    "review_count": 11
+  },
+  "1008": {
+    "hubble_id": "1008",
+    "name": "Orega - High Holborn",
+    "rating": 4.8,
+    "review_count": 91
+  },
+  "4674": {
+    "hubble_id": "4674",
+    "name": "Orega - Gracechurch Street",
+    "rating": 4.8,
+    "review_count": 86
+  },
+  "6037": {
+    "hubble_id": "6037",
+    "name": "66-67 Newman Street - Fitzrovia",
+    "rating": 4.6,
+    "review_count": 119
+  },
+  "6797": {
+    "hubble_id": "6797",
+    "name": "Orega - Uxbridge",
+    "rating": 5.0,
+    "review_count": 46
+  },
+  "6798": {
+    "hubble_id": "6798",
+    "name": "Orega - Stockley Park",
+    "rating": 4.7,
+    "review_count": 44
+  },
+  "7009": {
+    "hubble_id": "7009",
+    "name": "Orega - Old Bailey",
+    "rating": 5.0,
+    "review_count": 40
+  },
+  "8576": {
+    "hubble_id": "8576",
+    "name": "Qube West",
+    "rating": 4.9,
+    "review_count": 123
+  },
+  "8652": {
+    "hubble_id": "8652",
+    "name": "Number 10, Coldbath Square",
+    "rating": null,
+    "review_count": null
+  },
+  "10637": {
+    "hubble_id": "10637",
+    "name": "Gainsborough Studios",
+    "rating": 5.0,
+    "review_count": 1
+  },
+  "11145": {
+    "hubble_id": "11145",
+    "name": "Orega - 70 Mark Lane",
+    "rating": 5.0,
+    "review_count": 9
+  },
+  "11994": {
+    "hubble_id": "11994",
+    "name": "Elders Voice",
+    "rating": 4.5,
+    "review_count": 23
+  },
+  "18791": {
+    "hubble_id": "18791",
+    "name": "Qube Shoreditch",
+    "rating": 4.8,
+    "review_count": 132
+  },
+  "1061": {
+    "hubble_id": "1061",
+    "name": "Impact Brixton",
+    "rating": 4.9,
+    "review_count": 240
+  },
+  "1064": {
+    "hubble_id": "1064",
+    "name": "The WorkWell @EC1",
+    "rating": 4.4,
+    "review_count": 17
+  },
+  "1241": {
+    "hubble_id": "1241",
+    "name": "Future Spaces - Cole Street",
+    "rating": 4.7,
+    "review_count": 46
+  },
+  "1571": {
+    "hubble_id": "1571",
+    "name": "Studio Shoreditch",
+    "rating": 5.0,
+    "review_count": 8
+  },
+  "2549": {
+    "hubble_id": "2549",
+    "name": "DIG Space - Charterhouse Street",
+    "rating": 4.7,
+    "review_count": 3
+  },
+  "4058": {
+    "hubble_id": "4058",
+    "name": "Spare Street Works",
+    "rating": 5.0,
+    "review_count": 8
+  },
+  "4187": {
+    "hubble_id": "4187",
+    "name": "Kings Place",
+    "rating": 3.7,
+    "review_count": 3
+  },
+  "4260": {
+    "hubble_id": "4260",
+    "name": "Bloc Riverbank",
+    "rating": 3.0,
+    "review_count": 4
+  },
+  "5317": {
+    "hubble_id": "5317",
+    "name": "Regus - Chiswick Park",
+    "rating": 4.2,
+    "review_count": 40
+  },
+  "5337": {
+    "hubble_id": "5337",
+    "name": "Regus - Fleet Street",
+    "rating": 4.2,
+    "review_count": 139
+  },
+  "5374": {
+    "hubble_id": "5374",
+    "name": "Regus - Tottenham Court Road",
+    "rating": 3.9,
+    "review_count": 41
+  },
+  "5591": {
+    "hubble_id": "5591",
+    "name": "Icon Offices - Chadwell Heath / Romford",
+    "rating": 4.4,
+    "review_count": 382
+  },
+  "5604": {
+    "hubble_id": "5604",
+    "name": "Our Space - Hyde Park, Knightsbridge",
+    "rating": 4.2,
+    "review_count": 5
+  },
+  "5668": {
+    "hubble_id": "5668",
+    "name": "Frameworks - Westminster - Horseferry Rd",
+    "rating": 5.0,
+    "review_count": 4
+  },
+  "5786": {
+    "hubble_id": "5786",
+    "name": "2 Allen Street",
+    "rating": 5.0,
+    "review_count": 2
+  },
+  "5855": {
+    "hubble_id": "5855",
+    "name": "City Business Centre - Quinton Court",
+    "rating": 4.0,
+    "review_count": 5
+  },
+  "5918": {
+    "hubble_id": "5918",
+    "name": "Huddle Hammersmith",
+    "rating": 4.8,
+    "review_count": 94
+  },
+  "6306": {
+    "hubble_id": "6306",
+    "name": "Divisible Space - 27 Furnival Street",
+    "rating": 5.0,
+    "review_count": 4
+  },
+  "6356": {
+    "hubble_id": "6356",
+    "name": "Spaces - Ealing Aurora",
+    "rating": 4.0,
+    "review_count": 57
+  },
+  "6849": {
+    "hubble_id": "6849",
+    "name": "Newman Flexible Workspace",
+    "rating": 4.9,
+    "review_count": 45
+  },
+  "7055": {
+    "hubble_id": "7055",
+    "name": "Purpose - The Archives",
+    "rating": 3.5,
+    "review_count": 63
+  },
+  "7167": {
+    "hubble_id": "7167",
+    "name": "Devonshire House Flexible Workspace",
+    "rating": 4.8,
+    "review_count": 31
+  },
+  "7204": {
+    "hubble_id": "7204",
+    "name": "Oru Space - East Dulwich",
+    "rating": 4.4,
+    "review_count": 213
+  },
+  "7736": {
+    "hubble_id": "7736",
+    "name": "Steady Business Network - High Street",
+    "rating": 4.7,
+    "review_count": 39
+  },
+  "7737": {
+    "hubble_id": "7737",
+    "name": "Steady Business Network - West Ham Lane",
+    "rating": 4.7,
+    "review_count": 3
+  },
+  "8393": {
+    "hubble_id": "8393",
+    "name": "Maker Works London",
+    "rating": 4.8,
+    "review_count": 92
+  },
+  "8872": {
+    "hubble_id": "8872",
+    "name": "Iconic Workspace - Space 14",
+    "rating": 5.0,
+    "review_count": 1
+  },
+  "8976": {
+    "hubble_id": "8976",
+    "name": "Brixton/Herne Hill Work Space",
+    "rating": 5.0,
+    "review_count": 22
+  },
+  "9137": {
+    "hubble_id": "9137",
+    "name": "Old Street Works",
+    "rating": 4.6,
+    "review_count": 7
+  },
+  "9153": {
+    "hubble_id": "9153",
+    "name": "Sallmanns - Oxford Circus",
+    "rating": 4.3,
+    "review_count": 1762
+  },
+  "9480": {
+    "hubble_id": "9480",
+    "name": "Spaces - Finsbury Park",
+    "rating": 4.8,
+    "review_count": 84
+  },
+  "9543": {
+    "hubble_id": "9543",
+    "name": "Exclusive Offices - Greenford",
+    "rating": 5.0,
+    "review_count": 8
+  },
+  "10047": {
+    "hubble_id": "10047",
+    "name": "Purpose - Development House",
+    "rating": 5.0,
+    "review_count": 4
+  },
+  "10113": {
+    "hubble_id": "10113",
+    "name": "The Trampery Old Street",
+    "rating": 4.4,
+    "review_count": 182
+  },
+  "10327": {
+    "hubble_id": "10327",
+    "name": "Our Space - 189 Brompton Road",
+    "rating": 5.0,
+    "review_count": 4
+  },
+  "10729": {
+    "hubble_id": "10729",
+    "name": "Millennium Business Centre",
+    "rating": 4.8,
+    "review_count": 206
+  },
+  "10746": {
+    "hubble_id": "10746",
+    "name": "Davenport House",
+    "rating": 4.9,
+    "review_count": 451
+  },
+  "10747": {
+    "hubble_id": "10747",
+    "name": "Millharbour Court",
+    "rating": null,
+    "review_count": null
+  },
+  "10803": {
+    "hubble_id": "10803",
+    "name": "Churchill House - Mill Hill",
+    "rating": 4.3,
+    "review_count": 26
+  },
+  "11051": {
+    "hubble_id": "11051",
+    "name": "Divisible Space - One Sugar House Lane",
+    "rating": 5.0,
+    "review_count": 11
+  },
+  "11266": {
+    "hubble_id": "11266",
+    "name": "The Croosh Hub on Northcote Road",
+    "rating": 4.9,
+    "review_count": 13
+  },
+  "11379": {
+    "hubble_id": "11379",
+    "name": "ARC Club - Earlsfield",
+    "rating": 5.0,
+    "review_count": 41
+  },
+  "11482": {
+    "hubble_id": "11482",
+    "name": "Mindspace - Churchill House",
+    "rating": 4.7,
+    "review_count": 22
+  },
+  "11537": {
+    "hubble_id": "11537",
+    "name": "The Trampery on the Gantry",
+    "rating": 5.0,
+    "review_count": 4
+  },
+  "11571": {
+    "hubble_id": "11571",
+    "name": "SSV Suites - 708A High Road",
+    "rating": 4.9,
+    "review_count": 15
+  },
+  "11771": {
+    "hubble_id": "11771",
+    "name": "The Trampery Poplar Works",
+    "rating": 5.0,
+    "review_count": 9
+  },
+  "12361": {
+    "hubble_id": "12361",
+    "name": "HubHub Worship Square",
+    "rating": null,
+    "review_count": null
+  },
+  "12895": {
+    "hubble_id": "12895",
+    "name": "Oneder - Laundry Studios, London Fields",
+    "rating": 5.0,
+    "review_count": 29
+  },
+  "12907": {
+    "hubble_id": "12907",
+    "name": "Grandine",
+    "rating": null,
+    "review_count": null
+  },
+  "12941": {
+    "hubble_id": "12941",
+    "name": "Apex Coworking - West Hampstead",
+    "rating": 4.9,
+    "review_count": 45
+  },
+  "13049": {
+    "hubble_id": "13049",
+    "name": "9 Coldbath Square",
+    "rating": null,
+    "review_count": null
+  },
+  "13199": {
+    "hubble_id": "13199",
+    "name": "Hub 56 - Southwark (Waterloo)",
+    "rating": null,
+    "review_count": null
+  },
+  "13772": {
+    "hubble_id": "13772",
+    "name": "Parkhaus",
+    "rating": 1.5,
+    "review_count": 8
+  },
+  "13897": {
+    "hubble_id": "13897",
+    "name": "Airport House Business Centre",
+    "rating": 4.4,
+    "review_count": 160
+  },
+  "13924": {
+    "hubble_id": "13924",
+    "name": "Monohaus",
+    "rating": 5.0,
+    "review_count": 2
+  },
+  "14349": {
+    "hubble_id": "14349",
+    "name": "The Trampery - Peckham Levels",
+    "rating": 4.4,
+    "review_count": 1469
+  },
+  "14433": {
+    "hubble_id": "14433",
+    "name": "Arcadia Games HQ",
+    "rating": 5.0,
+    "review_count": 84
+  },
+  "14693": {
+    "hubble_id": "14693",
+    "name": "Alma Offices - Dalston Lane",
+    "rating": 5.0,
+    "review_count": 1
+  },
+  "14749": {
+    "hubble_id": "14749",
+    "name": "City View House",
+    "rating": 3.7,
+    "review_count": 7
+  },
+  "14761": {
+    "hubble_id": "14761",
+    "name": "Juntos - 52 Bedford Row",
+    "rating": 5.0,
+    "review_count": 17
+  },
+  "14949": {
+    "hubble_id": "14949",
+    "name": "Big Chill",
+    "rating": 4.1,
+    "review_count": 2739
+  },
+  "18628": {
+    "hubble_id": "18628",
+    "name": "Purpose - Alpha House",
+    "rating": 5.0,
+    "review_count": 4
+  },
+  "18633": {
+    "hubble_id": "18633",
+    "name": "Nile Business Centre",
+    "rating": 4.5,
+    "review_count": 23
+  },
+  "19529": {
+    "hubble_id": "19529",
+    "name": "New Concordia Wharf",
+    "rating": 4.8,
+    "review_count": 14
+  },
+  "19624": {
+    "hubble_id": "19624",
+    "name": "WorkzHouse",
+    "rating": 3.7,
+    "review_count": 18
+  },
+  "1": {
+    "hubble_id": "1",
+    "name": "Fora - Stratford Place",
+    "rating": 4.1,
+    "review_count": 10
+  },
+  "8": {
+    "hubble_id": "8",
+    "name": "Fora - Black & White",
+    "rating": 4.6,
+    "review_count": 32
+  },
+  "10": {
+    "hubble_id": "10",
+    "name": "Fora - Warnford Court",
+    "rating": 4.2,
+    "review_count": 49
+  },
+  "242": {
+    "hubble_id": "242",
+    "name": "WorkPad: 34 Tavistock Street",
+    "rating": 3.0,
+    "review_count": 2
+  },
+  "269": {
+    "hubble_id": "269",
+    "name": "Fora - Gridiron Building",
+    "rating": 4.4,
+    "review_count": 50
+  },
+  "270": {
+    "hubble_id": "270",
+    "name": "Fora - Kirby Street",
+    "rating": 4.5,
+    "review_count": 19
+  },
+  "291": {
+    "hubble_id": "291",
+    "name": "Fora - Lloyds Avenue",
+    "rating": 4.5,
+    "review_count": 12
+  },
+  "863": {
+    "hubble_id": "863",
+    "name": "Boutique Workplace - Covent Garden",
+    "rating": 4.8,
+    "review_count": 12
+  },
+  "867": {
+    "hubble_id": "867",
+    "name": "Boutique Workplace - 36 Soho Square",
+    "rating": 4.9,
+    "review_count": 22
+  },
+  "868": {
+    "hubble_id": "868",
+    "name": "Boutique Workplace - Victoria",
+    "rating": 5.0,
+    "review_count": 6
+  },
+  "930": {
+    "hubble_id": "930",
+    "name": "Fora - Paddington 19 Eastbourne Terrace",
+    "rating": 4.2,
+    "review_count": 25
+  },
+  "934": {
+    "hubble_id": "934",
+    "name": "Fora - East Side",
+    "rating": 4.2,
+    "review_count": 34
+  },
+  "936": {
+    "hubble_id": "936",
+    "name": "Fora - 201 Borough High Street",
+    "rating": 4.2,
+    "review_count": 51
+  },
+  "996": {
+    "hubble_id": "996",
+    "name": "Fora - Stephen Street",
+    "rating": 4.5,
+    "review_count": 31
+  },
+  "1040": {
+    "hubble_id": "1040",
+    "name": "Bespoke Spaces - Hornsey Road",
+    "rating": 4.9,
+    "review_count": 47
+  },
+  "1132": {
+    "hubble_id": "1132",
+    "name": "Fora - The Shard",
+    "rating": 4.1,
+    "review_count": 11
+  },
+  "1157": {
+    "hubble_id": "1157",
+    "name": "Niddry Lodge",
+    "rating": 4.6,
+    "review_count": 27
+  },
+  "1437": {
+    "hubble_id": "1437",
+    "name": "Podium Space - Poland Street",
+    "rating": 4.4,
+    "review_count": 10
+  },
+  "1632": {
+    "hubble_id": "1632",
+    "name": "Podium Space - Bedford Square",
+    "rating": 4.5,
+    "review_count": 2
+  },
+  "1732": {
+    "hubble_id": "1732",
+    "name": "Fora - The Smiths Building",
+    "rating": 4.6,
+    "review_count": 27
+  },
+  "1735": {
+    "hubble_id": "1735",
+    "name": "Fora - The Stanley Building",
+    "rating": 4.4,
+    "review_count": 64
+  },
+  "1807": {
+    "hubble_id": "1807",
+    "name": "Podium Space - 56/58 Broadwick Street",
+    "rating": 5.0,
+    "review_count": 2
+  },
+  "2007": {
+    "hubble_id": "2007",
+    "name": "WorkPad: 116 Baker Street",
+    "rating": 3.7,
+    "review_count": 54
+  },
+  "2008": {
+    "hubble_id": "2008",
+    "name": "WorkPad: 6 Dorset Street",
+    "rating": 4.3,
+    "review_count": 3
+  },
+  "2379": {
+    "hubble_id": "2379",
+    "name": "Boutique Workplace - Tagwright House",
+    "rating": 5.0,
+    "review_count": 2
+  },
+  "2472": {
+    "hubble_id": "2472",
+    "name": "Eat Work Art - Hackney Downs Studios",
+    "rating": 4.5,
+    "review_count": 320
+  },
+  "2579": {
+    "hubble_id": "2579",
+    "name": "Podium Space - Russell Square",
+    "rating": 4.7,
+    "review_count": 3
+  },
+  "3256": {
+    "hubble_id": "3256",
+    "name": "Boutique Workplace - Mayfair",
+    "rating": 5.0,
+    "review_count": 4
+  },
+  "3816": {
+    "hubble_id": "3816",
+    "name": "UNCOMMON - Borough",
+    "rating": 4.8,
+    "review_count": 122
+  },
+  "3961": {
+    "hubble_id": "3961",
+    "name": "Workspace - Pall Mall Deposit",
+    "rating": 4.0,
+    "review_count": 40
+  },
+  "4027": {
+    "hubble_id": "4027",
+    "name": "Podium Space - Ealing Cross",
+    "rating": 4.7,
+    "review_count": 35
+  },
+  "4035": {
+    "hubble_id": "4035",
+    "name": "Fora - Paddington 20 Eastbourne Terrace",
+    "rating": 4.3,
+    "review_count": 21
+  },
+  "4038": {
+    "hubble_id": "4038",
+    "name": "Fora - Bloomsbury Building",
+    "rating": 4.3,
+    "review_count": 86
+  },
+  "4039": {
+    "hubble_id": "4039",
+    "name": "Fora - Whitechapel",
+    "rating": 4.1,
+    "review_count": 32
+  },
+  "4048": {
+    "hubble_id": "4048",
+    "name": "WorkPad: 42 Tavistock Street",
+    "rating": 5.0,
+    "review_count": 1
+  },
+  "4049": {
+    "hubble_id": "4049",
+    "name": "Boutique Workplace - Clerkenwell Road",
+    "rating": 3.8,
+    "review_count": 8
+  },
+  "4328": {
+    "hubble_id": "4328",
+    "name": "Fora - White Collar Factory",
+    "rating": 4.6,
+    "review_count": 40
+  },
+  "4330": {
+    "hubble_id": "4330",
+    "name": "Boutique Workplace - 23 Southampton",
+    "rating": 5.0,
+    "review_count": 3
+  },
+  "4332": {
+    "hubble_id": "4332",
+    "name": "Boutique Workplace - Shoreditch",
+    "rating": 5.0,
+    "review_count": 11
+  },
+  "4388": {
+    "hubble_id": "4388",
+    "name": "Boutique Workplace - Notcutt House",
+    "rating": 4.5,
+    "review_count": 17
+  },
+  "4417": {
+    "hubble_id": "4417",
+    "name": "Fora -Thomas House - Eccleston Square",
+    "rating": 4.5,
+    "review_count": 63
+  },
+  "4440": {
+    "hubble_id": "4440",
+    "name": "Fora - Wimpole Street",
+    "rating": 4.1,
+    "review_count": 61
+  },
+  "4460": {
+    "hubble_id": "4460",
+    "name": "One Avenue Group - Dawson House",
+    "rating": 4.6,
+    "review_count": 10
+  },
+  "4463": {
+    "hubble_id": "4463",
+    "name": "One Avenue Group - Birchin Court",
+    "rating": 4.4,
+    "review_count": 51
+  },
+  "4489": {
+    "hubble_id": "4489",
+    "name": "Podium Space - Carlisle Street",
+    "rating": 5.0,
+    "review_count": 3
+  },
+  "4499": {
+    "hubble_id": "4499",
+    "name": "Fora - Clerkenwell - Dallington Street",
+    "rating": 4.5,
+    "review_count": 49
+  },
+  "4512": {
+    "hubble_id": "4512",
+    "name": "Eat Work Art - Netil House",
+    "rating": 5.0,
+    "review_count": 9
+  },
+  "4618": {
+    "hubble_id": "4618",
+    "name": "WorkPad: 5 Margaret Street",
+    "rating": 3.0,
+    "review_count": 2
+  },
+  "4654": {
+    "hubble_id": "4654",
+    "name": "Fora - 180 Borough High Street",
+    "rating": 4.5,
+    "review_count": 97
+  },
+  "4749": {
+    "hubble_id": "4749",
+    "name": "Vitaxo - 192-196 Campden Hill Road",
+    "rating": 4.9,
+    "review_count": 218
+  },
+  "4877": {
+    "hubble_id": "4877",
+    "name": "Boutique Workplace - Green Street",
+    "rating": 4.5,
+    "review_count": 17
+  },
+  "5025": {
+    "hubble_id": "5025",
+    "name": "Podium Space - 9 Percy Street",
+    "rating": 5.0,
+    "review_count": 3
+  },
+  "5056": {
+    "hubble_id": "5056",
+    "name": "South Park Studios",
+    "rating": 3.7,
+    "review_count": 14
+  },
+  "5131": {
+    "hubble_id": "5131",
+    "name": "WorkPad: 12 David Mews",
+    "rating": 5.0,
+    "review_count": 4
+  },
+  "5266": {
+    "hubble_id": "5266",
+    "name": "Boutique Workplace - Carter Lane",
+    "rating": 4.9,
+    "review_count": 67
+  },
+  "5400": {
+    "hubble_id": "5400",
+    "name": "Fora - Spitalfields - Folgate Street",
+    "rating": 4.3,
+    "review_count": 88
+  },
+  "5435": {
+    "hubble_id": "5435",
+    "name": "Fora - Fitzrovia - Eastcastle Street",
+    "rating": 4.6,
+    "review_count": 28
+  },
+  "5476": {
+    "hubble_id": "5476",
+    "name": "Regus - Euston - Woburn Place",
+    "rating": 4.2,
+    "review_count": 64
+  },
+  "5480": {
+    "hubble_id": "5480",
+    "name": "WorkPad: 34 Tavistock Street",
+    "rating": 3.0,
+    "review_count": 2
+  },
+  "5571": {
+    "hubble_id": "5571",
+    "name": "Boutique Workplace - 128 Wigmore Street",
+    "rating": 4.3,
+    "review_count": 6
+  },
+  "5675": {
+    "hubble_id": "5675",
+    "name": "Fora - Waterloo - Scott House",
+    "rating": 4.7,
+    "review_count": 13
+  },
+  "5723": {
+    "hubble_id": "5723",
+    "name": "One Avenue Group - Southwark Street",
+    "rating": 4.8,
+    "review_count": 6
+  },
+  "5761": {
+    "hubble_id": "5761",
+    "name": "Huckletree - Soho",
+    "rating": 4.2,
+    "review_count": 43
+  },
+  "5994": {
+    "hubble_id": "5994",
+    "name": "Fora - Holborn - Summit House",
+    "rating": 4.8,
+    "review_count": 10
+  },
+  "6053": {
+    "hubble_id": "6053",
+    "name": "Fora - Brick Lane - Princelet Street",
+    "rating": 4.7,
+    "review_count": 27
+  },
+  "6054": {
+    "hubble_id": "6054",
+    "name": "Fora - 241 Southwark Bridge Road",
+    "rating": 4.6,
+    "review_count": 19
+  },
+  "6106": {
+    "hubble_id": "6106",
+    "name": "Rivvia - Kings Cross",
+    "rating": 4.3,
+    "review_count": 18
+  },
+  "6160": {
+    "hubble_id": "6160",
+    "name": "Fora - York House",
+    "rating": 4.1,
+    "review_count": 22
+  },
+  "6239": {
+    "hubble_id": "6239",
+    "name": "Fora - Shoreditch - Great Eastern Street",
+    "rating": 4.8,
+    "review_count": 39
+  },
+  "6355": {
+    "hubble_id": "6355",
+    "name": "Fora - Canary Wharf - One Canada Square",
+    "rating": 4.0,
+    "review_count": 24
+  },
+  "6733": {
+    "hubble_id": "6733",
+    "name": "Boutique Workplace - Ealing",
+    "rating": 4.4,
+    "review_count": 19
+  },
+  "6814": {
+    "hubble_id": "6814",
+    "name": "Signature - 100 Bishopsgate",
+    "rating": 4.3,
+    "review_count": 23
+  },
+  "6892": {
+    "hubble_id": "6892",
+    "name": "Kitt - Flat Iron Building",
+    "rating": 4.8,
+    "review_count": 4
+  },
+  "6902": {
+    "hubble_id": "6902",
+    "name": "Spaces - Angel Islington",
+    "rating": 3.9,
+    "review_count": 43
+  },
+  "7090": {
+    "hubble_id": "7090",
+    "name": "Regus - Piccadilly - Warwick Street",
+    "rating": 3.2,
+    "review_count": null
+  },
+  "7091": {
+    "hubble_id": "7091",
+    "name": "Signature - Berkeley Square",
+    "rating": 3.8,
+    "review_count": 72
+  },
+  "7163": {
+    "hubble_id": "7163",
+    "name": "Kitt - Albion Mills",
+    "rating": 5.0,
+    "review_count": 7
+  },
+  "7171": {
+    "hubble_id": "7171",
+    "name": "Hurlingham Studios",
+    "rating": 4.0,
+    "review_count": 32
+  },
+  "7287": {
+    "hubble_id": "7287",
+    "name": "Podium Space - Chandos Street",
+    "rating": 3.5,
+    "review_count": 2
+  },
+  "7380": {
+    "hubble_id": "7380",
+    "name": "WorkPad: 3 Bloomsbury Place",
+    "rating": 5.0,
+    "review_count": 10
+  },
+  "7528": {
+    "hubble_id": "7528",
+    "name": "160 Brick Lane",
+    "rating": null,
+    "review_count": null
+  },
+  "7683": {
+    "hubble_id": "7683",
+    "name": "Workthere - 23 Curtain Road",
+    "rating": 4.8,
+    "review_count": 25
+  },
+  "7719": {
+    "hubble_id": "7719",
+    "name": "The Langham Estate - Portland House",
+    "rating": 4.4,
+    "review_count": 54
+  },
+  "7721": {
+    "hubble_id": "7721",
+    "name": "One Avenue Group - 64 North Row",
+    "rating": 5.0,
+    "review_count": 2
+  },
+  "7729": {
+    "hubble_id": "7729",
+    "name": "Canvas Offices - Binney Street, Mayfair",
+    "rating": 5.0,
+    "review_count": 3
+  },
+  "7745": {
+    "hubble_id": "7745",
+    "name": "Workthere - 11A Curtain Road",
+    "rating": null,
+    "review_count": null
+  },
+  "7924": {
+    "hubble_id": "7924",
+    "name": "Bourne Offices - 22 St. James's Square",
+    "rating": 3.5,
+    "review_count": 31
+  },
+  "8037": {
+    "hubble_id": "8037",
+    "name": "Regus - St James",
+    "rating": 3.5,
+    "review_count": 31
+  },
+  "8129": {
+    "hubble_id": "8129",
+    "name": "Harbour Yard - Chelsea Harbour",
+    "rating": 4.3,
+    "review_count": 61
+  },
+  "8612": {
+    "hubble_id": "8612",
+    "name": "Workthere - 100 Clifton Street",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "8648": {
+    "hubble_id": "8648",
+    "name": "Venture X White City",
+    "rating": 4.9,
+    "review_count": 153
+  },
+  "8810": {
+    "hubble_id": "8810",
+    "name": "One Avenue Group - Meridien House",
+    "rating": 4.4,
+    "review_count": 5
+  },
+  "8820": {
+    "hubble_id": "8820",
+    "name": "The Box Offices at The Dominion Theatre",
+    "rating": 4.7,
+    "review_count": 10680
+  },
+  "8915": {
+    "hubble_id": "8915",
+    "name": "Fora - Borough Yards The Soap Buildings",
+    "rating": 4.5,
+    "review_count": 16
+  },
+  "9011": {
+    "hubble_id": "9011",
+    "name": "Vitaxo - 18 Spring Street",
+    "rating": 3.3,
+    "review_count": 12
+  },
+  "9061": {
+    "hubble_id": "9061",
+    "name": "BizSpace - Wimbledon",
+    "rating": 4.4,
+    "review_count": 45
+  },
+  "9062": {
+    "hubble_id": "9062",
+    "name": "BizSpace - Camberwell Lomond Grove",
+    "rating": 3.9,
+    "review_count": 42
+  },
+  "9065": {
+    "hubble_id": "9065",
+    "name": "BizSpace - Hertfordshire - London Colney",
+    "rating": 4.4,
+    "review_count": 30
+  },
+  "9071": {
+    "hubble_id": "9071",
+    "name": "BizSpace - Egham",
+    "rating": 4.1,
+    "review_count": 13
+  },
+  "9073": {
+    "hubble_id": "9073",
+    "name": "BizSpace - Waltham Abbey",
+    "rating": 4.5,
+    "review_count": 53
+  },
+  "9076": {
+    "hubble_id": "9076",
+    "name": "BizSpace - New Addington",
+    "rating": 4.7,
+    "review_count": 36
+  },
+  "9413": {
+    "hubble_id": "9413",
+    "name": "Workthere - 1 Silex Street",
+    "rating": 4.8,
+    "review_count": 768
+  },
+  "9505": {
+    "hubble_id": "9505",
+    "name": "Spacemade - Common Ground",
+    "rating": 4.9,
+    "review_count": 18
+  },
+  "9528": {
+    "hubble_id": "9528",
+    "name": "Fora - Shoreditch - Montacute Yards",
+    "rating": 4.5,
+    "review_count": 13
+  },
+  "9541": {
+    "hubble_id": "9541",
+    "name": "Kitt - 33 Cavendish Square",
+    "rating": 4.7,
+    "review_count": 40
+  },
+  "9556": {
+    "hubble_id": "9556",
+    "name": "Workthere - 55 Blandford Street",
+    "rating": 4.8,
+    "review_count": 25
+  },
+  "9699": {
+    "hubble_id": "9699",
+    "name": "Fora - Oxford St - Parcels Building",
+    "rating": 4.0,
+    "review_count": 10
+  },
+  "9815": {
+    "hubble_id": "9815",
+    "name": "MAKE IT Barking",
+    "rating": 4.8,
+    "review_count": 26
+  },
+  "9839": {
+    "hubble_id": "9839",
+    "name": "sub800 - 69 King William Street",
+    "rating": null,
+    "review_count": null
+  },
+  "9916": {
+    "hubble_id": "9916",
+    "name": "Workthere - 48 George Street",
+    "rating": 4.8,
+    "review_count": 25
+  },
+  "9966": {
+    "hubble_id": "9966",
+    "name": "Boutique Workplace - 124 Wigmore Street",
+    "rating": 4.3,
+    "review_count": 6
+  },
+  "10045": {
+    "hubble_id": "10045",
+    "name": "Workthere - 87 Worship Street",
+    "rating": 4.9,
+    "review_count": 22
+  },
+  "10247": {
+    "hubble_id": "10247",
+    "name": "Boutique Workplace - Richmond",
+    "rating": 4.9,
+    "review_count": 35
+  },
+  "10258": {
+    "hubble_id": "10258",
+    "name": "Huckletree - Oxford Street",
+    "rating": 4.1,
+    "review_count": 18
+  },
+  "10355": {
+    "hubble_id": "10355",
+    "name": "Workpad: 46 Bedford Row",
+    "rating": 3.0,
+    "review_count": 2
+  },
+  "10399": {
+    "hubble_id": "10399",
+    "name": "WorkPad: 4 Garrett Street",
+    "rating": 5.0,
+    "review_count": 1
+  },
+  "10512": {
+    "hubble_id": "10512",
+    "name": "Eat Work Art - Cornerstone Studios",
+    "rating": 3.8,
+    "review_count": 22
+  },
+  "10544": {
+    "hubble_id": "10544",
+    "name": "WorkPad: 2 Bloomsbury Place",
+    "rating": 5.0,
+    "review_count": 1
+  },
+  "10582": {
+    "hubble_id": "10582",
+    "name": "Spacemade - The Landing",
+    "rating": 5.0,
+    "review_count": 51
+  },
+  "10590": {
+    "hubble_id": "10590",
+    "name": "Spacemade - Riley Studios",
+    "rating": 5.0,
+    "review_count": 102
+  },
+  "10625": {
+    "hubble_id": "10625",
+    "name": "Workthere - Sierra Quebec Bravo",
+    "rating": 4.8,
+    "review_count": 25
+  },
+  "10686": {
+    "hubble_id": "10686",
+    "name": "Fora - Holborn - Chancery House",
+    "rating": 4.6,
+    "review_count": 81
+  },
+  "10724": {
+    "hubble_id": "10724",
+    "name": "Kitt - 120 Cannon Street",
+    "rating": 4.7,
+    "review_count": 64
+  },
+  "10816": {
+    "hubble_id": "10816",
+    "name": "MAKE IT Bow",
+    "rating": 4.9,
+    "review_count": 18
+  },
+  "10829": {
+    "hubble_id": "10829",
+    "name": "Spacemade - Fulham Works",
+    "rating": 4.9,
+    "review_count": 55
+  },
+  "10956": {
+    "hubble_id": "10956",
+    "name": "Tower 42 - 25 Old Broad Street",
+    "rating": 4.3,
+    "review_count": 1461
+  },
+  "11049": {
+    "hubble_id": "11049",
+    "name": "26-36 Wharfdale Road",
+    "rating": null,
+    "review_count": null
+  },
+  "11174": {
+    "hubble_id": "11174",
+    "name": "Workplace Plus - Kingsway",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "11219": {
+    "hubble_id": "11219",
+    "name": "Watling Gate",
+    "rating": 4.5,
+    "review_count": 6
+  },
+  "11233": {
+    "hubble_id": "11233",
+    "name": "Rubicon House",
+    "rating": 3.8,
+    "review_count": 4
+  },
+  "11238": {
+    "hubble_id": "11238",
+    "name": "Summercourt Holdings Ltd",
+    "rating": 3.2,
+    "review_count": 106
+  },
+  "11255": {
+    "hubble_id": "11255",
+    "name": "WorkPad: 34-35 Berwick Street",
+    "rating": 5.0,
+    "review_count": 4
+  },
+  "11367": {
+    "hubble_id": "11367",
+    "name": "sub800 - 22-23 Widegate Street",
+    "rating": 5.0,
+    "review_count": 2
+  },
+  "11395": {
+    "hubble_id": "11395",
+    "name": "Huckletree - Kensington",
+    "rating": 4.9,
+    "review_count": 7
+  },
+  "11444": {
+    "hubble_id": "11444",
+    "name": "Spacemade - The Gatehouse",
+    "rating": 5.0,
+    "review_count": 60
+  },
+  "11459": {
+    "hubble_id": "11459",
+    "name": "sub800 - 209-211 City Road",
+    "rating": null,
+    "review_count": null
+  },
+  "11566": {
+    "hubble_id": "11566",
+    "name": "MYO New Street Square",
+    "rating": 4.8,
+    "review_count": 5
+  },
+  "11665": {
+    "hubble_id": "11665",
+    "name": "Workplace Plus - 115 Park Street",
+    "rating": null,
+    "review_count": null
+  },
+  "11694": {
+    "hubble_id": "11694",
+    "name": "sub800 - 20-22 Vestry Street",
+    "rating": 4.5,
+    "review_count": 43
+  },
+  "11695": {
+    "hubble_id": "11695",
+    "name": "sub800 - 65-69 East Road",
+    "rating": 5.0,
+    "review_count": 2
+  },
+  "11699": {
+    "hubble_id": "11699",
+    "name": "sub800 - Rivington Studios",
+    "rating": 4.5,
+    "review_count": 228
+  },
+  "11779": {
+    "hubble_id": "11779",
+    "name": "Workplace Plus - Aldermary House",
+    "rating": 4.4,
+    "review_count": 34
+  },
+  "11827": {
+    "hubble_id": "11827",
+    "name": "Workplace Plus - Colorama",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "11918": {
+    "hubble_id": "11918",
+    "name": "Eat Work Art - Netil Corner",
+    "rating": 4.5,
+    "review_count": 508
+  },
+  "11936": {
+    "hubble_id": "11936",
+    "name": "Workplace Plus - 8-9 Well Court",
+    "rating": 4.9,
+    "review_count": 57
+  },
+  "11981": {
+    "hubble_id": "11981",
+    "name": "Boutique Workplace - 24 Lime Street",
+    "rating": 4.8,
+    "review_count": 13
+  },
+  "12021": {
+    "hubble_id": "12021",
+    "name": "WorkPad: Lynton House",
+    "rating": 4.6,
+    "review_count": 28
+  },
+  "12072": {
+    "hubble_id": "12072",
+    "name": "WorkPad: 20 Eastcastle Street",
+    "rating": 5.0,
+    "review_count": 4
+  },
+  "12073": {
+    "hubble_id": "12073",
+    "name": "Spacemade - Beton",
+    "rating": 4.9,
+    "review_count": 74
+  },
+  "12127": {
+    "hubble_id": "12127",
+    "name": "Kitt - Red Lion Studios",
+    "rating": 4.4,
+    "review_count": 65
+  },
+  "12137": {
+    "hubble_id": "12137",
+    "name": "Workplace Plus - 74 Great Eastern Street",
+    "rating": 5.0,
+    "review_count": 10
+  },
+  "12176": {
+    "hubble_id": "12176",
+    "name": "Workplace Plus - Rivington Studios",
+    "rating": 4.5,
+    "review_count": 228
+  },
+  "12185": {
+    "hubble_id": "12185",
+    "name": "WorkPad: 20 Orange Street",
+    "rating": 5.0,
+    "review_count": 10
+  },
+  "12265": {
+    "hubble_id": "12265",
+    "name": "Workplace Plus - Ivory House",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "12280": {
+    "hubble_id": "12280",
+    "name": "Workplace Plus - 13-14 Buckingham Street",
+    "rating": null,
+    "review_count": null
+  },
+  "12287": {
+    "hubble_id": "12287",
+    "name": "Bourne Offices - 54 Charlotte Street",
+    "rating": null,
+    "review_count": null
+  },
+  "12415": {
+    "hubble_id": "12415",
+    "name": "Fora - The Jellicoe",
+    "rating": 4.2,
+    "review_count": 18
+  },
+  "12513": {
+    "hubble_id": "12513",
+    "name": "Workplace Plus - Ireland Yard",
+    "rating": 3.0,
+    "review_count": 2
+  },
+  "12514": {
+    "hubble_id": "12514",
+    "name": "Workplace Plus - Audrey House",
+    "rating": 4.9,
+    "review_count": 423
+  },
+  "12515": {
+    "hubble_id": "12515",
+    "name": "Workplace Plus - Shoreditch High Street",
+    "rating": 5.0,
+    "review_count": 18
+  },
+  "12516": {
+    "hubble_id": "12516",
+    "name": "Workplace Plus - Bentima House",
+    "rating": 4.7,
+    "review_count": 102
+  },
+  "12518": {
+    "hubble_id": "12518",
+    "name": "12 Caxton Street",
+    "rating": 3.9,
+    "review_count": 34
+  },
+  "12546": {
+    "hubble_id": "12546",
+    "name": "Techspace - Goswell Road",
+    "rating": 4.9,
+    "review_count": 21
+  },
+  "12555": {
+    "hubble_id": "12555",
+    "name": "Workplace Plus - The Brewery Building",
+    "rating": 4.9,
+    "review_count": 57
+  },
+  "12556": {
+    "hubble_id": "12556",
+    "name": "Kitt - Conran Building",
+    "rating": 4.0,
+    "review_count": 1
+  },
+  "12605": {
+    "hubble_id": "12605",
+    "name": "Workplace Plus -  120 Camden High Street",
+    "rating": 4.6,
+    "review_count": 5050
+  },
+  "12606": {
+    "hubble_id": "12606",
+    "name": "Workplace Plus - 41-42 Eastcastle Street",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "12608": {
+    "hubble_id": "12608",
+    "name": "Workplace Plus - 22-26 Paul Street",
+    "rating": 4.8,
+    "review_count": 6
+  },
+  "12673": {
+    "hubble_id": "12673",
+    "name": "Workplace Plus - The Binary",
+    "rating": 5.0,
+    "review_count": 3
+  },
+  "12723": {
+    "hubble_id": "12723",
+    "name": "Cubo Soho",
+    "rating": 5.0,
+    "review_count": 145
+  },
+  "12735": {
+    "hubble_id": "12735",
+    "name": "Workplace Plus - Metropolitan Wharf",
+    "rating": 5.0,
+    "review_count": 1
+  },
+  "12737": {
+    "hubble_id": "12737",
+    "name": "Workplace Plus - 212 Regent's Park Road",
+    "rating": 4.8,
+    "review_count": 8
+  },
+  "12738": {
+    "hubble_id": "12738",
+    "name": "Workplace Plus - 34-35 Eastcastle Street",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "12739": {
+    "hubble_id": "12739",
+    "name": "Boutique Workplace - Middlesex Street",
+    "rating": 5.0,
+    "review_count": 3
+  },
+  "12780": {
+    "hubble_id": "12780",
+    "name": "Workthere - 9 Curtain Road",
+    "rating": null,
+    "review_count": null
+  },
+  "12799": {
+    "hubble_id": "12799",
+    "name": "Unity - Marylebone - Ambika House",
+    "rating": null,
+    "review_count": null
+  },
+  "12846": {
+    "hubble_id": "12846",
+    "name": "Fora - Douglas House",
+    "rating": 4.6,
+    "review_count": 46
+  },
+  "12889": {
+    "hubble_id": "12889",
+    "name": "Workplace Plus - 44 Charlotte Street",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "12892": {
+    "hubble_id": "12892",
+    "name": "Kitt - 25 Bruton Street",
+    "rating": 4.9,
+    "review_count": 7
+  },
+  "12893": {
+    "hubble_id": "12893",
+    "name": "Workplace Plus - Creechurch Lane",
+    "rating": 4.6,
+    "review_count": 5050
+  },
+  "12939": {
+    "hubble_id": "12939",
+    "name": "Workplace Plus - 3-4 Hardwick Street",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "12949": {
+    "hubble_id": "12949",
+    "name": "Spacemade - Hale House 42 Portland Place",
+    "rating": 3.3,
+    "review_count": 18
+  },
+  "12960": {
+    "hubble_id": "12960",
+    "name": "Spacemade - Elmtree 19 - Portland Place",
+    "rating": 5.0,
+    "review_count": 4
+  },
+  "12961": {
+    "hubble_id": "12961",
+    "name": "Spacemade - Hale House 76 Portland Place",
+    "rating": 4.6,
+    "review_count": 8
+  },
+  "12985": {
+    "hubble_id": "12985",
+    "name": "WorkPad: 17 St Anne's Court",
+    "rating": 5.0,
+    "review_count": 4
+  },
+  "12990": {
+    "hubble_id": "12990",
+    "name": "WorkPad: 41-44 Great Queen Street",
+    "rating": 5.0,
+    "review_count": 1
+  },
+  "12993": {
+    "hubble_id": "12993",
+    "name": "WorkPad: 18 Conduit Street",
+    "rating": null,
+    "review_count": null
+  },
+  "12996": {
+    "hubble_id": "12996",
+    "name": "Workplace Plus - 15 Young Street",
+    "rating": null,
+    "review_count": null
+  },
+  "13000": {
+    "hubble_id": "13000",
+    "name": "WorkPad: 140 Wardour Street",
+    "rating": 3.3,
+    "review_count": 18
+  },
+  "13001": {
+    "hubble_id": "13001",
+    "name": "WorkPad: 40 Grosvenor Gardens",
+    "rating": 2.7,
+    "review_count": 96
+  },
+  "13004": {
+    "hubble_id": "13004",
+    "name": "WorkPad: 4 Matthew Parker Street",
+    "rating": 4.6,
+    "review_count": 56
+  },
+  "13006": {
+    "hubble_id": "13006",
+    "name": "Workplace Plus - 64 Essex Road",
+    "rating": 5.0,
+    "review_count": 10
+  },
+  "13063": {
+    "hubble_id": "13063",
+    "name": "Kitt - 8 Laurence Pountney Hill",
+    "rating": null,
+    "review_count": null
+  },
+  "13116": {
+    "hubble_id": "13116",
+    "name": "Workplace Plus - 107 Fenchurch Street",
+    "rating": null,
+    "review_count": null
+  },
+  "13122": {
+    "hubble_id": "13122",
+    "name": "Industrious - 30 Crown Place",
+    "rating": 5.0,
+    "review_count": 1
+  },
+  "13158": {
+    "hubble_id": "13158",
+    "name": "Workplace Plus - Kings House",
+    "rating": 4.7,
+    "review_count": 66
+  },
+  "13163": {
+    "hubble_id": "13163",
+    "name": "Workplace Plus - 5 Sycamore Street",
+    "rating": 4.6,
+    "review_count": 12
+  },
+  "13174": {
+    "hubble_id": "13174",
+    "name": "Workplace Plus - 8 Lloyd's Avenue",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "13175": {
+    "hubble_id": "13175",
+    "name": "Workplace Plus - 10 Lloyd's Avenue",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "13202": {
+    "hubble_id": "13202",
+    "name": "WorkPad - 26 Soho Square",
+    "rating": 2.7,
+    "review_count": 96
+  },
+  "13206": {
+    "hubble_id": "13206",
+    "name": "WorkPad - The Business Design Centre",
+    "rating": 5.0,
+    "review_count": 19
+  },
+  "13237": {
+    "hubble_id": "13237",
+    "name": "Workthere - The Ark",
+    "rating": 4.8,
+    "review_count": 25
+  },
+  "13829": {
+    "hubble_id": "13829",
+    "name": "Workplace Plus - 30 Gresse Street",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "13835": {
+    "hubble_id": "13835",
+    "name": "Workplace Plus - 399 Strand",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "13838": {
+    "hubble_id": "13838",
+    "name": "Workplace Plus - Berghem Mews",
+    "rating": null,
+    "review_count": null
+  },
+  "13839": {
+    "hubble_id": "13839",
+    "name": "Workplace Plus - 40 Great Portland St",
+    "rating": 5.0,
+    "review_count": 10
+  },
+  "13840": {
+    "hubble_id": "13840",
+    "name": "Workplace Plus - 593-599 Fulham Road",
+    "rating": null,
+    "review_count": null
+  },
+  "13849": {
+    "hubble_id": "13849",
+    "name": "Workplace Plus - Paxton House",
+    "rating": 3.9,
+    "review_count": 19
+  },
+  "13854": {
+    "hubble_id": "13854",
+    "name": "Workplace Plus - 1 Aldgate",
+    "rating": 4.4,
+    "review_count": 213
+  },
+  "13856": {
+    "hubble_id": "13856",
+    "name": "Workplace Plus - 40 Lime Street",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "13857": {
+    "hubble_id": "13857",
+    "name": "Workplace Plus - 60 Cheapside",
+    "rating": 4.8,
+    "review_count": 431
+  },
+  "13858": {
+    "hubble_id": "13858",
+    "name": "Workplace Plus - 9 Hatton Street",
+    "rating": 5.0,
+    "review_count": 10
+  },
+  "13859": {
+    "hubble_id": "13859",
+    "name": "Workplace Plus - Synergy House",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "13860": {
+    "hubble_id": "13860",
+    "name": "Workplace Plus -  100 Lower Thames St",
+    "rating": 5.0,
+    "review_count": 10
+  },
+  "13865": {
+    "hubble_id": "13865",
+    "name": "Workplace Plus - 136 Lancaster Road",
+    "rating": null,
+    "review_count": null
+  },
+  "13875": {
+    "hubble_id": "13875",
+    "name": "WorkPad: 68a Neal Street",
+    "rating": 3.7,
+    "review_count": 3
+  },
+  "13881": {
+    "hubble_id": "13881",
+    "name": "WorkPad: Medius House",
+    "rating": 4.4,
+    "review_count": 101
+  },
+  "13882": {
+    "hubble_id": "13882",
+    "name": "WorkPad: 22 Sea Containers",
+    "rating": null,
+    "review_count": null
+  },
+  "13883": {
+    "hubble_id": "13883",
+    "name": "WorkPad: 20 Grosvenor Gardens",
+    "rating": 5.0,
+    "review_count": 10
+  },
+  "13894": {
+    "hubble_id": "13894",
+    "name": "Workplace Plus - 11 Strand",
+    "rating": null,
+    "review_count": null
+  },
+  "13898": {
+    "hubble_id": "13898",
+    "name": "WorkPad: 18 Stanhope House",
+    "rating": 5.0,
+    "review_count": 2
+  },
+  "13913": {
+    "hubble_id": "13913",
+    "name": "Huckletree - Leadenhall",
+    "rating": 4.5,
+    "review_count": 2
+  },
+  "14019": {
+    "hubble_id": "14019",
+    "name": "Workthere - 140-142 St John Street",
+    "rating": 5.0,
+    "review_count": 54
+  },
+  "14037": {
+    "hubble_id": "14037",
+    "name": "Workthere - 22 Cowper Street",
+    "rating": 5.0,
+    "review_count": 54
+  },
+  "14066": {
+    "hubble_id": "14066",
+    "name": "Workplace Plus - 20-22 Vestry Street",
+    "rating": 3.8,
+    "review_count": 262
+  },
+  "14067": {
+    "hubble_id": "14067",
+    "name": "Workplace Plus - 100 Cannon Street",
+    "rating": 4.8,
+    "review_count": 431
+  },
+  "14069": {
+    "hubble_id": "14069",
+    "name": "Workplace Plus - 65-69 East Road",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "14074": {
+    "hubble_id": "14074",
+    "name": "Workplace Plus -  7 Bishopsgate",
+    "rating": 4.6,
+    "review_count": 5050
+  },
+  "14080": {
+    "hubble_id": "14080",
+    "name": "Workplace Plus - Great Titchfield House",
+    "rating": 3.3,
+    "review_count": 18
+  },
+  "14090": {
+    "hubble_id": "14090",
+    "name": "Workplace Plus - Eldon House",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "14091": {
+    "hubble_id": "14091",
+    "name": "Workplace Plus -  46 Great Eastern St",
+    "rating": 4.8,
+    "review_count": 39
+  },
+  "14098": {
+    "hubble_id": "14098",
+    "name": "Workplace Plus - 55 New Oxford Street",
+    "rating": 3.3,
+    "review_count": 18
+  },
+  "14117": {
+    "hubble_id": "14117",
+    "name": "GPE - 170 Piccadilly",
+    "rating": 5.0,
+    "review_count": 3
+  },
+  "14135": {
+    "hubble_id": "14135",
+    "name": "Workplace Plus - 46 Chancery Lane",
+    "rating": 2.7,
+    "review_count": 96
+  },
+  "14169": {
+    "hubble_id": "14169",
+    "name": "Workplace Plus -  46 Dean Street",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "14177": {
+    "hubble_id": "14177",
+    "name": "Workplace Plus - Cornwell House",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "14190": {
+    "hubble_id": "14190",
+    "name": "Spacemade - Ellisse",
+    "rating": 5.0,
+    "review_count": 10
+  },
+  "14192": {
+    "hubble_id": "14192",
+    "name": "Workplace Plus - Laystall House",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "14222": {
+    "hubble_id": "14222",
+    "name": "Workplace Plus -  12 Appold Street",
+    "rating": 5.0,
+    "review_count": 3
+  },
+  "14247": {
+    "hubble_id": "14247",
+    "name": "Workplace Plus - 19-20 Great Sutton Street",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "14252": {
+    "hubble_id": "14252",
+    "name": "Workplace Plus - City Road",
+    "rating": 4.2,
+    "review_count": 745
+  },
+  "14275": {
+    "hubble_id": "14275",
+    "name": "Industrious - 15 Fitzroy Street",
+    "rating": 5.0,
+    "review_count": 3
+  },
+  "14280": {
+    "hubble_id": "14280",
+    "name": "Workplace Plus - The Risborough",
+    "rating": 5.0,
+    "review_count": 4
+  },
+  "14281": {
+    "hubble_id": "14281",
+    "name": "Kitt - 33 Bruton Street",
+    "rating": null,
+    "review_count": null
+  },
+  "14344": {
+    "hubble_id": "14344",
+    "name": "Workplace Plus - 50 Southwark Street",
+    "rating": 5.0,
+    "review_count": 3
+  },
+  "14345": {
+    "hubble_id": "14345",
+    "name": "Workplace Plus - 25 Upper Brook Street",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "14364": {
+    "hubble_id": "14364",
+    "name": "Workplace Plus - 15 Half Moon Street",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "14435": {
+    "hubble_id": "14435",
+    "name": "WorkPad: Tower House",
+    "rating": 3.0,
+    "review_count": 2
+  },
+  "14480": {
+    "hubble_id": "14480",
+    "name": "Kitt - Panagram, 27 Goswell Road",
+    "rating": 5.0,
+    "review_count": 7
+  },
+  "14504": {
+    "hubble_id": "14504",
+    "name": "House of Music & Entertainment [H.O.M.E]",
+    "rating": 5.0,
+    "review_count": null
+  },
+  "14553": {
+    "hubble_id": "14553",
+    "name": "Workplace Plus - 82-84 Berwick Street",
+    "rating": 5.0,
+    "review_count": 4
+  },
+  "14558": {
+    "hubble_id": "14558",
+    "name": "Workplace Plus - 11 Cavalry Square",
+    "rating": 2.7,
+    "review_count": 96
+  },
+  "14565": {
+    "hubble_id": "14565",
+    "name": "WorkPad: 12 Devonshire Street",
+    "rating": 4.3,
+    "review_count": 3
+  },
+  "14566": {
+    "hubble_id": "14566",
+    "name": "WorkPad: 12 South Molton Street",
+    "rating": 5.0,
+    "review_count": 4
+  },
+  "14592": {
+    "hubble_id": "14592",
+    "name": "Workplace Plus - 105-111 Euston Street",
+    "rating": 5.0,
+    "review_count": 22
+  },
+  "14620": {
+    "hubble_id": "14620",
+    "name": "Workplace Plus - 80 Cheapside",
+    "rating": 4.8,
+    "review_count": 431
+  },
+  "14623": {
+    "hubble_id": "14623",
+    "name": "Workplace Plus - 18 Newman Street",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "14635": {
+    "hubble_id": "14635",
+    "name": "Workplace Plus - 9 Bentinck Street",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "14636": {
+    "hubble_id": "14636",
+    "name": "Workplace Plus - 405 The Strand",
+    "rating": null,
+    "review_count": null
+  },
+  "14637": {
+    "hubble_id": "14637",
+    "name": "Workplace Plus - 4 Greenland Place",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "14638": {
+    "hubble_id": "14638",
+    "name": "Workplace Plus - 360-364 City Road",
+    "rating": 4.9,
+    "review_count": 22
+  },
+  "14641": {
+    "hubble_id": "14641",
+    "name": "Kitt - 26 Finsbury Square",
+    "rating": null,
+    "review_count": null
+  },
+  "14642": {
+    "hubble_id": "14642",
+    "name": "Kitt - 26 St James's Square",
+    "rating": 4.6,
+    "review_count": 1551
+  },
+  "14667": {
+    "hubble_id": "14667",
+    "name": "Workplace Plus - 48 Gresham Street",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "14695": {
+    "hubble_id": "14695",
+    "name": "Workplace Plus - 25 Eastcheap",
+    "rating": 4.6,
+    "review_count": 5050
+  },
+  "14696": {
+    "hubble_id": "14696",
+    "name": "Workplace Plus - Cinema House",
+    "rating": 4.5,
+    "review_count": 19
+  },
+  "14700": {
+    "hubble_id": "14700",
+    "name": "Workplace Plus - 2 Old Street Yard",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "14707": {
+    "hubble_id": "14707",
+    "name": "Kitt - 44 Paul Street",
+    "rating": 4.9,
+    "review_count": 7
+  },
+  "14708": {
+    "hubble_id": "14708",
+    "name": "Workplace Plus - 1 George Yard",
+    "rating": 3.3,
+    "review_count": 12
+  },
+  "14711": {
+    "hubble_id": "14711",
+    "name": "Workplace Plus - 29-30 Cornhill",
+    "rating": 4.6,
+    "review_count": 5050
+  },
+  "14712": {
+    "hubble_id": "14712",
+    "name": "Workplace Plus - The Sea Building",
+    "rating": 5.0,
+    "review_count": 18
+  },
+  "14713": {
+    "hubble_id": "14713",
+    "name": "Workplace Plus - 22 City Road",
+    "rating": 4.0,
+    "review_count": 295
+  },
+  "14718": {
+    "hubble_id": "14718",
+    "name": "Workplace Plus - Noah\u2019s Yard",
+    "rating": 4.6,
+    "review_count": 7
+  },
+  "14750": {
+    "hubble_id": "14750",
+    "name": "Workplace Plus - Rathbone Studios",
+    "rating": 4.5,
+    "review_count": 58
+  },
+  "14760": {
+    "hubble_id": "14760",
+    "name": "Workplace Plus - Neckinger Mills",
+    "rating": 4.5,
+    "review_count": 4
+  },
+  "14765": {
+    "hubble_id": "14765",
+    "name": "Workplace Plus - 80 Goswell Road",
+    "rating": 5.0,
+    "review_count": 461
+  },
+  "14778": {
+    "hubble_id": "14778",
+    "name": "sub800 - 25 West Tenter Street",
+    "rating": 5.0,
+    "review_count": 2
+  },
+  "14779": {
+    "hubble_id": "14779",
+    "name": "sub800 - 36 Leadenhall Street",
+    "rating": null,
+    "review_count": null
+  },
+  "14780": {
+    "hubble_id": "14780",
+    "name": "sub800 - 26-30 Artillery Lane",
+    "rating": null,
+    "review_count": null
+  },
+  "14789": {
+    "hubble_id": "14789",
+    "name": "sub800 - 140 Fenchurch Street",
+    "rating": 5.0,
+    "review_count": 2
+  },
+  "14792": {
+    "hubble_id": "14792",
+    "name": "sub800 - 33 Creechurch Lane",
+    "rating": 5.0,
+    "review_count": 2
+  },
+  "14793": {
+    "hubble_id": "14793",
+    "name": "sub800 - 42 New Broad Street",
+    "rating": null,
+    "review_count": null
+  },
+  "14794": {
+    "hubble_id": "14794",
+    "name": "sub800 - 14 Cullum Street",
+    "rating": 5.0,
+    "review_count": 2
+  },
+  "14797": {
+    "hubble_id": "14797",
+    "name": "sub800 - 10 Ironmonger Lane",
+    "rating": 4.7,
+    "review_count": 102
+  },
+  "14801": {
+    "hubble_id": "14801",
+    "name": "sub800 - 21 Mincing Lane",
+    "rating": 4.6,
+    "review_count": 77
+  },
+  "14802": {
+    "hubble_id": "14802",
+    "name": "sub800 - Commodity Quay",
+    "rating": 4.7,
+    "review_count": 7029
+  },
+  "14804": {
+    "hubble_id": "14804",
+    "name": "sub800 - 80 Clerkenwell Road",
+    "rating": 5.0,
+    "review_count": 2
+  },
+  "14805": {
+    "hubble_id": "14805",
+    "name": "sub800 - 3-4 Hardwick Street",
+    "rating": 5.0,
+    "review_count": 2
+  },
+  "14807": {
+    "hubble_id": "14807",
+    "name": "sub800 - 13 Northburgh Street",
+    "rating": 5.0,
+    "review_count": 2
+  },
+  "14824": {
+    "hubble_id": "14824",
+    "name": "Workplace Plus - The Tea Building",
+    "rating": 4.2,
+    "review_count": 89
+  },
+  "14834": {
+    "hubble_id": "14834",
+    "name": "Workplace Plus - 15 Micawber Street",
+    "rating": 5.0,
+    "review_count": 3
+  },
+  "14835": {
+    "hubble_id": "14835",
+    "name": "Workplace Plus - 5 St Helen's Place",
+    "rating": 4.3,
+    "review_count": 4273
+  },
+  "14836": {
+    "hubble_id": "14836",
+    "name": "Workplace Plus - Galvanise",
+    "rating": 4.9,
+    "review_count": 642
+  },
+  "14837": {
+    "hubble_id": "14837",
+    "name": "sub800 - 56-60 St John Street",
+    "rating": 5.0,
+    "review_count": 2
+  },
+  "14841": {
+    "hubble_id": "14841",
+    "name": "sub800 - 23 Clerkenwell Close",
+    "rating": null,
+    "review_count": null
+  },
+  "14842": {
+    "hubble_id": "14842",
+    "name": "sub800 - 1 Back Hill",
+    "rating": 5.0,
+    "review_count": 2
+  },
+  "14852": {
+    "hubble_id": "14852",
+    "name": "sub800 - 365 Euston Road",
+    "rating": null,
+    "review_count": null
+  },
+  "14854": {
+    "hubble_id": "14854",
+    "name": "sub800 - 11-13 Market Place",
+    "rating": 5.0,
+    "review_count": 2
+  },
+  "14857": {
+    "hubble_id": "14857",
+    "name": "sub800 - 265 Tottenham Court Road",
+    "rating": 4.4,
+    "review_count": 1449
+  },
+  "14858": {
+    "hubble_id": "14858",
+    "name": "sub800 - 74 Margaret Street",
+    "rating": null,
+    "review_count": null
+  },
+  "14860": {
+    "hubble_id": "14860",
+    "name": "sub800 - 17 Barnsbury Terrace",
+    "rating": null,
+    "review_count": null
+  },
+  "14867": {
+    "hubble_id": "14867",
+    "name": "sub800 - 10 Parkway",
+    "rating": 5.0,
+    "review_count": 2
+  },
+  "14870": {
+    "hubble_id": "14870",
+    "name": "sub800 - 100 Gloucester Place",
+    "rating": 3.6,
+    "review_count": 10
+  },
+  "14878": {
+    "hubble_id": "14878",
+    "name": "Workplace Plus - 45-49 Leather Lane",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "14882": {
+    "hubble_id": "14882",
+    "name": "sub800 - 65-67 Leonard Street",
+    "rating": 5.0,
+    "review_count": 6
+  },
+  "14883": {
+    "hubble_id": "14883",
+    "name": "sub800 - 71 Leonard Street",
+    "rating": 5.0,
+    "review_count": null
+  },
+  "14889": {
+    "hubble_id": "14889",
+    "name": "sub800 - 140 Shoreditch High Street",
+    "rating": 4.4,
+    "review_count": 121
+  },
+  "14891": {
+    "hubble_id": "14891",
+    "name": "sub800 - 4 Golden Square",
+    "rating": 4.4,
+    "review_count": 132
+  },
+  "14901": {
+    "hubble_id": "14901",
+    "name": "Workplace Plus - 65 Leadenhall Street",
+    "rating": 5.0,
+    "review_count": 3
+  },
+  "14927": {
+    "hubble_id": "14927",
+    "name": "Workplace Plus - 133 Houndsditch",
+    "rating": 4.5,
+    "review_count": null
+  },
+  "14936": {
+    "hubble_id": "14936",
+    "name": "Workplace Plus - 3-5 Rathbone Place",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "14954": {
+    "hubble_id": "14954",
+    "name": "Kitt - 34 Bruton Street",
+    "rating": null,
+    "review_count": null
+  },
+  "16214": {
+    "hubble_id": "16214",
+    "name": "Workplace Plus - 33 Welbeck Street",
+    "rating": 4.8,
+    "review_count": 5
+  },
+  "16216": {
+    "hubble_id": "16216",
+    "name": "Workplace Plus - 42 Trinity Square",
+    "rating": 4.0,
+    "review_count": 162
+  },
+  "16221": {
+    "hubble_id": "16221",
+    "name": "Kitt - York House",
+    "rating": 4.5,
+    "review_count": null
+  },
+  "18626": {
+    "hubble_id": "18626",
+    "name": "Workplace Plus - 10 Lower Thames Street",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "18627": {
+    "hubble_id": "18627",
+    "name": "Kitt - The Hide, 3 Kingly Court",
+    "rating": 4.6,
+    "review_count": null
+  },
+  "18723": {
+    "hubble_id": "18723",
+    "name": "Workplace Plus - 25 Dering Street",
+    "rating": 4.9,
+    "review_count": 66
+  },
+  "18724": {
+    "hubble_id": "18724",
+    "name": "Workplace Plus - Turnpoint",
+    "rating": 5.0,
+    "review_count": 7
+  },
+  "18746": {
+    "hubble_id": "18746",
+    "name": "Workthere - 93 Great Suffolk Street",
+    "rating": 4.8,
+    "review_count": 34
+  },
+  "18762": {
+    "hubble_id": "18762",
+    "name": "Shoreditch Town Hall",
+    "rating": 4.4,
+    "review_count": null
+  },
+  "18783": {
+    "hubble_id": "18783",
+    "name": "Kitt - 55 Grosvenor Street",
+    "rating": null,
+    "review_count": null
+  },
+  "18788": {
+    "hubble_id": "18788",
+    "name": "Workthere - 15 Basinghall Street",
+    "rating": 5.0,
+    "review_count": null
+  },
+  "18797": {
+    "hubble_id": "18797",
+    "name": "Kitt - 28 Bruton Street",
+    "rating": null,
+    "review_count": null
+  },
+  "18808": {
+    "hubble_id": "18808",
+    "name": "Kitt - Pinnacle House",
+    "rating": 4.9,
+    "review_count": 26
+  },
+  "18812": {
+    "hubble_id": "18812",
+    "name": "Workplace Plus - Davidson Building",
+    "rating": 5.0,
+    "review_count": 5
+  },
+  "18815": {
+    "hubble_id": "18815",
+    "name": "Workplace Plus - 44 Carnaby Street",
+    "rating": 3.7,
+    "review_count": 3
+  },
+  "19550": {
+    "hubble_id": "19550",
+    "name": "Kitt - 39 Charing Cross Road",
+    "rating": 3.9,
+    "review_count": null
+  },
+  "19557": {
+    "hubble_id": "19557",
+    "name": "Kitt - 27 Bream\u2019s Buildings",
+    "rating": null,
+    "review_count": null
+  },
+  "19572": {
+    "hubble_id": "19572",
+    "name": "Kitt - 100 Fetter Lane",
+    "rating": 4.7,
+    "review_count": 73
+  },
+  "19612": {
+    "hubble_id": "19612",
+    "name": "BEEM: 11-29 Fashion Street",
+    "rating": 4.5,
+    "review_count": 2
+  },
+  "19701": {
+    "hubble_id": "19701",
+    "name": "Kitt - 4 Millbank",
+    "rating": 2.0,
+    "review_count": 3
+  },
+  "19732": {
+    "hubble_id": "19732",
+    "name": "Kitt - 95 Southwark Street",
+    "rating": 4.8,
+    "review_count": 4
+  },
+  "19733": {
+    "hubble_id": "19733",
+    "name": "UNIT  3 at BLOK 100",
+    "rating": null,
+    "review_count": null
+  },
+  "19748": {
+    "hubble_id": "19748",
+    "name": "Kitt - 1 Benjamin Street",
+    "rating": null,
+    "review_count": null
+  },
+  "19750": {
+    "hubble_id": "19750",
+    "name": "Workplace Plus - 4 Moorgate",
+    "rating": 4.6,
+    "review_count": 5050
+  },
+  "19756": {
+    "hubble_id": "19756",
+    "name": "sub800 - 109 Drysdale Street",
+    "rating": 5.0,
+    "review_count": null
+  },
+  "19757": {
+    "hubble_id": "19757",
+    "name": "sub800 - 112-114 Great Portland",
+    "rating": 2.7,
+    "review_count": 96
+  },
+  "19758": {
+    "hubble_id": "19758",
+    "name": "sub800 - 326-328 Old Street",
+    "rating": null,
+    "review_count": null
+  },
+  "19759": {
+    "hubble_id": "19759",
+    "name": "sub800 - 32B Waterside Wharf",
+    "rating": 5.0,
+    "review_count": null
+  },
+  "19760": {
+    "hubble_id": "19760",
+    "name": "sub800 - 33 Eastcheap",
+    "rating": null,
+    "review_count": null
+  }
+}

@@ -20,6 +20,7 @@
     <a href="/centres" class="nav-link {% if '/centres' in request.path %}active{% endif %}">Centres</a>
     <a href="/projects" class="nav-link {% if '/projects' in request.path %}active{% endif %}">Projects</a>
     <a href="/proposals" class="nav-link {% if '/proposals' in request.path and '/projects' not in request.path %}active{% endif %}">All Proposals</a>
+    <a href="/dashboard" class="nav-link {% if '/dashboard' in request.path %}active{% endif %}">Share Links</a>
   </div>
   <a href="/proposals/new" class="btn btn-primary">+ New Proposal</a>
 </nav>

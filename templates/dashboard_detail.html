@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+{% block title %}Link Detail – {{ link.label or token }} – myHQ{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:24px">
+  <a href="/dashboard" style="font-size:13px;color:#6B7280;text-decoration:none;display:inline-flex;align-items:center;gap:6px">
+    ← Back to Dashboard
+  </a>
+</div>
+
+<!-- Header card -->
+<div style="background:#fff;border-radius:16px;padding:24px 28px;box-shadow:0 1px 3px rgba(0,0,0,0.06);margin-bottom:24px">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px">
+    <div>
+      <h1 style="font-size:22px;font-weight:800;color:#1A1A2E">{{ link.label or '(no label)' }}</h1>
+      <div style="font-size:13px;color:#9CA3AF;margin-top:4px;font-family:monospace">{{ token }}</div>
+      <div style="margin-top:8px;font-size:14px;color:#4B4F6A">
+        Spaces: <strong>{{ link.centre_names_list|join(', ') }}</strong>
+      </div>
+      <div style="margin-top:4px;font-size:13px;color:#6B7280">
+        Created {{ link.created_at[:10] if link.created_at else '—' }}
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button onclick="copyShareUrl()"
+              style="font-size:13px;font-weight:600;padding:10px 16px;border-radius:8px;background:#F0F1FA;border:none;color:#1E22AA;cursor:pointer">
+        Copy Share Link
+      </button>
+      <a href="/compare/{{ token }}" target="_blank"
+         style="font-size:13px;font-weight:600;padding:10px 16px;border-radius:8px;background:#1E22AA;border:none;color:#fff;text-decoration:none">
+        Open Page
+      </a>
+    </div>
+  </div>
+
+  <!-- Stats row -->
+  <div style="display:flex;gap:24px;margin-top:24px;flex-wrap:wrap">
+    {% set opens = events|selectattr('event_type','equalto','open')|list|length %}
+    {% set clicks = events|selectattr('event_type','equalto','click')|list|length %}
+    {% set dwells = events|selectattr('event_type','equalto','dwell')|list %}
+    {% set avg_dwell = (dwells|map(attribute='dwell_seconds')|select('number')|list|sum / dwells|length)|round(0)|int if dwells else 0 %}
+
+    <div style="background:#F8F9FF;border-radius:12px;padding:16px 24px;min-width:120px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#9CA3AF">Opens</div>
+      <div style="font-size:32px;font-weight:800;color:#1E22AA;margin-top:4px">{{ opens }}</div>
+    </div>
+    <div style="background:#F0FDF4;border-radius:12px;padding:16px 24px;min-width:120px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#9CA3AF">Clicks</div>
+      <div style="font-size:32px;font-weight:800;color:#059669;margin-top:4px">{{ clicks }}</div>
+    </div>
+    <div style="background:#FFF7ED;border-radius:12px;padding:16px 24px;min-width:120px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#9CA3AF">Avg Dwell</div>
+      <div style="font-size:32px;font-weight:800;color:#D97706;margin-top:4px">{{ avg_dwell }}s</div>
+    </div>
+    <div style="background:#F5F3FF;border-radius:12px;padding:16px 24px;min-width:120px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#9CA3AF">Unique IPs</div>
+      <div style="font-size:32px;font-weight:800;color:#7C3AED;margin-top:4px">
+        {{ events|map(attribute='ip_hash')|select|list|unique|list|length }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Chart + Timeline side by side -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px">
+
+  <!-- Bar chart -->
+  {% if chart_labels %}
+  <div style="background:#fff;border-radius:16px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.06)">
+    <h2 style="font-size:16px;font-weight:700;color:#1A1A2E;margin-bottom:20px">Clicks per Space</h2>
+    <canvas id="clicks-chart" height="200"></canvas>
+  </div>
+  {% else %}
+  <div style="background:#fff;border-radius:16px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.06);display:flex;align-items:center;justify-content:center;color:#9CA3AF;font-size:14px">
+    No click data yet
+  </div>
+  {% endif %}
+
+  <!-- Recent events -->
+  <div style="background:#fff;border-radius:16px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.06);overflow:hidden">
+    <h2 style="font-size:16px;font-weight:700;color:#1A1A2E;margin-bottom:20px">Event Timeline</h2>
+    <div style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:10px">
+      {% if not events %}
+      <p style="color:#9CA3AF;font-size:14px">No events recorded yet.</p>
+      {% endif %}
+      {% for ev in events[:40] %}
+      <div style="display:flex;align-items:flex-start;gap:12px;padding-bottom:10px;border-bottom:1px solid #F3F4F6">
+        <div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;
+          {% if ev.event_type == 'open' %}background:#EEF2FF;{% elif ev.event_type == 'click' %}background:#F0FDF4;{% else %}background:#FFF7ED;{% endif %}">
+          {% if ev.event_type == 'open' %}👁{% elif ev.event_type == 'click' %}👆{% else %}⏱{% endif %}
+        </div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600;color:#1A1A2E;text-transform:capitalize">
+            {{ ev.event_type }}
+            {% if ev.centre_name %}<span style="font-weight:400;color:#6B7280"> — {{ ev.centre_name }}</span>{% endif %}
+            {% if ev.dwell_seconds %}<span style="font-weight:400;color:#D97706"> {{ ev.dwell_seconds }}s</span>{% endif %}
+          </div>
+          <div style="font-size:11px;color:#9CA3AF;margin-top:2px">
+            {{ ev.created_at[:16] if ev.created_at else '' }}
+            {% if ev.ip_hash %} · IP {{ ev.ip_hash }}{% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- Full event table -->
+<div style="background:#fff;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);overflow:hidden">
+  <div style="padding:20px 24px;border-bottom:1px solid #F3F4F6">
+    <h2 style="font-size:16px;font-weight:700;color:#1A1A2E">All Events ({{ events|length }})</h2>
+  </div>
+  <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr style="background:#F8F9FF">
+          <th style="text-align:left;padding:12px 20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Time</th>
+          <th style="text-align:left;padding:12px 20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Event</th>
+          <th style="text-align:left;padding:12px 20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Space</th>
+          <th style="text-align:left;padding:12px 20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Dwell</th>
+          <th style="text-align:left;padding:12px 20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">IP</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ev in events %}
+        <tr style="border-bottom:1px solid #F3F4F6">
+          <td style="padding:12px 20px;font-size:12px;color:#6B7280">{{ ev.created_at[:16] if ev.created_at else '—' }}</td>
+          <td style="padding:12px 20px">
+            <span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:12px;
+              {% if ev.event_type == 'open' %}background:#EEF2FF;color:#4338CA;
+              {% elif ev.event_type == 'click' %}background:#F0FDF4;color:#059669;
+              {% else %}background:#FFF7ED;color:#D97706;{% endif %}">
+              {{ ev.event_type }}
+            </span>
+          </td>
+          <td style="padding:12px 20px;font-size:13px;color:#4B4F6A">{{ ev.centre_name or '—' }}</td>
+          <td style="padding:12px 20px;font-size:13px;color:#6B7280">{{ (ev.dwell_seconds|string + 's') if ev.dwell_seconds else '—' }}</td>
+          <td style="padding:12px 20px;font-size:12px;color:#9CA3AF;font-family:monospace">{{ ev.ip_hash or '—' }}</td>
+        </tr>
+        {% endfor %}
+        {% if not events %}
+        <tr><td colspan="5" style="padding:24px;text-align:center;color:#9CA3AF;font-size:14px">No events yet</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const SHARE_URL = {{ (base_url + '/compare/' + token)|tojson }};
+
+function copyShareUrl() {
+  navigator.clipboard.writeText(SHARE_URL).then(() => {
+    const t = document.getElementById('toast');
+    if (t) { t.textContent = 'Copied!'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2000); }
+  });
+}
+</script>
+{% endblock %}
+
+{% block scripts %}
+{% if chart_labels %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const ctx = document.getElementById('clicks-chart').getContext('2d');
+new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels: {{ chart_labels|tojson }},
+    datasets: [{
+      label: 'Clicks',
+      data: {{ chart_data|tojson }},
+      backgroundColor: 'rgba(30,34,170,0.15)',
+      borderColor: '#1E22AA',
+      borderWidth: 2,
+      borderRadius: 8,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: { stepSize: 1, font: { family: 'Plus Jakarta Sans', size: 12 } },
+        grid: { color: '#F3F4F6' }
+      },
+      x: {
+        ticks: { font: { family: 'Plus Jakarta Sans', size: 11 } },
+        grid: { display: false }
+      }
+    }
+  }
+});
+</script>
+{% endif %}
+{% endblock %}

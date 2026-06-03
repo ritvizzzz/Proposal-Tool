@@ -1,0 +1,246 @@
+{% extends 'base.html' %}
+{% block title %}Share Link Dashboard – myHQ{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px">
+  <div>
+    <h1 style="font-size:24px;font-weight:800;color:#1A1A2E">Share Link Dashboard</h1>
+    <p style="margin-top:4px;font-size:14px;color:#6B7280">Track client engagement with comparison links</p>
+  </div>
+  <button class="btn btn-primary" onclick="openCreateModal()">+ Create Share Link</button>
+</div>
+
+{% if not links %}
+<div style="text-align:center;padding:60px 20px;color:#9CA3AF">
+  <div style="font-size:48px;margin-bottom:12px">🔗</div>
+  <p style="font-size:16px;font-weight:600;color:#4B4F6A">No share links yet</p>
+  <p style="margin-top:6px;font-size:14px">Create your first link to start tracking client engagement.</p>
+  <button class="btn btn-primary" style="margin-top:20px" onclick="openCreateModal()">+ Create Share Link</button>
+</div>
+{% else %}
+
+<div style="background:#fff;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);overflow:hidden">
+  <table style="width:100%;border-collapse:collapse">
+    <thead>
+      <tr style="background:#F8F9FF;border-bottom:2px solid #E8E9F3">
+        <th style="text-align:left;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Label / Client</th>
+        <th style="text-align:left;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Spaces</th>
+        <th style="text-align:center;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Created</th>
+        <th style="text-align:center;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Opens</th>
+        <th style="text-align:center;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Clicks</th>
+        <th style="text-align:left;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Top Space</th>
+        <th style="text-align:center;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for lnk in links %}
+      <tr class="link-row" onclick="window.location='/dashboard/{{ lnk.token }}'"
+          style="border-bottom:1px solid #F3F4F6;cursor:pointer;transition:background 0.15s"
+          onmouseover="this.style.background='#F8F9FF'" onmouseout="this.style.background=''">
+        <td style="padding:16px 20px">
+          <div style="font-weight:700;color:#1A1A2E">{{ lnk.label or '(no label)' }}</div>
+          <div style="font-size:12px;color:#9CA3AF;margin-top:2px;font-family:monospace">{{ lnk.token }}</div>
+        </td>
+        <td style="padding:16px 20px;font-size:13px;color:#4B4F6A;max-width:220px">
+          <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            {{ lnk.centre_names_list|join(', ') }}
+          </div>
+          <div style="font-size:11px;color:#9CA3AF;margin-top:2px">{{ lnk.centre_names_list|length }} space{{ 's' if lnk.centre_names_list|length != 1 }}</div>
+        </td>
+        <td style="padding:16px 20px;text-align:center;font-size:13px;color:#6B7280">
+          {{ lnk.created_at[:10] if lnk.created_at else '—' }}
+        </td>
+        <td style="padding:16px 20px;text-align:center">
+          <span style="font-size:20px;font-weight:800;color:#1E22AA">{{ lnk.opens }}</span>
+        </td>
+        <td style="padding:16px 20px;text-align:center">
+          <span style="font-size:20px;font-weight:800;color:#059669">{{ lnk.clicks }}</span>
+        </td>
+        <td style="padding:16px 20px;font-size:13px;color:#4B4F6A">
+          {{ lnk.top_space or '—' }}
+        </td>
+        <td style="padding:16px 20px;text-align:center" onclick="event.stopPropagation()">
+          <div style="display:flex;gap:8px;justify-content:center">
+            <button class="btn-copy"
+                    data-url="{{ base_url }}/compare/{{ lnk.token }}"
+                    onclick="copyLink(this)"
+                    style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;background:#F0F1FA;border:none;color:#1E22AA;cursor:pointer">
+              Copy Link
+            </button>
+            <a href="/compare/{{ lnk.token }}" target="_blank"
+               style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;background:#1E22AA;color:#fff;text-decoration:none">
+              Preview
+            </a>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Create Modal -->
+<div id="create-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:32px;width:460px;max-width:90vw">
+    <h2 style="font-size:18px;font-weight:800;margin-bottom:20px;color:#1A1A2E">Create Share Link</h2>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px">Client / Label</label>
+        <input id="sl-label" type="text" placeholder="e.g. Acme Corp"
+               style="width:100%;border:1.5px solid #E8E9F3;border-radius:8px;padding:10px 12px;font-size:14px;outline:none;font-family:inherit">
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px">Search & add spaces</label>
+        <input id="sl-search" type="text" placeholder="Type to search centres…"
+               style="width:100%;border:1.5px solid #E8E9F3;border-radius:8px;padding:10px 12px;font-size:14px;outline:none;font-family:inherit"
+               oninput="searchCentres(this.value)">
+        <div id="sl-results" style="border:1px solid #E8E9F3;border-top:none;border-radius:0 0 8px 8px;max-height:160px;overflow-y:auto;display:none"></div>
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px">Selected spaces</label>
+        <div id="sl-selected" style="display:flex;flex-wrap:wrap;gap:8px;min-height:36px;padding:8px;border:1.5px dashed #E8E9F3;border-radius:8px">
+          <span style="font-size:13px;color:#9CA3AF" id="sl-empty-hint">No spaces selected</span>
+        </div>
+      </div>
+      <div id="sl-url-box" style="display:none;background:#F0F1FA;border-radius:8px;padding:12px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280;margin-bottom:4px">Share URL</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="sl-generated-url" style="font-size:13px;color:#1E22AA;word-break:break-all;flex:1"></span>
+          <button onclick="copyGenerated()" style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:6px;background:#1E22AA;border:none;color:#fff;cursor:pointer;white-space:nowrap">Copy</button>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:24px;justify-content:flex-end">
+      <button onclick="closeCreateModal()" style="padding:10px 20px;border-radius:8px;border:1.5px solid #E8E9F3;background:#fff;font-size:14px;font-weight:600;cursor:pointer">Cancel</button>
+      <button onclick="createLink()" style="padding:10px 20px;border-radius:8px;background:#1E22AA;border:none;color:#fff;font-size:14px;font-weight:600;cursor:pointer">Generate Link</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let selectedCentres = []; // [{id, name}]
+
+function openCreateModal() {
+  selectedCentres = [];
+  document.getElementById('sl-label').value = '';
+  document.getElementById('sl-search').value = '';
+  document.getElementById('sl-results').style.display = 'none';
+  document.getElementById('sl-url-box').style.display = 'none';
+  renderSelected();
+  document.getElementById('create-modal').style.display = 'flex';
+}
+function closeCreateModal() {
+  document.getElementById('create-modal').style.display = 'none';
+}
+
+function renderSelected() {
+  const box = document.getElementById('sl-selected');
+  const hint = document.getElementById('sl-empty-hint');
+  if (hint) hint.remove();
+  box.innerHTML = '';
+  if (selectedCentres.length === 0) {
+    box.innerHTML = '<span style="font-size:13px;color:#9CA3AF" id="sl-empty-hint">No spaces selected</span>';
+    return;
+  }
+  selectedCentres.forEach((c, i) => {
+    const chip = document.createElement('div');
+    chip.style.cssText = 'display:inline-flex;align-items:center;gap:6px;background:#1E22AA;color:#fff;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600';
+    chip.innerHTML = `${c.name} <span style="cursor:pointer;opacity:0.7" onclick="removeSpace(${i})">✕</span>`;
+    box.appendChild(chip);
+  });
+}
+function removeSpace(i) {
+  selectedCentres.splice(i, 1);
+  renderSelected();
+}
+
+let searchTimer;
+function searchCentres(q) {
+  clearTimeout(searchTimer);
+  const res = document.getElementById('sl-results');
+  if (!q.trim()) { res.style.display = 'none'; return; }
+  searchTimer = setTimeout(() => {
+    fetch('/centres/api/search?q=' + encodeURIComponent(q))
+      .then(r => r.json())
+      .then(rows => {
+        res.innerHTML = '';
+        if (!rows.length) {
+          res.innerHTML = '<div style="padding:10px 14px;font-size:13px;color:#9CA3AF">No results</div>';
+        } else {
+          rows.slice(0,8).forEach(c => {
+            const d = document.createElement('div');
+            d.style.cssText = 'padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid #F3F4F6;transition:background 0.1s';
+            d.onmouseover = () => d.style.background = '#F8F9FF';
+            d.onmouseout = () => d.style.background = '';
+            d.innerHTML = `<strong>${c.name}</strong><span style="color:#9CA3AF;margin-left:8px">${c.city||''}</span>`;
+            d.onclick = () => { addSpace(c.id, c.name); res.style.display = 'none'; document.getElementById('sl-search').value = ''; };
+            res.appendChild(d);
+          });
+        }
+        res.style.display = 'block';
+      });
+  }, 250);
+}
+
+function addSpace(id, name) {
+  if (selectedCentres.find(c => c.id === id)) return;
+  selectedCentres.push({id, name});
+  renderSelected();
+}
+
+function createLink() {
+  if (!selectedCentres.length) { alert('Please select at least one space.'); return; }
+  const label = document.getElementById('sl-label').value.trim();
+  fetch('/api/share-link/create', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      centre_ids: selectedCentres.map(c => String(c.id)),
+      centre_names: selectedCentres.map(c => c.name),
+      label
+    })
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.url) {
+      document.getElementById('sl-generated-url').textContent = d.url;
+      document.getElementById('sl-url-box').style.display = 'block';
+    } else {
+      alert('Error: ' + (d.error || 'Unknown'));
+    }
+  });
+}
+
+function copyGenerated() {
+  const url = document.getElementById('sl-generated-url').textContent;
+  navigator.clipboard.writeText(url).then(() => showToast('Copied!'));
+}
+
+function copyLink(btn) {
+  const url = btn.dataset.url;
+  navigator.clipboard.writeText(url).then(() => {
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy Link', 2000);
+  });
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  if (t) { t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2000); }
+}
+
+// Close modal on backdrop click
+document.getElementById('create-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeCreateModal();
+});
+
+// Close search results on outside click
+document.addEventListener('click', function(e) {
+  const res = document.getElementById('sl-results');
+  if (res && !res.contains(e.target) && e.target !== document.getElementById('sl-search')) {
+    res.style.display = 'none';
+  }
+});
+</script>
+{% endblock %}
