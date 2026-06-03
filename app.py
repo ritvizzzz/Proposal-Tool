@@ -95,6 +95,8 @@ def init_db():
             dwell_seconds INTEGER,
             ip_hash TEXT,
             user_agent TEXT,
+            booking_date TEXT,
+            booking_time TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         ''')
@@ -965,11 +967,18 @@ def track_event():
     ip_hash = hashlib.md5(ip.encode()).hexdigest()[:8]
     ua = request.headers.get('User-Agent', '')
     with get_db() as conn:
+        # Add booking columns if they don't exist yet (migration)
+        cols = [r[1] for r in conn.execute('PRAGMA table_info(link_events)').fetchall()]
+        if 'booking_date' not in cols:
+            conn.execute('ALTER TABLE link_events ADD COLUMN booking_date TEXT')
+            conn.execute('ALTER TABLE link_events ADD COLUMN booking_time TEXT')
         conn.execute(
-            '''INSERT INTO link_events (token, event_type, centre_id, centre_name, dwell_seconds, ip_hash, user_agent)
-               VALUES (?,?,?,?,?,?,?)''',
+            '''INSERT INTO link_events
+               (token, event_type, centre_id, centre_name, dwell_seconds, ip_hash, user_agent, booking_date, booking_time)
+               VALUES (?,?,?,?,?,?,?,?,?)''',
             (token, event_type, data.get('centre_id'), data.get('centre_name'),
-             data.get('dwell_seconds'), ip_hash, ua)
+             data.get('dwell_seconds'), ip_hash, ua,
+             data.get('booking_date'), data.get('booking_time'))
         )
     return jsonify({'ok': True})
 
