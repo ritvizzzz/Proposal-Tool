@@ -1,146 +1,181 @@
 {% extends 'base.html' %}
-{% block title %}Link Detail – {{ link.label or token }} – myHQ{% endblock %}
+{% block title %}{{ link.label or token }} – Link Tracker{% endblock %}
 
 {% block content %}
-<div style="margin-bottom:24px">
-  <a href="/dashboard" style="font-size:13px;color:#6B7280;text-decoration:none;display:inline-flex;align-items:center;gap:6px">
-    ← Back to Dashboard
-  </a>
+<style>
+  .space-card { background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);position:relative; }
+  .insight-bar { background:#1E22AA;color:white;padding:8px 14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap; }
+  .insight-chip { display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;background:rgba(255,255,255,0.15);padding:3px 8px;border-radius:10px; }
+  .insight-chip.green { background:rgba(16,185,129,0.3); }
+  .insight-chip.red   { background:rgba(239,68,68,0.3); }
+  .insight-chip.amber { background:rgba(245,158,11,0.3); }
+  .photo-main { width:100%;height:180px;object-fit:cover;display:block; }
+  .card-body  { padding:14px 16px; }
+  .stat-row   { display:flex;gap:16px;margin-top:0;flex-wrap:wrap; }
+  .stat-box   { text-align:center;background:#F8F9FF;border-radius:10px;padding:12px 20px;min-width:100px; }
+  .stat-num   { font-size:28px;font-weight:800;line-height:1; }
+  .stat-label { font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#9CA3AF;margin-top:4px; }
+</style>
+
+<!-- Back + header -->
+<div style="margin-bottom:20px">
+  <a href="/dashboard" style="font-size:13px;color:#6B7280;text-decoration:none">← All Links</a>
 </div>
 
-<!-- Header card -->
-<div style="background:#fff;border-radius:16px;padding:24px 28px;box-shadow:0 1px 3px rgba(0,0,0,0.06);margin-bottom:24px">
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px">
+<div style="background:#fff;border-radius:16px;padding:22px 28px;box-shadow:0 1px 3px rgba(0,0,0,0.06);margin-bottom:24px">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px">
     <div>
-      <h1 style="font-size:22px;font-weight:800;color:#1A1A2E">{{ link.label or '(no label)' }}</h1>
-      <div style="font-size:13px;color:#9CA3AF;margin-top:4px;font-family:monospace">{{ token }}</div>
-      <div style="margin-top:8px;font-size:14px;color:#4B4F6A">
-        Spaces: <strong>{{ link.centre_names_list|join(', ') }}</strong>
-      </div>
-      <div style="margin-top:4px;font-size:13px;color:#6B7280">
-        Created {{ link.created_at[:10] if link.created_at else '—' }}
-      </div>
+      <h1 style="font-size:20px;font-weight:800;color:#1A1A2E">{{ link.label or '(no label)' }}</h1>
+      <div style="font-size:12px;color:#9CA3AF;margin-top:2px;font-family:monospace">{{ token }}</div>
+      <div style="font-size:13px;color:#6B7280;margin-top:6px">Created {{ link.created_at[:10] if link.created_at else '—' }}</div>
     </div>
-    <div style="display:flex;gap:10px;align-items:center">
-      <button onclick="copyShareUrl()"
-              style="font-size:13px;font-weight:600;padding:10px 16px;border-radius:8px;background:#F0F1FA;border:none;color:#1E22AA;cursor:pointer">
-        Copy Share Link
+    <div style="display:flex;gap:8px">
+      <button onclick="copyLink()"
+        style="padding:9px 16px;border-radius:8px;background:#F0F1FA;border:none;color:#1E22AA;font-size:13px;font-weight:600;cursor:pointer">
+        📋 Copy Link
       </button>
       <a href="/compare/{{ token }}" target="_blank"
-         style="font-size:13px;font-weight:600;padding:10px 16px;border-radius:8px;background:#1E22AA;border:none;color:#fff;text-decoration:none">
-        Open Page
+        style="padding:9px 16px;border-radius:8px;background:#1E22AA;color:white;font-size:13px;font-weight:600;text-decoration:none">
+        👁 Client View
       </a>
     </div>
   </div>
 
-  <!-- Stats row -->
-  <div style="display:flex;gap:24px;margin-top:24px;flex-wrap:wrap">
-    {% set opens = events|selectattr('event_type','equalto','open')|list|length %}
-    {% set clicks = events|selectattr('event_type','equalto','click')|list|length %}
-    {% set dwells = events|selectattr('event_type','equalto','dwell')|list %}
-    {% set avg_dwell = (dwells|map(attribute='dwell_seconds')|select('number')|list|sum / dwells|length)|round(0)|int if dwells else 0 %}
+  <!-- Summary stats -->
+  {% set opens = events|selectattr('event_type','equalto','open')|list|length %}
+  {% set clicks = events|selectattr('event_type','equalto','click')|list|length %}
+  {% set interests = events|selectattr('event_type','equalto','interested')|list|length %}
+  {% set bookings = events|selectattr('event_type','equalto','booking_request')|list|length %}
+  {% set dwells = events|selectattr('event_type','equalto','dwell')|list %}
+  {% set avg_dwell = (dwells|map(attribute='dwell_seconds')|select('number')|list|sum / dwells|length)|round(0)|int if dwells else 0 %}
 
-    <div style="background:#F8F9FF;border-radius:12px;padding:16px 24px;min-width:120px">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#9CA3AF">Opens</div>
-      <div style="font-size:32px;font-weight:800;color:#1E22AA;margin-top:4px">{{ opens }}</div>
+  <div class="stat-row" style="margin-top:20px">
+    <div class="stat-box">
+      <div class="stat-num" style="color:#1E22AA">{{ opens }}</div>
+      <div class="stat-label">Times Opened</div>
     </div>
-    <div style="background:#F0FDF4;border-radius:12px;padding:16px 24px;min-width:120px">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#9CA3AF">Clicks</div>
-      <div style="font-size:32px;font-weight:800;color:#059669;margin-top:4px">{{ clicks }}</div>
+    <div class="stat-box">
+      <div class="stat-num" style="color:#059669">{{ clicks }}</div>
+      <div class="stat-label">Space Clicks</div>
     </div>
-    <div style="background:#FFF7ED;border-radius:12px;padding:16px 24px;min-width:120px">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#9CA3AF">Avg Dwell</div>
-      <div style="font-size:32px;font-weight:800;color:#D97706;margin-top:4px">{{ avg_dwell }}s</div>
+    <div class="stat-box">
+      <div class="stat-num" style="color:#10b981">{{ interests }}</div>
+      <div class="stat-label">Interested</div>
     </div>
-    <div style="background:#F5F3FF;border-radius:12px;padding:16px 24px;min-width:120px">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#9CA3AF">Unique IPs</div>
-      <div style="font-size:32px;font-weight:800;color:#7C3AED;margin-top:4px">
-        {{ events|map(attribute='ip_hash')|select|list|unique|list|length }}
-      </div>
+    <div class="stat-box">
+      <div class="stat-num" style="color:#f59e0b">{{ bookings }}</div>
+      <div class="stat-label">Bookings</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num" style="color:#7C3AED">{{ avg_dwell }}s</div>
+      <div class="stat-label">Avg Time Spent</div>
     </div>
   </div>
 </div>
 
-<!-- Chart + Timeline side by side -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px">
+<!-- ─── Client view with insight badges ─── -->
+<h2 style="font-size:17px;font-weight:700;color:#1A1A2E;margin-bottom:14px">
+  📊 Space-by-space engagement
+</h2>
 
-  <!-- Bar chart -->
-  {% if chart_labels %}
-  <div style="background:#fff;border-radius:16px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.06)">
-    <h2 style="font-size:16px;font-weight:700;color:#1A1A2E;margin-bottom:20px">Clicks per Space</h2>
-    <canvas id="clicks-chart" height="200"></canvas>
-  </div>
-  {% else %}
-  <div style="background:#fff;border-radius:16px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.06);display:flex;align-items:center;justify-content:center;color:#9CA3AF;font-size:14px">
-    No click data yet
-  </div>
-  {% endif %}
+{% if centres %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;margin-bottom:32px">
+  {% for c in centres %}
+  <div class="space-card">
+    <!-- Insight bar at top -->
+    <div class="insight-bar">
+      <span style="font-size:12px;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.name }}</span>
+      <span class="insight-chip" title="Times clicked">👆 {{ c._clicks }}</span>
+      {% if c._interested %}<span class="insight-chip green">👍 {{ c._interested }}</span>{% endif %}
+      {% if c._not_interested %}<span class="insight-chip red">👎 {{ c._not_interested }}</span>{% endif %}
+      {% if c._bookings %}<span class="insight-chip amber">📅 {{ c._bookings|length }} booking</span>{% endif %}
+    </div>
 
-  <!-- Recent events -->
-  <div style="background:#fff;border-radius:16px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.06);overflow:hidden">
-    <h2 style="font-size:16px;font-weight:700;color:#1A1A2E;margin-bottom:20px">Event Timeline</h2>
-    <div style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:10px">
-      {% if not events %}
-      <p style="color:#9CA3AF;font-size:14px">No events recorded yet.</p>
+    <!-- Photo -->
+    {% if c.image_urls %}
+    <img class="photo-main" src="{{ c.image_urls[0] }}" alt="{{ c.name }}">
+    {% else %}
+    <div style="height:120px;background:#F0F1FA;display:flex;align-items:center;justify-content:center;font-size:36px">🏢</div>
+    {% endif %}
+
+    <!-- Card body — same info client sees -->
+    <div class="card-body">
+      {% if c.brand %}<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#9CA3AF;margin-bottom:4px">{{ c.brand }}</div>{% endif %}
+      <div style="font-size:15px;font-weight:700;color:#1A1A2E;margin-bottom:6px">{{ c.name }}</div>
+      {% if c.address %}
+      <div style="font-size:12px;color:#6B7280;margin-bottom:8px">📍 {{ c.address }}{% if c.transport %}<br><span style="color:#1E22AA">🚇 {{ c.transport }}</span>{% endif %}</div>
       {% endif %}
-      {% for ev in events[:40] %}
-      <div style="display:flex;align-items:flex-start;gap:12px;padding-bottom:10px;border-bottom:1px solid #F3F4F6">
-        <div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;
-          {% if ev.event_type == 'open' %}background:#EEF2FF;{% elif ev.event_type == 'click' %}background:#F0FDF4;{% else %}background:#FFF7ED;{% endif %}">
-          {% if ev.event_type == 'open' %}👁{% elif ev.event_type == 'click' %}👆{% else %}⏱{% endif %}
-        </div>
-        <div style="flex:1">
-          <div style="font-size:13px;font-weight:600;color:#1A1A2E;text-transform:capitalize">
-            {{ ev.event_type }}
-            {% if ev.centre_name %}<span style="font-weight:400;color:#6B7280"> — {{ ev.centre_name }}</span>{% endif %}
-            {% if ev.dwell_seconds %}<span style="font-weight:400;color:#D97706"> {{ ev.dwell_seconds }}s</span>{% endif %}
-          </div>
-          <div style="font-size:11px;color:#9CA3AF;margin-top:2px">
-            {{ ev.created_at[:16] if ev.created_at else '' }}
-            {% if ev.ip_hash %} · IP {{ ev.ip_hash }}{% endif %}
-          </div>
-        </div>
+      <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+        {% if c.price_from %}
+        <span style="font-size:14px;font-weight:700;color:#059669">£{{ c.price_from }}<small style="font-weight:400;font-size:11px">/{{ c.price_unit or 'mo' }}</small></span>
+        {% endif %}
+        {% if c.space_type %}<span style="font-size:11px;color:#6B7280;background:#F3F4F6;padding:2px 7px;border-radius:8px">{{ c.space_type }}</span>{% endif %}
       </div>
-      {% endfor %}
+
+      <!-- Booking requests for this space -->
+      {% if c._bookings %}
+      <div style="background:#FFF7ED;border:1px solid #FCD34D;border-radius:8px;padding:8px 10px;margin-top:6px">
+        <div style="font-size:11px;font-weight:700;color:#D97706;margin-bottom:4px">📅 Viewing Requests</div>
+        {% for b in c._bookings %}
+        <div style="font-size:12px;color:#92400E">{{ b }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Interest summary -->
+      {% if c._interested or c._not_interested %}
+      <div style="display:flex;gap:8px;margin-top:8px">
+        {% if c._interested %}<span style="font-size:12px;background:#D1FAE5;color:#065F46;padding:3px 8px;border-radius:6px;font-weight:600">👍 Interested × {{ c._interested }}</span>{% endif %}
+        {% if c._not_interested %}<span style="font-size:12px;background:#FEE2E2;color:#991B1B;padding:3px 8px;border-radius:6px;font-weight:600">👎 Not interested × {{ c._not_interested }}</span>{% endif %}
+      </div>
+      {% endif %}
     </div>
   </div>
+  {% endfor %}
 </div>
+{% else %}
+<div style="background:#fff;border-radius:14px;padding:32px;text-align:center;color:#9CA3AF;margin-bottom:32px">
+  No space data available for this link.
+</div>
+{% endif %}
 
-<!-- Full event table -->
+<!-- Event timeline -->
 <div style="background:#fff;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);overflow:hidden">
-  <div style="padding:20px 24px;border-bottom:1px solid #F3F4F6">
-    <h2 style="font-size:16px;font-weight:700;color:#1A1A2E">All Events ({{ events|length }})</h2>
+  <div style="padding:18px 24px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between">
+    <h2 style="font-size:16px;font-weight:700;color:#1A1A2E">Activity Timeline ({{ events|length }} events)</h2>
   </div>
   <div style="overflow-x:auto">
     <table style="width:100%;border-collapse:collapse">
       <thead>
         <tr style="background:#F8F9FF">
-          <th style="text-align:left;padding:12px 20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Time</th>
-          <th style="text-align:left;padding:12px 20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Event</th>
-          <th style="text-align:left;padding:12px 20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Space</th>
-          <th style="text-align:left;padding:12px 20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Dwell</th>
-          <th style="text-align:left;padding:12px 20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">IP</th>
+          <th style="text-align:left;padding:10px 18px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#6B7280">Time</th>
+          <th style="text-align:left;padding:10px 18px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#6B7280">Action</th>
+          <th style="text-align:left;padding:10px 18px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#6B7280">Space</th>
+          <th style="text-align:left;padding:10px 18px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#6B7280">Detail</th>
         </tr>
       </thead>
       <tbody>
         {% for ev in events %}
-        <tr style="border-bottom:1px solid #F3F4F6">
-          <td style="padding:12px 20px;font-size:12px;color:#6B7280">{{ ev.created_at[:16] if ev.created_at else '—' }}</td>
-          <td style="padding:12px 20px">
-            <span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:12px;
-              {% if ev.event_type == 'open' %}background:#EEF2FF;color:#4338CA;
-              {% elif ev.event_type == 'click' %}background:#F0FDF4;color:#059669;
-              {% else %}background:#FFF7ED;color:#D97706;{% endif %}">
-              {{ ev.event_type }}
-            </span>
+        <tr style="border-bottom:1px solid #F9FAFB">
+          <td style="padding:10px 18px;font-size:12px;color:#6B7280;white-space:nowrap">{{ ev.created_at[:16] if ev.created_at else '—' }}</td>
+          <td style="padding:10px 18px">
+            {% set et = ev.event_type %}
+            {% if et == 'open' %}<span style="font-size:12px;font-weight:600;padding:2px 8px;border-radius:10px;background:#EEF2FF;color:#4338CA">👁 Opened</span>
+            {% elif et == 'click' %}<span style="font-size:12px;font-weight:600;padding:2px 8px;border-radius:10px;background:#F0FDF4;color:#059669">👆 Clicked</span>
+            {% elif et == 'interested' %}<span style="font-size:12px;font-weight:600;padding:2px 8px;border-radius:10px;background:#D1FAE5;color:#065F46">👍 Interested</span>
+            {% elif et == 'not_interested' %}<span style="font-size:12px;font-weight:600;padding:2px 8px;border-radius:10px;background:#FEE2E2;color:#991B1B">👎 Not interested</span>
+            {% elif et == 'booking_request' %}<span style="font-size:12px;font-weight:600;padding:2px 8px;border-radius:10px;background:#FFF7ED;color:#D97706">📅 Booking</span>
+            {% elif et == 'dwell' %}<span style="font-size:12px;font-weight:600;padding:2px 8px;border-radius:10px;background:#F5F3FF;color:#7C3AED">⏱ {{ ev.dwell_seconds }}s</span>
+            {% else %}<span style="font-size:12px;color:#9CA3AF">{{ et }}</span>{% endif %}
           </td>
-          <td style="padding:12px 20px;font-size:13px;color:#4B4F6A">{{ ev.centre_name or '—' }}</td>
-          <td style="padding:12px 20px;font-size:13px;color:#6B7280">{{ (ev.dwell_seconds|string + 's') if ev.dwell_seconds else '—' }}</td>
-          <td style="padding:12px 20px;font-size:12px;color:#9CA3AF;font-family:monospace">{{ ev.ip_hash or '—' }}</td>
+          <td style="padding:10px 18px;font-size:13px;color:#4B4F6A">{{ ev.centre_name or '—' }}</td>
+          <td style="padding:10px 18px;font-size:12px;color:#6B7280">
+            {% if ev.booking_date %}{{ ev.booking_date }} {{ ev.booking_time or '' }}{% endif %}
+          </td>
         </tr>
         {% endfor %}
         {% if not events %}
-        <tr><td colspan="5" style="padding:24px;text-align:center;color:#9CA3AF;font-size:14px">No events yet</td></tr>
+        <tr><td colspan="4" style="padding:24px;text-align:center;color:#9CA3AF">No activity yet. Share the link with your client.</td></tr>
         {% endif %}
       </tbody>
     </table>
@@ -149,52 +184,10 @@
 
 <script>
 const SHARE_URL = {{ (base_url + '/compare/' + token)|tojson }};
-
-function copyShareUrl() {
-  navigator.clipboard.writeText(SHARE_URL).then(() => {
-    const t = document.getElementById('toast');
-    if (t) { t.textContent = 'Copied!'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2000); }
+function copyLink(){
+  navigator.clipboard.writeText(SHARE_URL).then(()=>{
+    alert('Link copied: ' + SHARE_URL);
   });
 }
 </script>
-{% endblock %}
-
-{% block scripts %}
-{% if chart_labels %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script>
-const ctx = document.getElementById('clicks-chart').getContext('2d');
-new Chart(ctx, {
-  type: 'bar',
-  data: {
-    labels: {{ chart_labels|tojson }},
-    datasets: [{
-      label: 'Clicks',
-      data: {{ chart_data|tojson }},
-      backgroundColor: 'rgba(30,34,170,0.15)',
-      borderColor: '#1E22AA',
-      borderWidth: 2,
-      borderRadius: 8,
-    }]
-  },
-  options: {
-    responsive: true,
-    plugins: {
-      legend: { display: false }
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        ticks: { stepSize: 1, font: { family: 'Plus Jakarta Sans', size: 12 } },
-        grid: { color: '#F3F4F6' }
-      },
-      x: {
-        ticks: { font: { family: 'Plus Jakarta Sans', size: 11 } },
-        grid: { display: false }
-      }
-    }
-  }
-});
-</script>
-{% endif %}
 {% endblock %}

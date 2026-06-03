@@ -1039,9 +1039,41 @@ def dashboard_detail(token):
             link['centre_names_list'] = json.loads(link.get('centre_names') or '[]')
         except Exception:
             link['centre_names_list'] = []
+
+        # Fetch full centre data for the client view
+        hubble_ids = json.loads(link.get('centre_ids') or '[]')
+        centres = _load_centres_for_compare(conn, hubble_ids)
+
+        # Per-space stats: clicks, interest, bookings
+        space_stats = {}
+        for ev in events:
+            cn = ev.get('centre_name') or ev.get('centre_id', '')
+            if not cn:
+                continue
+            if cn not in space_stats:
+                space_stats[cn] = {'clicks': 0, 'interested': 0, 'not_interested': 0, 'bookings': []}
+            t = ev.get('event_type', '')
+            if t == 'click':
+                space_stats[cn]['clicks'] += 1
+            elif t == 'interested':
+                space_stats[cn]['interested'] += 1
+            elif t == 'not_interested':
+                space_stats[cn]['not_interested'] += 1
+            elif t == 'booking_request' and ev.get('booking_date'):
+                space_stats[cn]['bookings'].append(
+                    f"{ev['booking_date']} {ev.get('booking_time','')}"
+                )
+        # Attach stats to centres
+        for c in centres:
+            stats = space_stats.get(c['name']) or space_stats.get(str(c.get('hubble_id',''))) or {}
+            c['_clicks']       = stats.get('clicks', 0)
+            c['_interested']   = stats.get('interested', 0)
+            c['_not_interested'] = stats.get('not_interested', 0)
+            c['_bookings']     = stats.get('bookings', [])
+
     return render_template('dashboard_detail.html', link=link, events=events,
                            chart_labels=chart_labels, chart_data=chart_data,
-                           base_url=BASE_URL, token=token)
+                           centres=centres, base_url=BASE_URL, token=token)
 
 
 if __name__ == '__main__':

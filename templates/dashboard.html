@@ -82,17 +82,39 @@
 
 <!-- Create Modal -->
 <div id="create-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:16px;padding:32px;width:460px;max-width:90vw">
-    <h2 style="font-size:18px;font-weight:800;margin-bottom:20px;color:#1A1A2E">Create Share Link</h2>
+  <div style="background:#fff;border-radius:16px;padding:32px;width:500px;max-width:90vw;max-height:90vh;overflow-y:auto">
+    <h2 style="font-size:18px;font-weight:800;margin-bottom:6px;color:#1A1A2E">Create Tracked Link</h2>
+    <p style="font-size:13px;color:#6B7280;margin-bottom:20px">Share this with your client to track which spaces they engage with.</p>
+
+    <!-- Import from map URL -->
+    <div style="background:#F0F1FA;border-radius:10px;padding:14px;margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#1E22AA;margin-bottom:8px">📎 Import from Map Link</div>
+      <p style="font-size:12px;color:#6B7280;margin-bottom:8px">Paste the "Share Comparison" link copied from the workspace map:</p>
+      <div style="display:flex;gap:8px">
+        <input id="sl-map-url" type="text" placeholder="Paste map link here…"
+               style="flex:1;border:1.5px solid #E8E9F3;border-radius:8px;padding:9px 12px;font-size:13px;outline:none;font-family:inherit"
+               oninput="parseMapUrl(this.value)">
+        <button onclick="parseMapUrl(document.getElementById('sl-map-url').value, true)"
+                style="padding:9px 14px;border-radius:8px;background:#1E22AA;border:none;color:#fff;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">Import</button>
+      </div>
+      <div id="sl-import-status" style="font-size:12px;color:#10b981;margin-top:6px;display:none"></div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <hr style="flex:1;border:none;border-top:1px solid #E8E9F3">
+      <span style="font-size:12px;color:#9CA3AF;font-weight:600">OR ADD MANUALLY</span>
+      <hr style="flex:1;border:none;border-top:1px solid #E8E9F3">
+    </div>
+
     <div style="display:flex;flex-direction:column;gap:14px">
       <div>
-        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px">Client / Label</label>
-        <input id="sl-label" type="text" placeholder="e.g. Acme Corp"
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px">Client Name / Label</label>
+        <input id="sl-label" type="text" placeholder="e.g. Acme Corp – June proposal"
                style="width:100%;border:1.5px solid #E8E9F3;border-radius:8px;padding:10px 12px;font-size:14px;outline:none;font-family:inherit">
       </div>
       <div>
         <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px">Search & add spaces</label>
-        <input id="sl-search" type="text" placeholder="Type to search centres…"
+        <input id="sl-search" type="text" placeholder="Type space name…"
                style="width:100%;border:1.5px solid #E8E9F3;border-radius:8px;padding:10px 12px;font-size:14px;outline:none;font-family:inherit"
                oninput="searchCentres(this.value)">
         <div id="sl-results" style="border:1px solid #E8E9F3;border-top:none;border-radius:0 0 8px 8px;max-height:160px;overflow-y:auto;display:none"></div>
@@ -125,10 +147,69 @@ function openCreateModal() {
   selectedCentres = [];
   document.getElementById('sl-label').value = '';
   document.getElementById('sl-search').value = '';
+  document.getElementById('sl-map-url').value = '';
+  document.getElementById('sl-import-status').style.display = 'none';
   document.getElementById('sl-results').style.display = 'none';
   document.getElementById('sl-url-box').style.display = 'none';
   renderSelected();
   document.getElementById('create-modal').style.display = 'flex';
+}
+
+// Parse a map-generated share URL and populate spaces
+async function parseMapUrl(url, explicit=false) {
+  if(!url || url.length < 20) return;
+  let ids=[], names=[];
+  try {
+    const u = new URL(url.trim());
+    const idsParam = u.searchParams.get('ids');
+    const namesParam = u.searchParams.get('names');
+    if(!idsParam) return;
+    ids = idsParam.split(',').map(s=>s.trim()).filter(Boolean);
+    names = namesParam ? namesParam.split(',').map(s=>decodeURIComponent(s).trim()) : [];
+  } catch(e) {
+    // Try to extract ids= from raw string
+    const m = url.match(/ids=([^&]+)/);
+    if(!m) return;
+    ids = m[1].split(',').map(s=>s.trim()).filter(Boolean);
+    const n = url.match(/names=([^&\s]+)/);
+    if(n) names = n[1].split(',').map(s=>decodeURIComponent(s));
+  }
+  if(!ids.length) return;
+
+  // Look up each hubble_id in our local DB via search
+  const status = document.getElementById('sl-import-status');
+  status.style.display = 'block';
+  status.style.color = '#6B7280';
+  status.textContent = `Looking up ${ids.length} spaces…`;
+  selectedCentres = [];
+
+  for(let i=0; i<ids.length; i++) {
+    const hid = ids[i];
+    const name = names[i] || '';
+    try {
+      const res = await fetch(`/centres/api/search?q=${encodeURIComponent(name||hid)}`);
+      const results = await res.json();
+      // Find exact hubble_id match or best name match
+      let match = results.find(r => String(r.hubble_id) === String(hid));
+      if(!match && name) match = results.find(r => r.name && r.name.toLowerCase().includes(name.toLowerCase().slice(0,20)));
+      if(!match && results.length) match = results[0];
+      if(match && !selectedCentres.find(c=>c.id===match.id)) {
+        selectedCentres.push({id: String(match.id), name: match.name});
+      } else if(!match && name) {
+        selectedCentres.push({id: hid, name: name});
+      }
+    } catch(e) {
+      if(name) selectedCentres.push({id: hid, name: name});
+    }
+  }
+
+  renderSelected();
+  // Auto-fill label from names
+  if(!document.getElementById('sl-label').value && names.length) {
+    document.getElementById('sl-label').value = names.slice(0,2).join(', ') + (names.length>2?' + more':'');
+  }
+  status.style.color = '#10b981';
+  status.textContent = `✓ Imported ${selectedCentres.length} space${selectedCentres.length!==1?'s':''}. Add a client name and click Generate.`;
 }
 function closeCreateModal() {
   document.getElementById('create-modal').style.display = 'none';
