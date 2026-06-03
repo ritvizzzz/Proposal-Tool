@@ -3058,5 +3058,65 @@
     "name": "sub800 - 33 Eastcheap",
     "rating": null,
     "review_count": null
+  },
+  "19761": {
+    "hubble_id": "19761",
+    "name": "sub800 - 33 Poland Street",
+    "rating": null,
+    "review_count": null
+  },
+  "19762": {
+    "hubble_id": "19762",
+    "name": "sub800 - 40 Great Portland Street",
+    "rating": 5.0,
+    "review_count": 2
+  },
+  "19765": {
+    "hubble_id": "19765",
+    "name": "sub800 - 47 Brunswick Place",
+    "rating": 0.0,
+    "review_count": null
+  },
+  "19766": {
+    "hubble_id": "19766",
+    "name": "sub800 - 5 Wilton Road",
+    "rating": 2.7,
+    "review_count": 3
+  },
+  "19767": {
+    "hubble_id": "19767",
+    "name": "sub800 - 52 Bow Lane",
+    "rating": null,
+    "review_count": null
+  },
+  "19769": {
+    "hubble_id": "19769",
+    "name": "sub800 - Suite 6 Mill Street",
+    "rating": 5.0,
+    "review_count": null
+  },
+  "19770": {
+    "hubble_id": "19770",
+    "name": "sub800 - 74-77 White Lion Street",
+    "rating": 3.9,
+    "review_count": 43
+  },
+  "19771": {
+    "hubble_id": "19771",
+    "name": "sub800 - West Wing, The Hop Exchange, 24 Southwark Street",
+    "rating": 4.4,
+    "review_count": null
+  },
+  "19853": {
+    "hubble_id": "19853",
+    "name": "WorkPad: 62 Bayswater Road",
+    "rating": null,
+    "review_count": null
+  },
+  "19855": {
+    "hubble_id": "19855",
+    "name": "Workthere - Lacon House",
+    "rating": 4.6,
+    "review_count": 78
   }
 }
