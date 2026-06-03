@@ -966,7 +966,8 @@ def compare_page(token):
 
 @app.route('/track', methods=['POST'])
 def track_event():
-    data = request.json or {}
+    # force=True parses JSON regardless of Content-Type (sendBeacon may send text/plain)
+    data = request.get_json(force=True, silent=True) or {}
     token = data.get('token', '')
     event_type = data.get('event_type', '')
     if not token or not event_type:

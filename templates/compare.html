@@ -547,13 +547,21 @@
 const TOKEN = {{ token|tojson }};
 const pageStart = Date.now();
 
-// ── Track open ──
+// ── Tracking helper — always sends application/json so Flask parses correctly ──
 function post(url, data) {
   try {
-    navigator.sendBeacon
-      ? navigator.sendBeacon(url, JSON.stringify(data))
-      : fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data), keepalive:true });
-  } catch(e) {}
+    const body = JSON.stringify(data);
+    if (navigator.sendBeacon) {
+      // sendBeacon needs a Blob with explicit content-type, otherwise Flask gets text/plain
+      const blob = new Blob([body], { type: 'application/json' });
+      navigator.sendBeacon(url, blob);
+    } else {
+      fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true });
+    }
+  } catch(e) {
+    // Silent fallback
+    fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).catch(()=>{});
+  }
 }
 
 // ── Track click ──
