@@ -617,7 +617,13 @@ no rating found
 [556/1487] LABS - Southampton Place... ★ 3.5 (? reviews)
 [557/1487] Halkin - Blackfriars - The Mermaid... ★ 4.3 (? reviews)
 [558/1487] Halkin - Monument - Lower Thames St... ★ 4.8 (12 reviews)
-[559/1487] Halkin - Watford Junction...   → Progress saved (560 total)
+[559/1487] Halkin - Watford Junction... ★ 4.2 (33 reviews)
+[560/1487] Workspace - The Frames... ★ 4.4 (? reviews)
+  → Progress saved (560 total)
 [561/1487] Workspace - Fuel Tank... ★ 4.0 (? reviews)
 [562/1487] Workspace - Westbourne Studios... ★ 4.5 (70 reviews)
-[563/1487] Workspace - The Centro Buildings... 
+[563/1487] Workspace - The Centro Buildings... ★ 4.2 (? reviews)
+[564/1487] Workspace - Edinburgh House... ★ 4.3 (? reviews)
+[565/1487] Halkin - 13 Hanover Square - Mayfair... ★ 4.4 (? reviews)
+[566/1487] Expressway Studios... ★ 4.0 (5 reviews)
+[567/1487] LABS - Camden - Hawley Wharf... 
