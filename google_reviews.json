@@ -3178,5 +3178,65 @@
     "name": "Workspace - Cargo Works",
     "rating": 4.5,
     "review_count": null
+  },
+  "3892": {
+    "hubble_id": "3892",
+    "name": "Workspace - Metal Box Factory",
+    "rating": 4.1,
+    "review_count": 186
+  },
+  "3893": {
+    "hubble_id": "3893",
+    "name": "Workspace - Grand Union Studios",
+    "rating": 4.5,
+    "review_count": 101
+  },
+  "3895": {
+    "hubble_id": "3895",
+    "name": "Workspace - The Print Rooms",
+    "rating": 4.2,
+    "review_count": null
+  },
+  "3896": {
+    "hubble_id": "3896",
+    "name": "Workspace - Parkhall Business Centre",
+    "rating": 4.5,
+    "review_count": null
+  },
+  "3897": {
+    "hubble_id": "3897",
+    "name": "Workspace - East London Works",
+    "rating": 3.9,
+    "review_count": 16
+  },
+  "3940": {
+    "hubble_id": "3940",
+    "name": "Workspace - Barley Mow Centre",
+    "rating": 4.5,
+    "review_count": null
+  },
+  "3944": {
+    "hubble_id": "3944",
+    "name": "Workspace - Clerkenwell Workshops",
+    "rating": 4.2,
+    "review_count": null
+  },
+  "3945": {
+    "hubble_id": "3945",
+    "name": "Workspace - Exmouth House",
+    "rating": 4.4,
+    "review_count": null
+  },
+  "3947": {
+    "hubble_id": "3947",
+    "name": "Workspace - Fleet Street",
+    "rating": 3.9,
+    "review_count": 30
+  },
+  "3953": {
+    "hubble_id": "3953",
+    "name": "Workspace - Kennington Park",
+    "rating": 4.2,
+    "review_count": 510
   }
 }

@@ -590,4 +590,15 @@ no rating found
 [531/1487] Workspace - Metal Box Factory... ★ 4.1 (186 reviews)
 [532/1487] Workspace - Grand Union Studios... ★ 4.5 (101 reviews)
 [533/1487] Workspace - The Print Rooms... ★ 4.2 (? reviews)
-[534/1487] Workspace - Parkhall Business Centre... 
+[534/1487] Workspace - Parkhall Business Centre... ★ 4.5 (? reviews)
+[535/1487] Workspace - East London Works... ★ 3.9 (16 reviews)
+[536/1487] Workspace - Barley Mow Centre... ★ 4.5 (? reviews)
+[537/1487] Workspace - Clerkenwell Workshops... ★ 4.2 (? reviews)
+[538/1487] Workspace - Exmouth House... ★ 4.4 (? reviews)
+[539/1487] Workspace - Fleet Street... ★ 3.9 (30 reviews)
+[540/1487] Workspace - Kennington Park... ★ 4.2 (510 reviews)
+  → Progress saved (540 total)
+[541/1487] Workspace - The Light Bulb... ★ 4.1 (? reviews)
+[542/1487] Workspace - E1 Studios... ★ 3.9 (37 reviews)
+[543/1487] Workspace - Pill Box... ★ 4.1 (? reviews)
+[544/1487] Workspace - The Light Box... 
