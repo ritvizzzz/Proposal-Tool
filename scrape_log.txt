@@ -604,4 +604,6 @@ no rating found
 [544/1487] Workspace - The Light Box... ★ 4.2 (? reviews)
 [545/1487] Workspace - China Works... ★ 4.1 (? reviews)
 [546/1487] Workspace - Screenworks... ★ 4.1 (? reviews)
-[547/1487] Workspace - The Biscuit Factory... 
+[547/1487] Workspace - The Biscuit Factory... ★ 4.1 (? reviews)
+[548/1487] Workspace - The Chocolate Factory... ★ 4.1 (? reviews)
+[549/1487] Workspace - Wenlock Studios... 
