@@ -3238,5 +3238,65 @@
     "name": "Workspace - Kennington Park",
     "rating": 4.2,
     "review_count": 510
+  },
+  "3955": {
+    "hubble_id": "3955",
+    "name": "Workspace - The Light Bulb",
+    "rating": 4.1,
+    "review_count": null
+  },
+  "3958": {
+    "hubble_id": "3958",
+    "name": "Workspace - E1 Studios",
+    "rating": 3.9,
+    "review_count": 37
+  },
+  "3959": {
+    "hubble_id": "3959",
+    "name": "Workspace - Pill Box",
+    "rating": 4.1,
+    "review_count": null
+  },
+  "3960": {
+    "hubble_id": "3960",
+    "name": "Workspace - The Light Box",
+    "rating": 4.2,
+    "review_count": null
+  },
+  "3964": {
+    "hubble_id": "3964",
+    "name": "Workspace - China Works",
+    "rating": 4.1,
+    "review_count": null
+  },
+  "3969": {
+    "hubble_id": "3969",
+    "name": "Workspace - Screenworks",
+    "rating": 4.1,
+    "review_count": null
+  },
+  "3972": {
+    "hubble_id": "3972",
+    "name": "Workspace - The Biscuit Factory",
+    "rating": 4.1,
+    "review_count": null
+  },
+  "3975": {
+    "hubble_id": "3975",
+    "name": "Workspace - The Chocolate Factory",
+    "rating": 4.1,
+    "review_count": null
+  },
+  "3976": {
+    "hubble_id": "3976",
+    "name": "Workspace - Wenlock Studios",
+    "rating": 3.8,
+    "review_count": null
+  },
+  "4026": {
+    "hubble_id": "4026",
+    "name": "WeWork - Aldwych House",
+    "rating": 4.4,
+    "review_count": null
   }
 }
