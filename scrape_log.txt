@@ -626,4 +626,6 @@ no rating found
 [564/1487] Workspace - Edinburgh House... ★ 4.3 (? reviews)
 [565/1487] Halkin - 13 Hanover Square - Mayfair... ★ 4.4 (? reviews)
 [566/1487] Expressway Studios... ★ 4.0 (5 reviews)
-[567/1487] LABS - Camden - Hawley Wharf... 
+[567/1487] LABS - Camden - Hawley Wharf... ★ 4.6 (5050 reviews)
+[568/1487] Workspace - Brickfields... ★ 4.5 (? reviews)
+[569/1487] Workspace - Ink Rooms... 
