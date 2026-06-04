@@ -426,20 +426,30 @@ def extract_transport_parts(transport_str):
     return tube, bus, other
 
 
-def tube_badge_path(transport_str):
-    """Return transparent PNG path for the tube line badge matching transport_str, or None."""
+def tube_badge_path(transport_str, raw=False):
+    """Return tube line badge PNG path for transport_str, or None.
+    raw=True returns the original PNG (white background intact — use on white/light backgrounds).
+    raw=False (default) strips white bg for use on coloured/dark backgrounds.
+    """
     s = (transport_str or '').lower()
-    # First try station name lookup for better accuracy
     station = _extract_station_name(transport_str)
     if station:
-        result = station_badge_path(station)
-        if result:
-            return result
+        s2 = station.lower().strip()
+        key = STATION_LINE_MAP.get(s2)
+        if not key:
+            for k, v in STATION_LINE_MAP.items():
+                if k in s2 or s2 in k:
+                    key = v
+                    break
+        if key:
+            p = os.path.join(TUBE_DIR, f'{key}.png')
+            if os.path.isfile(p):
+                return p if raw else _strip_white_bg(p)
     for keyword, key in TUBE_LINE_KEYS.items():
         if keyword in s:
             p = os.path.join(TUBE_DIR, f'{key}.png')
             if os.path.isfile(p):
-                return _strip_white_bg(p)
+                return p if raw else _strip_white_bg(p)
     return None
 
 
@@ -770,10 +780,13 @@ def _client_requirements_slide(proposal, template, db_centres, manual_centres,
     sl.append(T('+44 7863 754009', inner_x, card_y + 2980000, inner_w, 280000,
                 11, WHITE, font=font))
 
-    # Decorative myHQ logo area
+    # Decorative myHQ logo area — fixed size preserving 1280×479 aspect ratio
     sl.append(R(card_x, card_y + card_h - 600000, card_w, 600000, '#16199A'))
     _logo_w = get_logo_png(white=True)
-    sl.append(I(_logo_w, inner_x, card_y + card_h - 530000, inner_w, 420000))
+    _lw, _lh = 900000, int(900000 * 479 // 1280)   # 900000 × 337000, ratio exact → no cover-crop
+    _lx = card_x + (card_w - _lw) // 2
+    _ly = card_y + card_h - 600000 + (600000 - _lh) // 2
+    sl.append(I(_logo_w, _lx, _ly, _lw, _lh))
 
     return sl
 
@@ -1397,7 +1410,8 @@ def _about_location_slide(proposal, all_centres, font, logo, map_img_path=None):
                 sl.append(T(walk_t, M + 185000, row_y + 160000,
                             name_w, 80000, 6.5, GREY, font=font))
             # Tube badge right-aligned inside card, vertically centred
-            badge = tube_badge_path(transport_raw)
+            # raw=True keeps white background so text on the badge stays visible (card is near-white)
+            badge = tube_badge_path(transport_raw, raw=True)
             badge_y = row_y + (card_h - badge_h) // 2
             if badge:
                 sl.append(I(badge, M + card_w - badge_w - 30000, badge_y, badge_w, badge_h))
