@@ -91,6 +91,7 @@ STATION_LINE_MAP = {
     # M
     'mansion house':            'circle',
     'marble arch':              'central',
+    'marylebone':               'bakerloo',
     'mile end':                 'central',
     'monument':                 'circle',
     'moorgate':                 'circle',
@@ -1381,9 +1382,9 @@ def _about_location_slide(proposal, all_centres, font, logo, map_img_path=None):
     # Shortlisted spaces — compact cards with subtle background
     list_y = station_y + len(stations[:5]) * row_gap + 120000
     card_w = left_w - M - 40000
-    card_h = 260000
-    card_gap = 14000
-    badge_w, badge_h = 480000, 144000   # 320×96 → 3.33:1 exact match, no crop
+    card_h = 290000
+    card_gap = 12000
+    badge_w, badge_h = 600000, 180000   # 320×96 → 3.33:1 exact match, no crop
     if list_y < H - 900000:
         sl.append(T('SHORTLISTED SPACES', M, list_y, card_w, 210000,
                     7.5, BLUE, font=font, bold=True))

@@ -629,8 +629,18 @@ async function generateProposal() {
   status.style.display = 'block';
   status.innerHTML = '<div class="spinner"></div> Building your PPTX deck…';
 
-  const res = await fetch(`/proposals/${proposalId}/generate`, { method:'POST' });
-  const data = await res.json();
+  let data;
+  try {
+    const res = await fetch(`/proposals/${proposalId}/generate`, { method:'POST' });
+    data = await res.json();
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = 'Generate PPTX';
+    status.innerHTML = `Error: Could not reach server (${e.message})`;
+    status.className = 'generate-status error';
+    showToast('Generation failed — check server is running', 'error');
+    return;
+  }
 
   btn.disabled = false;
   btn.textContent = 'Generate PPTX';
