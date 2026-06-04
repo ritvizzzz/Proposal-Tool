@@ -702,9 +702,7 @@ def _client_requirements_slide(proposal, template, db_centres, manual_centres,
         ('LOCATION',       proposal.get('client_location') or '—'),
         ('TEAM SIZE',      proposal.get('team_size')       or '—'),
         ('SPACE TYPE',     proposal.get('space_type')      or '—'),
-        ('AREA REQUIRED',  proposal.get('area_required')   or '—'),
         ('BUDGET',         proposal.get('budget')          or '—'),
-        ('DURATION',       proposal.get('duration')        or '—'),
     ]
 
     lbl_col_w  = 2100000
@@ -772,10 +770,10 @@ def _client_requirements_slide(proposal, template, db_centres, manual_centres,
     sl.append(T('+44 7863 754009', inner_x, card_y + 2980000, inner_w, 280000,
                 11, WHITE, font=font))
 
-    # Decorative myHQ icon area
+    # Decorative myHQ logo area
     sl.append(R(card_x, card_y + card_h - 600000, card_w, 600000, '#16199A'))
-    sl.append(T('myHQ', inner_x, card_y + card_h - 480000, inner_w, 380000,
-                22, WHITE, font=font, bold=True))
+    _logo_w = get_logo_png(white=True)
+    sl.append(I(_logo_w, inner_x, card_y + card_h - 530000, inner_w, 420000))
 
     return sl
 
@@ -1370,8 +1368,9 @@ def _about_location_slide(proposal, all_centres, font, logo, map_img_path=None):
     # Shortlisted spaces — compact cards with subtle background
     list_y = station_y + len(stations[:5]) * row_gap + 120000
     card_w = left_w - M - 40000
-    card_h = 220000
-    card_gap = 16000
+    card_h = 260000
+    card_gap = 14000
+    badge_w, badge_h = 480000, 144000   # 320×96 → 3.33:1 exact match, no crop
     if list_y < H - 900000:
         sl.append(T('SHORTLISTED SPACES', M, list_y, card_w, 210000,
                     7.5, BLUE, font=font, bold=True))
@@ -1387,23 +1386,24 @@ def _about_location_slide(proposal, all_centres, font, logo, map_img_path=None):
             sl.append(R(M, row_y, card_w, card_h, '#F8F9FF'))
             # Index number pill
             sl.append(R(M, row_y, 160000, card_h, BLUE))
-            sl.append(T(str(ni + 1), M + 30000, row_y + 60000, 100000, 100000,
+            sl.append(T(str(ni + 1), M + 30000, row_y + 80000, 100000, 100000,
                         8, WHITE, font=font, bold=True))
-            # Space name — truncate to fit
-            name_w = card_w - 200000 - 780000 - 20000
-            sl.append(T(name, M + 185000, row_y + 30000,
+            # Space name — leave room for badge on right
+            name_w = card_w - 200000 - (badge_w + 60000) - 20000
+            sl.append(T(name, M + 185000, row_y + 40000,
                         name_w, 110000, 8, DARK, font=font, bold=True))
             # Walk time under name
             if walk_t:
-                sl.append(T(walk_t, M + 185000, row_y + 140000,
+                sl.append(T(walk_t, M + 185000, row_y + 160000,
                             name_w, 80000, 6.5, GREY, font=font))
-            # Tube badge right-aligned inside card
+            # Tube badge right-aligned inside card, vertically centred
             badge = tube_badge_path(transport_raw)
+            badge_y = row_y + (card_h - badge_h) // 2
             if badge:
-                sl.append(I(badge, M + card_w - 760000, row_y + 65000, 720000, 108000))
+                sl.append(I(badge, M + card_w - badge_w - 30000, badge_y, badge_w, badge_h))
             elif station_n:
-                sl.append(T(station_n, M + card_w - 780000, row_y + 70000,
-                            740000, 120000, 6.5, GREY, font=font))
+                sl.append(T(station_n, M + card_w - 540000, row_y + 90000,
+                            500000, 120000, 6.5, GREY, font=font))
             row_y += card_h + card_gap
 
     return sl
