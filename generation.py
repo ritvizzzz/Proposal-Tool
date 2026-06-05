@@ -1107,32 +1107,28 @@ def generate_proposal_map(centres, out_path):
     font_label = _load_font(fs_label)
     font_num   = _load_font(fs_num)
 
+    r = 56
+    pad = 20
+
+    # ── Pass 1: compute pin pixel positions and ideal label rects ──────────────
+    pin_data = []
     for i, p in enumerate(points, 1):
         px, py = _deg2tile(p['lat'], p['lng'], zoom)
         px = int((px - tx0) * TILE) - left
         py = int((py - ty0) * TILE) - top
 
-        # Drop-shadow (2x offsets)
-        r = 56
-        draw.ellipse([px - r + 6, py - r + 6, px + r + 6, py + r + 6],
-                     fill=(0, 0, 0, 60) if img.mode == 'RGBA' else '#cccccc')
-        # Blue circle marker
-        draw.ellipse([px - r, py - r, px + r, py + r], fill='#1E22AA', outline='white', width=6)
-        num_text = str(i)
-        bb = draw.textbbox((0, 0), num_text, font=font_num)
-        tw, th = bb[2] - bb[0], bb[3] - bb[1]
-        draw.text((px - tw // 2, py - th // 2 - 2), num_text, fill='white', font=font_num)
-
-        # Label pill — show full name, shift left if it would clip the right edge
         label = p['name']
         lb = draw.textbbox((0, 0), label, font=font_label)
         lw, lh = lb[2] - lb[0], lb[3] - lb[1]
-        pad = 20
+
+        # Preferred position: right of pin, vertically centred
         lx = px + r + 20
         ly = py - lh // 2 - pad
-        # Prefer right of pin; flip left if it clips; truncate with ellipsis if still too wide
+
+        # Flip left if it clips the right edge
         if lx + lw + pad * 2 > RW - 20:
             lx = px - r - lw - pad * 2 - 20
+        # If still off-screen left, truncate and restore to right
         if lx < 10:
             max_w = RW - (px + r + 20) - pad * 2 - 20
             while lw > max_w and len(label) > 6:
@@ -1140,9 +1136,68 @@ def generate_proposal_map(centres, out_path):
                 lb = draw.textbbox((0, 0), label, font=font_label)
                 lw, lh = lb[2] - lb[0], lb[3] - lb[1]
             lx = px + r + 20
+
+        pin_data.append({
+            'i': i, 'px': px, 'py': py,
+            'label': label, 'lw': lw, 'lh': lh, 'lx': lx, 'ly': ly,
+        })
+
+    # ── Pass 2: resolve vertical overlaps between labels ─────────────────────
+    def label_rect(d):
+        return (d['lx'], d['ly'], d['lx'] + d['lw'] + pad * 2, d['ly'] + d['lh'] + pad * 2)
+
+    def overlaps(a, b):
+        ax1, ay1, ax2, ay2 = label_rect(a)
+        bx1, by1, bx2, by2 = label_rect(b)
+        return ax1 < bx2 and ax2 > bx1 and ay1 < by2 and ay2 > by1
+
+    # Iteratively nudge overlapping labels apart (up to 10 passes)
+    pill_h = pin_data[0]['lh'] + pad * 2 + 8  # height of one pill + gap
+    for _ in range(10):
+        moved = False
+        for a in range(len(pin_data)):
+            for b in range(a + 1, len(pin_data)):
+                if overlaps(pin_data[a], pin_data[b]):
+                    # Push the lower one down, upper one up
+                    mid = (pin_data[a]['ly'] + pin_data[b]['ly']) / 2
+                    shift = pill_h // 2
+                    if pin_data[a]['ly'] <= pin_data[b]['ly']:
+                        pin_data[a]['ly'] = int(mid - shift)
+                        pin_data[b]['ly'] = int(mid + shift)
+                    else:
+                        pin_data[b]['ly'] = int(mid - shift)
+                        pin_data[a]['ly'] = int(mid + shift)
+                    # Clamp to image bounds
+                    for d in (pin_data[a], pin_data[b]):
+                        d['ly'] = max(4, min(RH - d['lh'] - pad * 2 - 4, d['ly']))
+                    moved = True
+        if not moved:
+            break
+
+    # ── Pass 3: draw pins then labels ────────────────────────────────────────
+    # Draw all pins first so labels render on top
+    for d in pin_data:
+        px, py = d['px'], d['py']
+        draw.ellipse([px - r + 6, py - r + 6, px + r + 6, py + r + 6],
+                     fill=(0, 0, 0, 60) if img.mode == 'RGBA' else '#cccccc')
+        draw.ellipse([px - r, py - r, px + r, py + r], fill='#1E22AA', outline='white', width=6)
+        num_text = str(d['i'])
+        bb = draw.textbbox((0, 0), num_text, font=font_num)
+        tw, th = bb[2] - bb[0], bb[3] - bb[1]
+        draw.text((px - tw // 2, py - th // 2 - 2), num_text, fill='white', font=font_num)
+
+    # Draw labels on top of pins
+    for d in pin_data:
+        lx, ly, lw, lh = d['lx'], d['ly'], d['lw'], d['lh']
+        # Connector line from pin to pill if label was nudged far from pin centre
+        target_ly = d['py'] - lh // 2 - pad
+        if abs(ly - target_ly) > pill_h:
+            cx = lx if lx > d['px'] else lx + lw + pad * 2
+            draw.line([(d['px'], d['py']), (cx, ly + lh // 2 + pad)],
+                      fill='#9CA3AF', width=2)
         draw.rounded_rectangle([lx, ly, lx + lw + pad * 2, ly + lh + pad * 2],
                                 radius=12, fill='white', outline='#d1d5db', width=4)
-        draw.text((lx + pad, ly + pad), label, fill='#1E22AA', font=font_label)
+        draw.text((lx + pad, ly + pad), d['label'], fill='#1E22AA', font=font_label)
 
     # ── 6. Scale down to final size (anti-aliased) ──────────────────────────
     img = img.resize((IMG_W, IMG_H), _PI.LANCZOS)
