@@ -368,12 +368,23 @@ async function quickRegister() {
     });
     const data = await r.json();
     if (data.token) {
-      status.style.color = '#059669';
-      status.textContent = `✓ Tracked link created! Sharing: ${data.url}`;
-      // Copy to clipboard
+      // Replace the quick-register bar with a prominent success box showing the tracked URL
+      const bar = document.getElementById('quick-map-url').closest('div[style]');
+      bar.innerHTML = `
+        <div style="width:100%">
+          <div style="font-size:13px;font-weight:700;color:#059669;margin-bottom:8px">✓ Tracked link registered! Share this link with your client (NOT the original map link):</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="text" value="${data.url}" readonly
+              style="flex:1;min-width:220px;padding:9px 12px;border:2px solid #059669;border-radius:8px;font-size:13px;font-family:monospace;background:#f0fdf4;color:#065f46;outline:none"
+              onclick="this.select()">
+            <button onclick="navigator.clipboard.writeText('${data.url}').then(()=>{this.textContent='✓ Copied!';setTimeout(()=>this.textContent='Copy',2000)})"
+              style="padding:9px 18px;background:#059669;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">Copy</button>
+            <button onclick="location.reload()"
+              style="padding:9px 18px;background:#E5E7EB;color:#374151;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">View Dashboard</button>
+          </div>
+          <div style="font-size:12px;color:#6B7280;margin-top:6px">⚠️ You can also share the original map link — visits to it will now be tracked under this entry.</div>
+        </div>`;
       navigator.clipboard.writeText(data.url).catch(()=>{});
-      // Reload page to show new link
-      setTimeout(() => location.reload(), 1500);
     } else {
       status.style.color = '#ef4444';
       status.textContent = 'Error: ' + (data.error || 'Unknown');

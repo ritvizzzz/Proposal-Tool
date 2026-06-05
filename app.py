@@ -868,8 +868,8 @@ def share_link_create():
         with get_db() as conn:
             for cid in centre_ids:
                 row = conn.execute(
-                    'SELECT name FROM centres WHERE id=? OR source=? LIMIT 1',
-                    (cid, cid)
+                    'SELECT name FROM centres WHERE hubble_id=? OR id=? LIMIT 1',
+                    (str(cid), str(cid))
                 ).fetchone()
                 centre_names.append(row['name'] if row else str(cid))
     token = secrets.token_urlsafe(8)
@@ -912,7 +912,8 @@ def _load_centres_for_compare(conn, hubble_ids):
 @app.route('/compare')
 def compare_direct():
     """Entry point from map — ?ids=hubble_id1,hubble_id2&names=name1,name2.
-    Auto-creates a share_link token for tracking and renders the comparison page."""
+    Reuses an existing registered share_link token if the same set of IDs was
+    already registered via the dashboard, so tracking rolls up correctly."""
     import secrets as _sec
     ids_param   = request.args.get('ids', '').strip()
     names_param = request.args.get('names', '').strip()
@@ -921,8 +922,8 @@ def compare_direct():
 
     hubble_ids = [i.strip() for i in ids_param.split(',') if i.strip()]
     names      = [urllib.parse.unquote(n) for n in names_param.split(',') if n.strip()]
+    sorted_ids = sorted(hubble_ids)
 
-    token = _sec.token_urlsafe(8)
     ip      = request.remote_addr or ''
     ip_hash = hashlib.md5(ip.encode()).hexdigest()[:8]
     ua      = request.headers.get('User-Agent', '')
@@ -930,17 +931,35 @@ def compare_direct():
     with get_db() as conn:
         centres = _load_centres_for_compare(conn, hubble_ids)
         centre_names = [c['name'] for c in centres] or names
-        conn.execute(
-            'INSERT INTO share_links (token, label, centre_ids, centre_names) VALUES (?,?,?,?)',
-            (token, ', '.join(centre_names[:2]) + (' + more' if len(centre_names) > 2 else ''),
-             json.dumps(hubble_ids), json.dumps(centre_names))
-        )
+
+        # Reuse an existing share_link if the same set of space IDs was already registered
+        token = None
+        existing_label = None
+        for row in conn.execute('SELECT token, label, centre_ids FROM share_links ORDER BY created_at DESC').fetchall():
+            try:
+                if sorted(json.loads(row['centre_ids'])) == sorted_ids:
+                    token = row['token']
+                    existing_label = row['label']
+                    break
+            except Exception:
+                continue
+
+        if not token:
+            token = _sec.token_urlsafe(8)
+            label = ', '.join(centre_names[:2]) + (' + more' if len(centre_names) > 2 else '')
+            conn.execute(
+                'INSERT INTO share_links (token, label, centre_ids, centre_names) VALUES (?,?,?,?)',
+                (token, label, json.dumps(hubble_ids), json.dumps(centre_names))
+            )
+        else:
+            label = existing_label or ', '.join(centre_names[:2])
+
         conn.execute(
             'INSERT INTO link_events (token, event_type, ip_hash, user_agent) VALUES (?,?,?,?)',
             (token, 'open', ip_hash, ua)
         )
 
-    link = {'token': token, 'label': ', '.join(centre_names[:2]),
+    link = {'token': token, 'label': label,
             'centre_ids': json.dumps(hubble_ids), 'centre_names': json.dumps(centre_names)}
     return render_template('compare.html', link=link, centres=centres, token=token)
 
