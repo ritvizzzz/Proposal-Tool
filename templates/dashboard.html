@@ -50,7 +50,7 @@
     </thead>
     <tbody>
       {% for lnk in links %}
-      <tr class="link-row" onclick="window.location='/dashboard/{{ lnk.token }}'"
+      <tr class="link-row" data-token="{{ lnk.token }}" onclick="window.location='/dashboard/{{ lnk.token }}'"
           style="border-bottom:1px solid #F3F4F6;cursor:pointer;transition:background 0.15s"
           onmouseover="this.style.background='#F8F9FF'" onmouseout="this.style.background=''">
         <td style="padding:16px 20px">
@@ -399,31 +399,28 @@ document.getElementById('create-modal').addEventListener('click', function(e) {
   if (e.target === this) closeCreateModal();
 });
 
-// Auto-refresh stats every 15 seconds for live tracking
-setInterval(() => {
-  if (document.visibilityState !== 'visible') return;
-  fetch(window.location.href)
-    .then(r => r.text())
-    .then(html => {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-      // Update opens/clicks/top-space cells only (avoid disrupting the modal)
-      document.querySelectorAll('tr.link-row').forEach(row => {
-        const token = row.querySelector('td:first-child div:last-child')?.textContent?.trim();
-        if (!token) return;
-        const newRow = [...doc.querySelectorAll('tr.link-row')].find(r =>
-          r.querySelector('td:first-child div:last-child')?.textContent?.trim() === token
-        );
-        if (!newRow) return;
-        // Update opens, clicks, top space cells (4th, 5th, 6th columns)
-        [3, 4, 5].forEach(i => {
+// Real-time dashboard updates via SSE
+(function initSSE(){
+  const evtSource = new EventSource('/dashboard/stream');
+  evtSource.onmessage = function(e){
+    try{
+      const d = JSON.parse(e.data);
+      if(!d.token) return;
+      // Refetch stats for this token's row
+      fetch(`/dashboard/stats/${d.token}`)
+        .then(r=>r.json())
+        .then(stats=>{
+          const row = document.querySelector(`tr.link-row[data-token="${d.token}"]`);
+          if(!row) return;
           const cells = row.querySelectorAll('td');
-          const newCells = newRow.querySelectorAll('td');
-          if (cells[i] && newCells[i]) cells[i].innerHTML = newCells[i].innerHTML;
-        });
-      });
-    }).catch(() => {});
-}, 15000);
+          if(cells[3]) cells[3].innerHTML = `<span style="font-size:20px;font-weight:800;color:#1E22AA">${stats.opens}</span>`;
+          if(cells[4]) cells[4].innerHTML = `<span style="font-size:20px;font-weight:800;color:#059669">${stats.clicks}</span>`;
+          if(cells[5]) cells[5].innerHTML = `<span style="font-size:13px;color:#4B4F6A">${stats.top_space||'—'}</span>`;
+        }).catch(()=>{});
+    }catch(e){}
+  };
+  evtSource.onerror = function(){ setTimeout(initSSE, 5000); evtSource.close(); };
+})();
 
 // Close search results on outside click
 document.addEventListener('click', function(e) {

@@ -1,4 +1,4 @@
-import os, sqlite3, json, shutil, base64, io, re, secrets, hashlib, urllib.parse
+import os, sqlite3, json, shutil, base64, io, re, secrets, hashlib, urllib.parse, threading, queue
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
 from werkzeug.utils import secure_filename
 from PIL import Image
@@ -105,6 +105,16 @@ def init_db():
         cols = [r[1] for r in conn.execute("PRAGMA table_info(proposals)").fetchall()]
         if 'pdf_filename' not in cols:
             conn.execute("ALTER TABLE proposals ADD COLUMN pdf_filename TEXT")
+
+# SSE event broadcast for real-time dashboard
+_sse_queues = []
+_sse_lock = threading.Lock()
+
+def _push_sse(data):
+    with _sse_lock:
+        for q in list(_sse_queues):
+            try: q.put_nowait(data)
+            except: pass
 
 init_db()
 
@@ -564,6 +574,7 @@ def api_fetch_image_b64():
 
 @app.route('/api/map-data')
 def api_map_data():
+    base = _base_url()
     with get_db() as conn:
         centres = conn.execute('SELECT * FROM centres ORDER BY name').fetchall()
         result = []
@@ -573,7 +584,8 @@ def api_map_data():
                 'SELECT filename FROM centre_images WHERE centre_id=? ORDER BY is_primary DESC, sort_order',
                 (cid,)).fetchall()
             photos = [
-                f'http://localhost:5001/centre-image/{cid}/{row["filename"]}'
+                row["filename"] if row["filename"].startswith('http')
+                else f'{base}/centre-image/{cid}/{row["filename"]}'
                 for row in imgs
             ]
             entry = dict(c)
@@ -1020,7 +1032,30 @@ def track_event():
              data.get('dwell_seconds'), ip_hash, ua,
              data.get('booking_date'), data.get('booking_time'))
         )
+        _push_sse({'token': token, 'event_type': event_type, 'centre_name': data.get('centre_name','')})
     return jsonify({'ok': True})
+
+
+@app.route('/dashboard/stream')
+def dashboard_stream():
+    from flask import Response
+    def gen():
+        q = queue.Queue(maxsize=50)
+        with _sse_lock:
+            _sse_queues.append(q)
+        try:
+            while True:
+                try:
+                    data = q.get(timeout=25)
+                    yield f'data: {json.dumps(data)}\n\n'
+                except queue.Empty:
+                    yield ': keepalive\n\n'
+        finally:
+            with _sse_lock:
+                if q in _sse_queues:
+                    _sse_queues.remove(q)
+    return Response(gen(), mimetype='text/event-stream',
+                    headers={'Cache-Control':'no-cache','X-Accel-Buffering':'no'})
 
 
 @app.route('/dashboard')
@@ -1052,6 +1087,15 @@ def dashboard():
             except Exception:
                 lnk['centre_names_list'] = []
     return render_template('dashboard.html', links=links, base_url=_base_url())
+
+
+@app.route('/dashboard/stats/<token>')
+def dashboard_stats(token):
+    with get_db() as conn:
+        opens = conn.execute("SELECT COUNT(*) FROM link_events WHERE token=? AND event_type='open'", (token,)).fetchone()[0]
+        clicks = conn.execute("SELECT COUNT(*) FROM link_events WHERE token=? AND event_type='click'", (token,)).fetchone()[0]
+        top = conn.execute("SELECT centre_name, COUNT(*) as cnt FROM link_events WHERE token=? AND event_type='click' AND centre_name IS NOT NULL GROUP BY centre_name ORDER BY cnt DESC LIMIT 1", (token,)).fetchone()
+    return jsonify({'opens': opens, 'clicks': clicks, 'top_space': top[0] if top else None})
 
 
 @app.route('/dashboard/<token>')

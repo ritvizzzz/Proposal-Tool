@@ -163,11 +163,11 @@
 
   /* ── Card body ── */
   .card-body {
-    padding: 20px;
+    padding: 16px;
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
   }
   .card-brand {
     font-size: 11px;
@@ -193,9 +193,10 @@
   .card-address svg { flex-shrink: 0; margin-top: 2px; }
 
   .card-meta {
-    display: flex;
-    gap: 16px;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    min-height: 52px;
   }
   .meta-item {
     display: flex;
@@ -222,6 +223,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+    min-height: 28px;
   }
   .amenity-pill {
     font-size: 11px;
@@ -418,11 +420,8 @@
 <body>
 
 <header class="header">
-  <a href="https://myhqspace.com" class="header-logo" target="_blank" rel="noopener" style="text-decoration:none">
-    <svg width="60" height="28" viewBox="0 0 60 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="60" height="28" rx="6" fill="#1E22AA"/>
-      <text x="30" y="19.5" text-anchor="middle" fill="white" font-family="Plus Jakarta Sans,Arial,sans-serif" font-weight="800" font-size="14" letter-spacing="-0.5">myHQ</text>
-    </svg>
+  <a href="https://myhqspaces.com" class="header-logo" target="_blank" rel="noopener" style="text-decoration:none">
+    <img src="/static/myhq-logo.svg" alt="myHQ" style="height:28px;width:auto">
   </a>
   {% if link.label %}
   <span class="header-label" style="margin-left:auto">{{ link.label }}</span>
@@ -492,12 +491,6 @@
           <div class="meta-item">
             <span class="meta-label">Price / desk</span>
             <span class="meta-value price">£{{ c.price_from }}<small style="font-weight:400;font-size:12px">/{{ c.price_unit or 'mo' }}</small></span>
-          </div>
-          {% endif %}
-          {% if c.space_type %}
-          <div class="meta-item">
-            <span class="meta-label">Type</span>
-            <span class="meta-value">{{ c.space_type|replace('_',' ')|title }}</span>
           </div>
           {% endif %}
         </div>
@@ -580,11 +573,8 @@
 </div>
 
 <footer class="footer">
-  <a href="https://myhqspace.com" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none">
-    <svg width="56" height="26" viewBox="0 0 56 26" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="56" height="26" rx="6" fill="#1E22AA"/>
-      <text x="28" y="18" text-anchor="middle" fill="white" font-family="Plus Jakarta Sans,Arial,sans-serif" font-weight="800" font-size="13" letter-spacing="-0.5">myHQ</text>
-    </svg>
+  <a href="https://myhqspaces.com" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none">
+    <img src="/static/myhq-logo.svg" alt="myHQ" style="height:24px;width:auto;opacity:0.85">
   </a>
 </footer>
 
@@ -593,19 +583,12 @@ const TOKEN = {{ token|tojson }};
 const pageStart = Date.now();
 
 // ── Tracking helper — always sends application/json so Flask parses correctly ──
-function post(url, data) {
-  try {
-    const body = JSON.stringify(data);
-    if (navigator.sendBeacon) {
-      // sendBeacon needs a Blob with explicit content-type, otherwise Flask gets text/plain
-      const blob = new Blob([body], { type: 'application/json' });
-      navigator.sendBeacon(url, blob);
-    } else {
-      fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true });
-    }
-  } catch(e) {
-    // Silent fallback
-    fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).catch(()=>{});
+function post(url, data, useBeacon) {
+  const body = JSON.stringify(data);
+  if (useBeacon && navigator.sendBeacon) {
+    navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
+  } else {
+    fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(()=>{});
   }
 }
 
@@ -618,7 +601,7 @@ function onCardClick(centreId, centreName) {
 // ── Track dwell on unload ──
 window.addEventListener('beforeunload', function() {
   const secs = Math.round((Date.now() - pageStart) / 1000);
-  post('/track', { token: TOKEN, event_type: 'dwell', dwell_seconds: secs });
+  post('/track', { token: TOKEN, event_type: 'dwell', dwell_seconds: secs }, true);
 });
 
 // ── Dismiss card ──
