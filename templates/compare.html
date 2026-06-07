@@ -115,7 +115,7 @@
   /* ── Photo carousel ── */
   .photo-area {
     position: relative;
-    height: 200px;
+    height: 160px;
     overflow: hidden;
     background: #E8E9F3;
   }
@@ -254,17 +254,50 @@
   }
   .btn-map:hover { background: #E0E3F5; }
 
-  .interest-row { display:flex;gap:8px;padding:12px 16px 0;onclick:stopPropagation }
-  .btn-interest { flex:1;padding:9px 6px;border-radius:10px;border:1.5px solid #e2e8f0;
-    font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;background:white;color:#374151; }
-  .btn-interest.interested:hover,.btn-interest.interested.active
-    { background:#d1fae5;border-color:#10b981;color:#065f46; }
-  .btn-interest.not-interested:hover,.btn-interest.not-interested.active
-    { background:#fee2e2;border-color:#ef4444;color:#991b1b; }
+  /* Dismiss X button on card top-right */
+  .dismiss-btn {
+    position: absolute; top: 8px; right: 8px; z-index: 10;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: rgba(0,0,0,0.45); border: none; color: white;
+    font-size: 14px; cursor: pointer; display: flex; align-items: center;
+    justify-content: center; line-height: 1; transition: background 0.15s;
+  }
+  .dismiss-btn:hover { background: rgba(0,0,0,0.7); }
+
+  /* Tabs row */
+  .tabs-row { display: none; gap: 4px; margin-bottom: 20px; }
+  .tab-btn {
+    padding: 8px 18px; border-radius: 20px; border: 1.5px solid #E8E9F3;
+    background: white; font-size: 13px; font-weight: 600; cursor: pointer;
+    color: #6B7280; transition: all 0.15s;
+  }
+  .tab-btn.active { background: #1E22AA; color: white; border-color: #1E22AA; }
+  .tab-count {
+    display: inline-block; background: rgba(255,255,255,0.25);
+    border-radius: 10px; padding: 0 7px; font-size: 12px; margin-left: 4px;
+  }
+  .tab-btn:not(.active) .tab-count { background: #F0F1FA; color: #1E22AA; }
+
   .btn-book { flex:1;padding:9px 12px;border-radius:10px;border:none;
     background:#1E22AA;color:white;font-size:13px;font-weight:600;cursor:pointer;
     transition:background 0.15s; }
   .btn-book:hover { background:#1a1e96; }
+
+  /* Custom calendar */
+  #cal-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:14px; }
+  #cal-header button { width:32px;height:32px;border:none;background:#F0F1FA;border-radius:8px;
+    font-size:20px;cursor:pointer;color:#1E22AA;display:flex;align-items:center;justify-content:center; }
+  #cal-header button:hover { background:#E0E3F5; }
+  #cal-month-label { font-weight:700;font-size:15px;color:#1A1A2E; }
+  #cal-dow-row { display:grid;grid-template-columns:repeat(7,1fr);text-align:center;
+    margin-bottom:4px;font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase; }
+  #cal-grid { display:grid;grid-template-columns:repeat(7,1fr);gap:3px; }
+  .cal-day { aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+    font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;transition:all 0.15s; }
+  .cal-day:not(.past):not(.empty):hover { background:#E0E3F5;color:#1E22AA; }
+  .cal-day.past { color:#D1D5DB;cursor:default; }
+  .cal-day.empty { cursor:default; }
+  .cal-day.selected { background:#1E22AA;color:white;font-weight:700; }
   .slot-btn { padding:9px 4px;border-radius:8px;border:1.5px solid #e2e8f0;background:white;
     font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s;color:#374151; }
   .slot-btn:hover,.slot-btn.active { background:#1E22AA;color:white;border-color:#1E22AA; }
@@ -329,8 +362,8 @@
     .space-card:hover { transform: none; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
 
     /* Photo area: slightly shorter on phone */
-    .photo-area { max-height: 220px; }
-    .photo-main { max-height: 220px; }
+    .photo-area { max-height: 160px; }
+    .photo-main { max-height: 160px; }
     .photo-thumbs { gap: 4px; padding: 4px; }
     .photo-thumb { width: 48px; height: 36px; }
 
@@ -348,9 +381,6 @@
     .amenities { gap: 4px; }
     .amenity-pill { font-size: 11px; padding: 3px 8px; }
 
-    /* Interest + action buttons: stack full width */
-    .interest-row { flex-direction: row; gap: 8px; padding: 10px 14px 0; }
-    .btn-interest { font-size: 13px; padding: 10px 6px; }
     .card-actions { flex-direction: column; gap: 8px; padding: 10px 14px 14px; }
     .btn-map, .btn-book { width: 100%; justify-content: center; padding: 12px; font-size: 14px; }
 
@@ -388,13 +418,14 @@
 <body>
 
 <header class="header">
-  <a href="/" class="header-logo">
-    <span class="logo-text">myHQ</span>
+  <a href="https://myhqspace.com" class="header-logo" target="_blank" rel="noopener" style="text-decoration:none">
+    <svg width="60" height="28" viewBox="0 0 60 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="60" height="28" rx="6" fill="#1E22AA"/>
+      <text x="30" y="19.5" text-anchor="middle" fill="white" font-family="Plus Jakarta Sans,Arial,sans-serif" font-weight="800" font-size="14" letter-spacing="-0.5">myHQ</text>
+    </svg>
   </a>
-  <div class="header-divider"></div>
-  <span class="header-title">Workspace Comparison</span>
   {% if link.label %}
-  <span class="header-label">{{ link.label }}</span>
+  <span class="header-label" style="margin-left:auto">{{ link.label }}</span>
   {% endif %}
 </header>
 
@@ -404,15 +435,22 @@
     <p>{{ centres|length }} space{{ 's' if centres|length != 1 }} curated for you</p>
   </div>
 
+  <!-- Dismissed / Active tab switcher (shown once at least one card is dismissed) -->
+  <div class="tabs-row" id="tabs-row">
+    <button class="tab-btn active" id="tab-active" onclick="showTab('active')">Spaces <span class="tab-count" id="tab-active-count">{{ centres|length }}</span></button>
+    <button class="tab-btn" id="tab-dismissed" onclick="showTab('dismissed')">Removed <span class="tab-count" id="tab-dismissed-count">0</span></button>
+  </div>
+
   <div class="cards-grid">
     {% for c in centres %}
     <div class="space-card"
          data-centre-id="{{ c.id }}"
          data-centre-name="{{ c.name }}"
-         onclick="trackClick('{{ c.id }}', '{{ c.name|replace("'","\\'")|replace('"','\\"') }}')">
+         onclick="onCardClick('{{ c.id }}', '{{ c.name|replace("'","\\'")|replace('"','\\"') }}')">
 
       <!-- Photo area -->
-      <div class="photo-area" id="photo-area-{{ c.id }}">
+      <div class="photo-area" id="photo-area-{{ c.id }}" style="position:relative">
+        <button class="dismiss-btn" title="Remove" onclick="dismissCard('{{ c.id }}', event)">✕</button>
         {% if c.image_urls %}
           <img class="photo-main" id="main-img-{{ c.id }}"
                src="{{ c.image_urls[0] }}"
@@ -445,7 +483,7 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
           </svg>
-          <span>{{ c.address }}{% if c.transport %}<br><small style="color:#1E22AA">🚇 {{ c.transport }}</small>{% endif %}</span>
+          <span>{{ c.address }}{% if c.transport %}<br><small class="transport-line" data-transport="{{ c.transport }}" style="color:#1E22AA;display:inline-flex;align-items:center;gap:4px"></small>{% endif %}</span>
         </div>
         {% endif %}
 
@@ -471,12 +509,6 @@
           {% endfor %}
         </div>
         {% endif %}
-
-        <!-- Interest buttons -->
-        <div class="interest-row" id="interest-{{ c.id }}" onclick="event.stopPropagation()">
-          <button class="btn-interest interested" onclick="markInterest('{{ c.id }}','{{ c.name|replace("'","\\'") }}','interested',this)">👍 Interested</button>
-          <button class="btn-interest not-interested" onclick="markInterest('{{ c.id }}','{{ c.name|replace("'","\\'") }}','not_interested',this)">👎 Not Interested</button>
-        </div>
 
         <div class="card-actions">
           {% if c.map_url %}
@@ -516,11 +548,19 @@
     <p id="booking-space-name" style="font-size:14px;color:#6B7280;margin-bottom:24px"></p>
 
     <div id="booking-step-1">
-      <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:8px">Select a date</label>
-      <input type="date" id="booking-date"
-        style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:15px;color:#1A1A2E;outline:none"
-        onfocus="this.style.borderColor='#1E22AA'" onblur="this.style.borderColor='#e2e8f0'"
-        onchange="showTimeSlots()">
+      <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:12px">Select a date</label>
+      <!-- Custom calendar widget -->
+      <div id="cal-widget">
+        <div id="cal-header">
+          <button type="button" onclick="calNav(-1)">&#8249;</button>
+          <span id="cal-month-label"></span>
+          <button type="button" onclick="calNav(1)">&#8250;</button>
+        </div>
+        <div id="cal-dow-row">
+          <div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div><div>Su</div>
+        </div>
+        <div id="cal-grid"></div>
+      </div>
       <div id="time-slots" style="display:none;margin-top:20px">
         <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:10px">Choose a time</label>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px" id="slots-grid"></div>
@@ -540,7 +580,12 @@
 </div>
 
 <footer class="footer">
-  Powered by <strong>myHQ by Anarock</strong>
+  <a href="https://myhqspace.com" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none">
+    <svg width="56" height="26" viewBox="0 0 56 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="56" height="26" rx="6" fill="#1E22AA"/>
+      <text x="28" y="18" text-anchor="middle" fill="white" font-family="Plus Jakarta Sans,Arial,sans-serif" font-weight="800" font-size="13" letter-spacing="-0.5">myHQ</text>
+    </svg>
+  </a>
 </footer>
 
 <script>
@@ -564,9 +609,10 @@ function post(url, data) {
   }
 }
 
-// ── Track click ──
-function trackClick(centreId, centreName) {
+// ── Card click: track + highlight map ──
+function onCardClick(centreId, centreName) {
   post('/track', { token: TOKEN, event_type: 'click', centre_id: centreId, centre_name: centreName });
+  highlightOnMap(centreId);
 }
 
 // ── Track dwell on unload ──
@@ -575,37 +621,162 @@ window.addEventListener('beforeunload', function() {
   post('/track', { token: TOKEN, event_type: 'dwell', dwell_seconds: secs });
 });
 
-// ── Interested / Not Interested ──
-function markInterest(centreId, centreName, verdict, btn) {
+// ── Dismiss card ──
+const _dismissed = new Set();
+function dismissCard(centreId, event) {
   event.stopPropagation();
-  const row = document.getElementById('interest-' + centreId);
-  row.querySelectorAll('.btn-interest').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  post('/track', { token: TOKEN, event_type: verdict, centre_id: centreId, centre_name: centreName });
+  _dismissed.add(String(centreId));
+  document.querySelector(`[data-centre-id="${centreId}"]`).style.display = 'none';
+  post('/track', { token: TOKEN, event_type: 'dismissed', centre_id: centreId });
+  _updateTabs();
 }
+function _updateTabs() {
+  const total = document.querySelectorAll('.space-card').length;
+  const n = _dismissed.size;
+  document.getElementById('tabs-row').style.display = n > 0 ? 'flex' : 'none';
+  document.getElementById('tab-active-count').textContent = total - n;
+  document.getElementById('tab-dismissed-count').textContent = n;
+}
+function showTab(tab) {
+  document.getElementById('tab-active').classList.toggle('active', tab==='active');
+  document.getElementById('tab-dismissed').classList.toggle('active', tab==='dismissed');
+  document.querySelectorAll('.space-card').forEach(card => {
+    const id = card.dataset.centreId;
+    card.style.display = (tab==='active') ? (_dismissed.has(id)?'none':'') : (_dismissed.has(id)?'':'none');
+  });
+}
+
+// ── Tube line indicator ──
+const _TUBE_MAP = {
+  'bank':          {c:'#E32017', l:'Central'},
+  'st paul':       {c:'#E32017', l:'Central'},
+  'liverpool st':  {c:'#E32017', l:'Central'},
+  'oxford circus': {c:'#E32017', l:'Central'},
+  'tottenham court':{c:'#E32017', l:'Central'},
+  'holborn':       {c:'#E32017', l:'Central'},
+  'notting hill':  {c:'#E32017', l:'Central'},
+  'bethnal green': {c:'#E32017', l:'Central'},
+  'mile end':      {c:'#E32017', l:'Central'},
+  'stratford':     {c:'#E32017', l:'Central'},
+  'waterloo':      {c:'#A0A5A9', l:'Jubilee'},
+  'london bridge': {c:'#000000', l:'Northern'},
+  'canary wharf':  {c:'#A0A5A9', l:'Jubilee'},
+  'bermondsey':    {c:'#A0A5A9', l:'Jubilee'},
+  'southwark':     {c:'#A0A5A9', l:'Jubilee'},
+  'green park':    {c:'#A0A5A9', l:'Jubilee'},
+  'westminster':   {c:'#A0A5A9', l:'Jubilee'},
+  'bond street':   {c:'#A0A5A9', l:'Jubilee'},
+  'leicester square':{c:'#003688', l:'Piccadilly'},
+  'covent garden': {c:'#003688', l:'Piccadilly'},
+  'knightsbridge': {c:'#003688', l:'Piccadilly'},
+  "king's cross":  {c:'#003688', l:'Piccadilly'},
+  'victoria':      {c:'#0098D4', l:'Victoria'},
+  'brixton':       {c:'#0098D4', l:'Victoria'},
+  'vauxhall':      {c:'#0098D4', l:'Victoria'},
+  'pimlico':       {c:'#0098D4', l:'Victoria'},
+  'sloane square': {c:'#FFD300', l:'Circle'},
+  'farringdon':    {c:'#6950A1', l:'Elizabeth'},
+  'paddington':    {c:'#6950A1', l:'Elizabeth'},
+  'whitechapel':   {c:'#6950A1', l:'Elizabeth'},
+  'barbican':      {c:'#FFD300', l:'Circle'},
+  'moorgate':      {c:'#000000', l:'Northern'},
+  'aldgate':       {c:'#FFD300', l:'Circle'},
+  'tower hill':    {c:'#FFD300', l:'Circle'},
+  'embankment':    {c:'#00782A', l:'District'},
+  'temple':        {c:'#00782A', l:'District'},
+  'blackfriars':   {c:'#00782A', l:'District'},
+  'cannon street': {c:'#00782A', l:'District'},
+  'richmond':      {c:'#00782A', l:'District'},
+  'wimbledon':     {c:'#00782A', l:'District'},
+  'old street':    {c:'#000000', l:'Northern'},
+  'angel':         {c:'#000000', l:'Northern'},
+  'borough':       {c:'#000000', l:'Northern'},
+  'clapham':       {c:'#000000', l:'Northern'},
+  'camden':        {c:'#000000', l:'Northern'},
+  'euston':        {c:'#000000', l:'Northern'},
+  'baker street':  {c:'#9B0056', l:'Metropolitan'},
+  'hammersmith':   {c:'#F3A9BB', l:'H&C'},
+  'shoreditch':    {c:'#EE7C0E', l:'Overground'},
+  'hoxton':        {c:'#EE7C0E', l:'Overground'},
+  'dalston':       {c:'#EE7C0E', l:'Overground'},
+  'hackney':       {c:'#EE7C0E', l:'Overground'},
+  'shadwell':      {c:'#EE7C0E', l:'Overground'},
+  'elephant':      {c:'#B36305', l:'Bakerloo'},
+  'lambeth':       {c:'#B36305', l:'Bakerloo'},
+  'charing cross': {c:'#B36305', l:'Bakerloo'},
+  'city airport':  {c:'#00A4A7', l:'DLR'},
+  'overground':    {c:'#EE7C0E', l:'Overground'},
+  'dlr':           {c:'#00A4A7', l:'DLR'},
+  'elizabeth':     {c:'#6950A1', l:'Elizabeth'},
+};
+function _tubeColor(transport) {
+  const s = (transport||'').toLowerCase();
+  for (const [key, val] of Object.entries(_TUBE_MAP)) {
+    if (s.includes(key)) return val;
+  }
+  return null;
+}
+document.querySelectorAll('.transport-line').forEach(el => {
+  const t = el.dataset.transport || '';
+  const info = _tubeColor(t);
+  const dot = info
+    ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${info.c};flex-shrink:0" title="${info.l} line"></span>`
+    : `<svg width="12" height="12" viewBox="0 0 12 12" style="flex-shrink:0"><circle cx="6" cy="6" r="5" fill="none" stroke="#1E22AA" stroke-width="2"/><circle cx="6" cy="6" r="2" fill="#1E22AA"/></svg>`;
+  el.innerHTML = dot + ' ' + t;
+});
 
 // ── Book a Viewing ──
 let _bookingCentreId = null, _bookingCentreName = null, _selectedSlot = null;
+let _calYear, _calMonth, _selectedDate = null;
+
 function openBooking(centreId, centreName, event) {
   event.stopPropagation();
-  _bookingCentreId = centreId; _bookingCentreName = centreName; _selectedSlot = null;
+  _bookingCentreId = centreId; _bookingCentreName = centreName;
+  _selectedSlot = null; _selectedDate = null;
   document.getElementById('booking-space-name').textContent = centreName;
-  document.getElementById('booking-date').value = '';
   document.getElementById('time-slots').style.display = 'none';
   document.getElementById('booking-step-1').style.display = 'block';
   document.getElementById('booking-confirm').style.display = 'none';
   document.getElementById('booking-btns').innerHTML =
     '<button onclick="closeBooking()" style="flex:1;padding:12px;border:1.5px solid #e2e8f0;border-radius:10px;background:white;color:#374151;font-size:14px;font-weight:600;cursor:pointer">Cancel</button>';
-  const modal = document.getElementById('booking-modal');
-  modal.style.display = 'flex';
-  // Set min date to tomorrow
-  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate()+1);
-  document.getElementById('booking-date').min = tomorrow.toISOString().split('T')[0];
+  document.getElementById('booking-modal').style.display = 'flex';
+  const now = new Date();
+  _calYear = now.getFullYear(); _calMonth = now.getMonth();
+  renderCal();
 }
 function closeBooking() { document.getElementById('booking-modal').style.display='none'; }
+
+function calNav(dir) {
+  _calMonth += dir;
+  if (_calMonth < 0) { _calMonth = 11; _calYear--; }
+  if (_calMonth > 11) { _calMonth = 0; _calYear++; }
+  renderCal();
+}
+function renderCal() {
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('cal-month-label').textContent = `${MONTHS[_calMonth]} ${_calYear}`;
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = '';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate()+1);
+  const firstDow = (new Date(_calYear, _calMonth, 1).getDay() + 6) % 7;
+  const daysInMonth = new Date(_calYear, _calMonth+1, 0).getDate();
+  for (let i = 0; i < firstDow; i++) {
+    const el = document.createElement('div'); el.className = 'cal-day empty'; grid.appendChild(el);
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(_calYear, _calMonth, d);
+    const ds = `${_calYear}-${String(_calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isPast = date < tomorrow;
+    const el = document.createElement('div');
+    el.className = 'cal-day' + (isPast?' past':'') + (ds===_selectedDate?' selected':'');
+    el.textContent = d;
+    if (!isPast) el.onclick = () => { _selectedDate = ds; renderCal(); showTimeSlots(); };
+    grid.appendChild(el);
+  }
+}
 function showTimeSlots() {
-  const date = document.getElementById('booking-date').value;
-  if(!date) return;
+  if (!_selectedDate) return;
   const slots = ['9:00 AM','9:30 AM','10:00 AM','10:30 AM','11:00 AM','11:30 AM',
                  '12:00 PM','2:00 PM','2:30 PM','3:00 PM','3:30 PM','4:00 PM','4:30 PM'];
   const grid = document.getElementById('slots-grid');
@@ -617,16 +788,14 @@ function showTimeSlots() {
 function selectSlot(btn, time) {
   document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active'); _selectedSlot = time;
-  const date = document.getElementById('booking-date').value;
   document.getElementById('booking-btns').innerHTML = `
     <button onclick="closeBooking()" style="flex:1;padding:12px;border:1.5px solid #e2e8f0;border-radius:10px;background:white;color:#374151;font-size:14px;font-weight:600;cursor:pointer">Cancel</button>
-    <button onclick="confirmBooking('${date}','${time}')" style="flex:2;padding:12px;border:none;border-radius:10px;background:#1E22AA;color:white;font-size:14px;font-weight:700;cursor:pointer">Confirm Viewing →</button>`;
+    <button onclick="confirmBooking('${_selectedDate}','${time}')" style="flex:2;padding:12px;border:none;border-radius:10px;background:#1E22AA;color:white;font-size:14px;font-weight:700;cursor:pointer">Confirm Viewing →</button>`;
 }
 function confirmBooking(date, time) {
   post('/track', { token: TOKEN, event_type: 'booking_request',
     centre_id: _bookingCentreId, centre_name: _bookingCentreName,
-    centre_id: _bookingCentreId, dwell_seconds: 0,
-    booking_date: date, booking_time: time });
+    dwell_seconds: 0, booking_date: date, booking_time: time });
   document.getElementById('booking-step-1').style.display = 'none';
   document.getElementById('booking-confirm').style.display = 'block';
   document.getElementById('booking-btns').innerHTML =
@@ -634,14 +803,16 @@ function confirmBooking(date, time) {
 }
 
 // ── Mini map ──
+let _compareMap = null;
+const _mapMarkers = {};
 (function initCompareMap(){
   const centres = {{ centres | tojson }};
   const pts = centres.filter(c => c.coordinates);
   if(!pts.length) return;
 
-  const map = L.map('compare-map', {zoomControl:true, scrollWheelZoom:false});
+  _compareMap = L.map('compare-map', {zoomControl:true, scrollWheelZoom:false});
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    {attribution:'© OpenStreetMap, © CartoDB',maxZoom:18}).addTo(map);
+    {attribution:'© OpenStreetMap, © CartoDB',maxZoom:18}).addTo(_compareMap);
 
   const bounds = [];
   pts.forEach((c, idx) => {
@@ -655,11 +826,22 @@ function confirmBooking(date, time) {
       html:`<div style="width:32px;height:32px;border-radius:50% 50% 50% 0;background:#1E22AA;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 10px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center"><span style="transform:rotate(45deg);color:white;font-size:12px;font-weight:700">${idx+1}</span></div>`,
       iconSize:[32,32],iconAnchor:[16,32]
     });
-    L.marker([lat,lng],{icon}).addTo(map)
+    const marker = L.marker([lat,lng],{icon}).addTo(_compareMap)
       .bindPopup(`<b>${c.name}</b><br>${c.address||''}`);
+    _mapMarkers[String(c.id)] = marker;
   });
-  if(bounds.length) map.fitBounds(bounds, {padding:[40,40],maxZoom:14});
+  if(bounds.length) _compareMap.fitBounds(bounds, {padding:[40,40],maxZoom:14});
 })();
+
+function highlightOnMap(centreId) {
+  const marker = _mapMarkers[String(centreId)];
+  if (!marker || !_compareMap) return;
+  document.querySelector('.main > div:last-child').scrollIntoView({behavior:'smooth', block:'start'});
+  setTimeout(() => {
+    _compareMap.setView(marker.getLatLng(), 15, {animate:true});
+    marker.openPopup();
+  }, 450);
+}
 
 // ── Photo carousel ──
 function switchPhoto(centreId, url, idx, event) {

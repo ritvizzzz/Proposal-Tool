@@ -858,26 +858,42 @@ def _base_url():
 @app.route('/api/share-link/create', methods=['POST'])
 def share_link_create():
     data = request.json or {}
-    centre_ids = data.get('centre_ids', [])
+    centre_ids = [str(c) for c in data.get('centre_ids', [])]
     label = data.get('label', '')
     if not centre_ids:
         return jsonify({'error': 'centre_ids required'}), 400
-    # Resolve names from DB if not provided
     centre_names = data.get('centre_names', [])
-    if not centre_names:
-        with get_db() as conn:
+    sorted_ids = sorted(centre_ids)
+
+    with get_db() as conn:
+        # Resolve names from DB if not provided
+        if not centre_names:
             for cid in centre_ids:
                 row = conn.execute(
                     'SELECT name FROM centres WHERE hubble_id=? OR id=? LIMIT 1',
-                    (str(cid), str(cid))
+                    (cid, cid)
                 ).fetchone()
-                centre_names.append(row['name'] if row else str(cid))
-    token = secrets.token_urlsafe(8)
-    with get_db() as conn:
-        conn.execute(
-            'INSERT INTO share_links (token, label, centre_ids, centre_names) VALUES (?,?,?,?)',
-            (token, label, json.dumps(centre_ids), json.dumps(centre_names))
-        )
+                centre_names.append(row['name'] if row else cid)
+
+        # Reuse existing link with same space set (avoids dashboard duplicates)
+        token = None
+        for row in conn.execute('SELECT token, centre_ids FROM share_links ORDER BY created_at DESC').fetchall():
+            try:
+                if sorted(json.loads(row['centre_ids'])) == sorted_ids:
+                    token = row['token']
+                    break
+            except Exception:
+                continue
+
+        if not token:
+            token = secrets.token_urlsafe(8)
+            conn.execute(
+                'INSERT INTO share_links (token, label, centre_ids, centre_names) VALUES (?,?,?,?)',
+                (token, label, json.dumps(centre_ids), json.dumps(centre_names))
+            )
+        elif label:
+            conn.execute('UPDATE share_links SET label=? WHERE token=?', (label, token))
+
     return jsonify({'token': token, 'url': f'{_base_url()}/compare/{token}'})
 
 
@@ -911,28 +927,25 @@ def _load_centres_for_compare(conn, hubble_ids):
 
 @app.route('/compare')
 def compare_direct():
-    """Entry point from map — ?ids=hubble_id1,hubble_id2&names=name1,name2.
-    Reuses an existing registered share_link token if the same set of IDs was
-    already registered via the dashboard, so tracking rolls up correctly."""
+    """Entry point from map — ?ids=hubble_id1,hubble_id2&names=name1,name2[&client=ClientName].
+    Creates or reuses a stable token then REDIRECTS to /compare/<token> so that
+    the client's browser URL is always the canonical token URL — no new links on refresh."""
     import secrets as _sec
-    ids_param   = request.args.get('ids', '').strip()
-    names_param = request.args.get('names', '').strip()
+    ids_param    = request.args.get('ids', '').strip()
+    names_param  = request.args.get('names', '').strip()
+    client_param = request.args.get('client', '').strip()
     if not ids_param:
         return 'No space IDs provided', 400
 
     hubble_ids = [i.strip() for i in ids_param.split(',') if i.strip()]
     names      = [urllib.parse.unquote(n) for n in names_param.split(',') if n.strip()]
+    client_name = urllib.parse.unquote(client_param) if client_param else ''
     sorted_ids = sorted(hubble_ids)
 
-    ip      = request.remote_addr or ''
-    ip_hash = hashlib.md5(ip.encode()).hexdigest()[:8]
-    ua      = request.headers.get('User-Agent', '')
-
     with get_db() as conn:
-        centres = _load_centres_for_compare(conn, hubble_ids)
-        centre_names = [c['name'] for c in centres] or names
+        centre_names = names or [str(h) for h in hubble_ids]
 
-        # Reuse an existing share_link if the same set of space IDs was already registered
+        # Reuse an existing share_link with the same set of space IDs
         token = None
         existing_label = None
         for row in conn.execute('SELECT token, label, centre_ids FROM share_links ORDER BY created_at DESC').fetchall():
@@ -946,22 +959,21 @@ def compare_direct():
 
         if not token:
             token = _sec.token_urlsafe(8)
-            label = ', '.join(centre_names[:2]) + (' + more' if len(centre_names) > 2 else '')
+            # Prefer explicit client name; fall back to space names
+            if client_name:
+                label = client_name
+            else:
+                label = ', '.join(centre_names[:2]) + (' + more' if len(centre_names) > 2 else '')
             conn.execute(
                 'INSERT INTO share_links (token, label, centre_ids, centre_names) VALUES (?,?,?,?)',
                 (token, label, json.dumps(hubble_ids), json.dumps(centre_names))
             )
-        else:
-            label = existing_label or ', '.join(centre_names[:2])
+        elif client_name and (not existing_label or existing_label != client_name):
+            # Update label to the client name if admin provided one
+            conn.execute('UPDATE share_links SET label=? WHERE token=?', (client_name, token))
 
-        conn.execute(
-            'INSERT INTO link_events (token, event_type, ip_hash, user_agent) VALUES (?,?,?,?)',
-            (token, 'open', ip_hash, ua)
-        )
-
-    link = {'token': token, 'label': label,
-            'centre_ids': json.dumps(hubble_ids), 'centre_names': json.dumps(centre_names)}
-    return render_template('compare.html', link=link, centres=centres, token=token)
+    # Redirect to the stable token URL — subsequent refreshes won't create new links
+    return redirect(url_for('compare_page', token=token))
 
 
 @app.route('/compare/<token>')

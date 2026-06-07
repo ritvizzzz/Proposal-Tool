@@ -399,6 +399,32 @@ document.getElementById('create-modal').addEventListener('click', function(e) {
   if (e.target === this) closeCreateModal();
 });
 
+// Auto-refresh stats every 15 seconds for live tracking
+setInterval(() => {
+  if (document.visibilityState !== 'visible') return;
+  fetch(window.location.href)
+    .then(r => r.text())
+    .then(html => {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      // Update opens/clicks/top-space cells only (avoid disrupting the modal)
+      document.querySelectorAll('tr.link-row').forEach(row => {
+        const token = row.querySelector('td:first-child div:last-child')?.textContent?.trim();
+        if (!token) return;
+        const newRow = [...doc.querySelectorAll('tr.link-row')].find(r =>
+          r.querySelector('td:first-child div:last-child')?.textContent?.trim() === token
+        );
+        if (!newRow) return;
+        // Update opens, clicks, top space cells (4th, 5th, 6th columns)
+        [3, 4, 5].forEach(i => {
+          const cells = row.querySelectorAll('td');
+          const newCells = newRow.querySelectorAll('td');
+          if (cells[i] && newCells[i]) cells[i].innerHTML = newCells[i].innerHTML;
+        });
+      });
+    }).catch(() => {});
+}, 15000);
+
 // Close search results on outside click
 document.addEventListener('click', function(e) {
   const res = document.getElementById('sl-results');
