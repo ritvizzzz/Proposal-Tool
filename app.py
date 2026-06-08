@@ -89,7 +89,6 @@ def init_db():
             client_email TEXT,
             client_phone TEXT
         );
-        CREATE INDEX IF NOT EXISTS idx_share_links_canonical ON share_links(canonical_ids);
         CREATE TABLE IF NOT EXISTS link_events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             token TEXT NOT NULL,
