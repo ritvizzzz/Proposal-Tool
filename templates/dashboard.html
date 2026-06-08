@@ -115,6 +115,10 @@
                style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;background:#1E22AA;color:#fff;text-decoration:none">
               Preview
             </a>
+            <button onclick="deleteLink('{{ lnk.token }}', this)"
+              style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;background:#FEE2E2;border:none;color:#DC2626;cursor:pointer">
+              Delete
+            </button>
           </div>
         </td>
       </tr>
@@ -367,6 +371,24 @@ function createLink() {
 function copyGenerated() {
   const url = document.getElementById('sl-generated-url').textContent;
   navigator.clipboard.writeText(url).then(() => showToast('Copied!'));
+}
+
+async function deleteLink(token, btn) {
+  if (!confirm('Delete this link and all its analytics? This cannot be undone.')) return;
+  btn.textContent = '…';
+  btn.disabled = true;
+  try {
+    const r = await fetch(`/api/share-link/${token}/delete`, { method: 'POST' });
+    if ((await r.json()).ok) {
+      const row = btn.closest('tr');
+      row.style.transition = 'opacity 0.3s';
+      row.style.opacity = '0';
+      setTimeout(() => row.remove(), 300);
+      delete __linkDetails[token];
+    } else {
+      btn.textContent = 'Error'; btn.disabled = false;
+    }
+  } catch(e) { btn.textContent = 'Error'; btn.disabled = false; }
 }
 
 function copyLink(btn) {

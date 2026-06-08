@@ -1239,6 +1239,14 @@ def dashboard_stats(token):
     return jsonify({'opens': opens, 'clicks': clicks, 'top_space': top[0] if top else None})
 
 
+@app.route('/api/share-link/<token>/delete', methods=['POST'])
+def share_link_delete(token):
+    with get_db() as conn:
+        conn.execute('DELETE FROM share_links WHERE token=?', (token,))
+        conn.execute('DELETE FROM link_events WHERE token=?', (token,))
+    return jsonify({'ok': True})
+
+
 @app.route('/api/poll-updates')
 def api_poll_updates():
     """Lightweight stats poll — replaces SSE so gunicorn threads stay free."""
