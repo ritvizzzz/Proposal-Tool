@@ -116,9 +116,11 @@ def init_db():
                 conn.execute(f'ALTER TABLE share_links ADD COLUMN {col_name} TEXT')
             except Exception:
                 pass  # column already exists
-        # Ensure index exists for canonical_ids lookups
+        # Ensure indexes exist
         try:
             conn.execute('CREATE INDEX IF NOT EXISTS idx_share_links_canonical ON share_links(canonical_ids)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_link_events_token_type ON link_events(token, event_type)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_link_events_token ON link_events(token)')
         except Exception:
             pass
     # migrate: add booking columns to link_events if missing
@@ -1163,25 +1165,38 @@ def dashboard():
     with get_db() as conn:
         links = conn.execute('SELECT * FROM share_links ORDER BY created_at DESC').fetchall()
         links = [dict(l) for l in links]
+
+        # Aggregate all event counts in 2 queries instead of 3 per link
+        counts = conn.execute(
+            """SELECT token, event_type, COUNT(*) as cnt
+               FROM link_events WHERE event_type IN ('open','click')
+               GROUP BY token, event_type"""
+        ).fetchall()
+        top_spaces = conn.execute(
+            """SELECT token, centre_name, COUNT(*) as cnt
+               FROM link_events WHERE event_type='click' AND centre_name IS NOT NULL
+               GROUP BY token, centre_name"""
+        ).fetchall()
+
+        opens_map = {}
+        clicks_map = {}
+        for row in counts:
+            if row['event_type'] == 'open':
+                opens_map[row['token']] = row['cnt']
+            else:
+                clicks_map[row['token']] = row['cnt']
+
+        top_map = {}
+        for row in top_spaces:
+            t = row['token']
+            if t not in top_map or row['cnt'] > top_map[t][1]:
+                top_map[t] = (row['centre_name'], row['cnt'])
+
         for lnk in links:
             token = lnk['token']
-            opens = conn.execute(
-                "SELECT COUNT(*) FROM link_events WHERE token=? AND event_type='open'",
-                (token,)
-            ).fetchone()[0]
-            clicks = conn.execute(
-                "SELECT COUNT(*) FROM link_events WHERE token=? AND event_type='click'",
-                (token,)
-            ).fetchone()[0]
-            top_row = conn.execute(
-                """SELECT centre_name, COUNT(*) as cnt FROM link_events
-                   WHERE token=? AND event_type='click' AND centre_name IS NOT NULL
-                   GROUP BY centre_name ORDER BY cnt DESC LIMIT 1""",
-                (token,)
-            ).fetchone()
-            lnk['opens'] = opens
-            lnk['clicks'] = clicks
-            lnk['top_space'] = top_row['centre_name'] if top_row else None
+            lnk['opens'] = opens_map.get(token, 0)
+            lnk['clicks'] = clicks_map.get(token, 0)
+            lnk['top_space'] = top_map[token][0] if token in top_map else None
             try:
                 lnk['centre_names_list'] = json.loads(lnk.get('centre_names') or '[]')
             except Exception:
