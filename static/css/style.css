@@ -187,6 +187,16 @@ select.input { cursor: pointer; }
 .divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; color: var(--grey); font-size: 12px; }
 .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
+/* ── Mobile global ───────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .topnav { padding: 0 14px; gap: 10px; height: 52px; }
+  .nav-links { overflow-x: auto; gap: 0; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .nav-links::-webkit-scrollbar { display: none; }
+  .nav-link { font-size: 11px; padding: 5px 8px; white-space: nowrap; }
+  .topnav .btn.btn-primary { font-size: 11px; padding: 6px 10px; white-space: nowrap; flex-shrink: 0; }
+  .main-content { padding: 16px 12px; }
+}
+
 /* Selected list */
 .selected-list { display: flex; flex-direction: column; gap: 8px; min-height: 200px; }
 .empty-drop { padding: 32px; text-align: center; color: var(--grey); font-size: 13px; border: 2px dashed var(--border); border-radius: 8px; }

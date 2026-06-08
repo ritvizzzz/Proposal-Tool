@@ -28,7 +28,7 @@
 </div>
 
 <!-- Quick import bar — paste map link directly here -->
-<div style="background:#EEF2FF;border-radius:12px;padding:14px 18px;margin-bottom:24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+<div id="quick-register-bar" style="background:#EEF2FF;border-radius:12px;padding:14px 18px;margin-bottom:24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
   <div style="font-size:13px;font-weight:700;color:#1E22AA;white-space:nowrap">📎 Register map link:</div>
   <input id="quick-map-url" type="text" placeholder="Paste the 'Share Comparison' link copied from the workspace map…"
     style="flex:1;min-width:200px;padding:9px 12px;border:1.5px solid #C7D2FE;border-radius:8px;font-size:13px;outline:none;font-family:inherit"
@@ -58,7 +58,7 @@
 </div>
 {% else %}
 
-<div style="background:#fff;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);overflow:hidden">
+<div id="links-table-wrap" style="background:#fff;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);overflow:hidden">
   <table style="width:100%;border-collapse:collapse">
     <thead>
       <tr style="background:#F8F9FF;border-bottom:2px solid #E8E9F3">
@@ -207,6 +207,41 @@
     </div>
   </div>
 </div>
+
+<style>
+/* ── Dashboard mobile ───────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  /* Page header: stack title above buttons */
+  .page-header { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; }
+  .page-header > div:last-child { width: 100%; display: flex; gap: 8px; }
+  .page-header > div:last-child a,
+  .page-header > div:last-child button { flex: 1; text-align: center; font-size: 12px !important; padding: 8px 10px !important; }
+
+  /* Quick-register bar: stack inputs full-width */
+  #quick-register-bar { flex-direction: column !important; align-items: stretch !important; }
+  #quick-register-bar > * { width: 100% !important; min-width: 0 !important; }
+  #quick-register-bar input { width: 100% !important; box-sizing: border-box; }
+
+  /* Table: horizontal scroll container */
+  #links-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 16px; }
+  #links-table-wrap table { min-width: 700px; }
+
+  /* Detail panel: full width slide-up on mobile */
+  #detail-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 85vh !important;
+    top: auto !important;
+    bottom: 0 !important;
+    border-radius: 20px 20px 0 0 !important;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.15) !important;
+  }
+
+  /* New link banner: stack copy button */
+  #new-link-banner > div:last-child { flex-direction: column; }
+  #new-link-url { min-width: 0 !important; }
+}
+</style>
 
 <script>
 const __linkDetails = {{ detail_data_json | safe }};
