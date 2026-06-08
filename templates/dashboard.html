@@ -205,6 +205,7 @@
 </div>
 
 <script>
+const __linkDetails = {{ detail_data_json | safe }};
 let selectedCentres = []; // [{id, name}]
 
 function openCreateModal() {
@@ -483,16 +484,26 @@ function showDetail(token) {
   const body = document.getElementById('detail-body');
   const title = document.getElementById('detail-title');
 
-  // Show immediately with loading state
-  body.innerHTML = '<div style="text-align:center;padding:40px;color:#9CA3AF">Loading…</div>';
-  title.textContent = '…';
   panel.style.display = 'block';
   overlay.style.display = 'block';
   document.body.style.overflow = 'hidden';
 
-  fetch(`/api/link-detail/${token}`)
-    .then(r => r.json())
-    .then(d => {
+  // Use pre-loaded data — no network round-trip needed
+  const d = __linkDetails[token];
+  if (d) {
+    renderDetail(d, token, title, body);
+  } else {
+    body.innerHTML = '<div style="text-align:center;padding:40px;color:#9CA3AF">Loading…</div>';
+    title.textContent = '…';
+    fetch(`/api/link-detail/${token}`).then(r => r.json()).then(d => {
+      renderDetail(d, token, title, body);
+    }).catch(() => {
+      body.innerHTML = '<div style="color:#EF4444;padding:20px">Failed to load.</div>';
+    });
+  }
+}
+
+function renderDetail(d, token, title, body) {
       const lnk = d.link || {};
       title.textContent = lnk.label || '(no label)';
 
@@ -543,10 +554,6 @@ function showDetail(token) {
         <div style="margin-top:20px;padding-top:16px;border-top:1px solid #E5E7EB">
           <a href="/dashboard/${token}" style="font-size:13px;color:#1E22AA;font-weight:600">View full analytics →</a>
         </div>`;
-    })
-    .catch(() => {
-      body.innerHTML = '<div style="color:#EF4444;padding:20px">Failed to load. Try again.</div>';
-    });
 }
 
 function closeDetail() {

@@ -1065,8 +1065,32 @@ def compare_direct():
             # Update label to the client name if admin provided one
             conn.execute('UPDATE share_links SET label=? WHERE token=?', (client_name, token))
 
-    # Redirect to the stable token URL — subsequent refreshes won't create new links
-    return redirect(url_for('compare_page', token=token))
+    # Render directly — eliminates the extra round-trip from a 302 redirect.
+    # The compare template uses history.replaceState to update the browser URL to /compare/<token>.
+    with get_db() as conn:
+        link = conn.execute('SELECT * FROM share_links WHERE token=?', (token,)).fetchone()
+        if not link:
+            return 'Link not found', 500
+        link = dict(link)
+        hubble_ids = json.loads(link['centre_ids'])
+        centres = _load_centres_for_compare(conn, hubble_ids)
+
+    ip_hash = hashlib.md5((request.remote_addr or '').encode()).hexdigest()[:8]
+    ua = request.headers.get('User-Agent', '')
+
+    def _log_open():
+        try:
+            with get_db() as c:
+                c.execute(
+                    'INSERT INTO link_events (token, event_type, ip_hash, user_agent) VALUES (?,?,?,?)',
+                    (token, 'open', ip_hash, ua)
+                )
+        except Exception:
+            pass
+        _push_sse({'token': token, 'event_type': 'open', 'centre_name': ''})
+
+    threading.Thread(target=_log_open, daemon=True).start()
+    return render_template('compare.html', link=link, centres=centres, token=token, canonical_url=url_for('compare_page', token=token, _external=True))
 
 
 @app.route('/compare/<token>')
@@ -1192,6 +1216,56 @@ def dashboard():
             if t not in top_map or row['cnt'] > top_map[t][1]:
                 top_map[t] = (row['centre_name'], row['cnt'])
 
+        # Space-level stats for the detail panel (all event types, one query)
+        space_rows = conn.execute(
+            """SELECT token, event_type, centre_name, COUNT(*) as cnt
+               FROM link_events
+               WHERE centre_name IS NOT NULL AND event_type IN ('click','interested','not_interested','booking_request')
+               GROUP BY token, event_type, centre_name"""
+        ).fetchall()
+        # Recent events per token for the activity feed (last 30 per token)
+        event_rows = conn.execute(
+            """SELECT token, event_type, centre_name, created_at, booking_date, booking_time
+               FROM link_events ORDER BY created_at DESC LIMIT 500"""
+        ).fetchall()
+
+        # Build per-token space stats dict
+        space_stats_map = {}
+        for r in space_rows:
+            t = r['token']
+            cn = r['centre_name']
+            space_stats_map.setdefault(t, {}).setdefault(cn, {'clicks':0,'interested':0,'not_interested':0,'bookings':[]})
+            et = r['event_type']
+            if et == 'click':
+                space_stats_map[t][cn]['clicks'] += r['cnt']
+            elif et == 'interested':
+                space_stats_map[t][cn]['interested'] += r['cnt']
+            elif et == 'not_interested':
+                space_stats_map[t][cn]['not_interested'] += r['cnt']
+
+        # Booking dates need individual rows
+        booking_rows = conn.execute(
+            """SELECT token, centre_name, booking_date, booking_time FROM link_events
+               WHERE event_type='booking_request' AND booking_date IS NOT NULL"""
+        ).fetchall()
+        for r in booking_rows:
+            t, cn = r['token'], r['centre_name']
+            if t in space_stats_map and cn and cn in space_stats_map[t]:
+                space_stats_map[t][cn]['bookings'].append(f"{r['booking_date']} {r.get('booking_time','')}")
+
+        # Build per-token recent events (cap at 30)
+        events_map = {}
+        for r in event_rows:
+            t = r['token']
+            if t not in events_map:
+                events_map[t] = []
+            if len(events_map[t]) < 30:
+                events_map[t].append({
+                    'event_type': r['event_type'],
+                    'centre_name': r['centre_name'],
+                    'created_at': r['created_at'],
+                })
+
         for lnk in links:
             token = lnk['token']
             lnk['opens'] = opens_map.get(token, 0)
@@ -1201,7 +1275,27 @@ def dashboard():
                 lnk['centre_names_list'] = json.loads(lnk.get('centre_names') or '[]')
             except Exception:
                 lnk['centre_names_list'] = []
-    return render_template('dashboard.html', links=links, base_url=_base_url())
+
+        # Serialise detail data for embedding in page (avoids extra round-trips when panel opens)
+        detail_data = {}
+        for lnk in links:
+            t = lnk['token']
+            ss = space_stats_map.get(t, {})
+            detail_data[t] = {
+                'stats': {'opens': lnk['opens'], 'clicks': lnk['clicks']},
+                'space_stats': [{'name': cn, **v} for cn, v in ss.items()],
+                'events': events_map.get(t, []),
+                'link': {
+                    'label': lnk.get('label',''),
+                    'token': t,
+                    'client_email': lnk.get('client_email'),
+                    'client_phone': lnk.get('client_phone'),
+                    'centre_names_list': lnk['centre_names_list'],
+                },
+            }
+
+    return render_template('dashboard.html', links=links, base_url=_base_url(),
+                           detail_data_json=json.dumps(detail_data))
 
 
 @app.route('/dashboard/stats/<token>')
