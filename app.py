@@ -1,4 +1,4 @@
-import os, sqlite3, json, shutil, base64, io, re, secrets, hashlib, urllib.parse, threading, queue
+import os, sqlite3, json, shutil, base64, io, re, secrets, hashlib, urllib.parse, threading, queue, time
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
 from werkzeug.utils import secure_filename
 from PIL import Image
@@ -1197,7 +1197,6 @@ def dashboard():
         links = conn.execute('SELECT * FROM share_links ORDER BY created_at DESC').fetchall()
         links = [dict(l) for l in links]
 
-        # Aggregate all event counts in 2 queries instead of 3 per link
         counts = conn.execute(
             """SELECT token, event_type, COUNT(*) as cnt
                FROM link_events WHERE event_type IN ('open','click')
@@ -1205,17 +1204,14 @@ def dashboard():
         ).fetchall()
         top_spaces = conn.execute(
             """SELECT token, centre_name, COUNT(*) as cnt
-               FROM link_events WHERE event_type='click' AND centre_name IS NOT NULL
+               FROM link_events WHERE event_type='click' AND centre_name IS NOT NULL AND centre_name != ''
                GROUP BY token, centre_name"""
         ).fetchall()
 
-        opens_map = {}
-        clicks_map = {}
+        opens_map, clicks_map = {}, {}
         for row in counts:
-            if row['event_type'] == 'open':
-                opens_map[row['token']] = row['cnt']
-            else:
-                clicks_map[row['token']] = row['cnt']
+            if row['event_type'] == 'open': opens_map[row['token']] = row['cnt']
+            else: clicks_map[row['token']] = row['cnt']
 
         top_map = {}
         for row in top_spaces:
@@ -1223,40 +1219,8 @@ def dashboard():
             if t not in top_map or row['cnt'] > top_map[t][1]:
                 top_map[t] = (row['centre_name'], row['cnt'])
 
-        # Space-level stats for the detail panel (one query, no events)
-        space_rows = conn.execute(
-            """SELECT token, event_type, centre_name, COUNT(*) as cnt
-               FROM link_events
-               WHERE centre_name IS NOT NULL
-                 AND centre_name != ''
-                 AND event_type IN ('click','interested','not_interested','booking_request')
-               GROUP BY token, event_type, centre_name"""
-        ).fetchall()
-
-        space_stats_map = {}
-        for r in space_rows:
-            t = r['token']
-            cn = r['centre_name']
-            if not cn or cn.isdigit():
-                continue
-            space_stats_map.setdefault(t, {}).setdefault(cn, {'clicks':0,'interested':0,'not_interested':0,'bookings':[]})
-            et = r['event_type']
-            if et == 'click':
-                space_stats_map[t][cn]['clicks'] += r['cnt']
-            elif et == 'interested':
-                space_stats_map[t][cn]['interested'] += r['cnt']
-            elif et == 'not_interested':
-                space_stats_map[t][cn]['not_interested'] += r['cnt']
-
-        booking_rows = conn.execute(
-            """SELECT token, centre_name, booking_date, booking_time FROM link_events
-               WHERE event_type='booking_request' AND booking_date IS NOT NULL"""
-        ).fetchall()
-        for r in booking_rows:
-            t, cn = r['token'], r['centre_name']
-            if cn and not cn.isdigit() and t in space_stats_map and cn in space_stats_map.get(t, {}):
-                space_stats_map[t][cn]['bookings'].append(f"{r['booking_date']} {r.get('booking_time','')}")
-
+        # Minimal per-link data — panel detail loaded lazily via /api/link-detail/<token>
+        detail_data = {}
         for lnk in links:
             token = lnk['token']
             lnk['opens'] = opens_map.get(token, 0)
@@ -1266,21 +1230,13 @@ def dashboard():
                 lnk['centre_names_list'] = json.loads(lnk.get('centre_names') or '[]')
             except Exception:
                 lnk['centre_names_list'] = []
-
-        # Serialise detail data for embedding in page (avoids extra round-trips when panel opens)
-        # Events are NOT embedded — fetched lazily per-token when panel opens
-        # This keeps the inline JSON small so the page parses fast
-        detail_data = {}
-        for lnk in links:
-            t = lnk['token']
-            ss = space_stats_map.get(t, {})
-            detail_data[t] = {
+            detail_data[token] = {
                 'stats': {'opens': lnk['opens'], 'clicks': lnk['clicks']},
-                'space_stats': [{'name': cn, **v} for cn, v in ss.items()],
-                'events': None,  # loaded lazily
+                'space_stats': None,
+                'events': None,
                 'link': {
-                    'label': lnk.get('label',''),
-                    'token': t,
+                    'label': lnk.get('label', ''),
+                    'token': token,
                     'client_email': lnk.get('client_email'),
                     'client_phone': lnk.get('client_phone'),
                     'centre_names_list': lnk['centre_names_list'],
