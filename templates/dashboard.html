@@ -13,6 +13,20 @@
   </div>
 </div>
 
+<!-- Success banner shown after quick-register reload -->
+<div id="new-link-banner" style="display:none;background:#f0fdf4;border:1.5px solid #059669;border-radius:12px;padding:14px 18px;margin-bottom:16px">
+  <div style="font-size:13px;font-weight:700;color:#059669;margin-bottom:8px">✓ Tracked link registered! Share this with your client:</div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <input id="new-link-url" type="text" readonly
+      style="flex:1;min-width:220px;padding:9px 12px;border:2px solid #059669;border-radius:8px;font-size:13px;font-family:monospace;background:#fff;color:#065f46;outline:none"
+      onclick="this.select()">
+    <button id="new-link-copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('new-link-url').value).then(()=>{this.textContent='✓ Copied!';setTimeout(()=>this.textContent='Copy link',2000)})"
+      style="padding:9px 18px;background:#059669;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">Copy link</button>
+    <button onclick="document.getElementById('new-link-banner').style.display='none';sessionStorage.removeItem('newTrackedUrl')"
+      style="padding:9px 14px;background:#E5E7EB;color:#374151;border:none;border-radius:8px;font-size:13px;cursor:pointer">Dismiss</button>
+  </div>
+</div>
+
 <!-- Quick import bar — paste map link directly here -->
 <div style="background:#EEF2FF;border-radius:12px;padding:14px 18px;margin-bottom:24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
   <div style="font-size:13px;font-weight:700;color:#1E22AA;white-space:nowrap">📎 Register map link:</div>
@@ -400,23 +414,10 @@ async function quickRegister() {
     });
     const data = await r.json();
     if (data.token) {
-      // Replace the quick-register bar with a prominent success box showing the tracked URL
-      const bar = document.getElementById('quick-map-url').closest('div[style]');
-      bar.innerHTML = `
-        <div style="width:100%">
-          <div style="font-size:13px;font-weight:700;color:#059669;margin-bottom:8px">✓ Tracked link registered! Share this link with your client (NOT the original map link):</div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <input type="text" value="${data.url}" readonly
-              style="flex:1;min-width:220px;padding:9px 12px;border:2px solid #059669;border-radius:8px;font-size:13px;font-family:monospace;background:#f0fdf4;color:#065f46;outline:none"
-              onclick="this.select()">
-            <button onclick="navigator.clipboard.writeText('${data.url}').then(()=>{this.textContent='✓ Copied!';setTimeout(()=>this.textContent='Copy',2000)})"
-              style="padding:9px 18px;background:#059669;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">Copy</button>
-            <button onclick="location.reload()"
-              style="padding:9px 18px;background:#E5E7EB;color:#374151;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">View Dashboard</button>
-          </div>
-          <div style="font-size:12px;color:#6B7280;margin-top:6px">⚠️ You can also share the original map link — visits to it will now be tracked under this entry.</div>
-        </div>`;
       navigator.clipboard.writeText(data.url).catch(()=>{});
+      // Store the tracked URL in sessionStorage so we can show it after reload
+      sessionStorage.setItem('newTrackedUrl', data.url);
+      location.reload();
     } else {
       status.style.color = '#ef4444';
       status.textContent = 'Error: ' + (data.error || 'Unknown');
@@ -452,6 +453,17 @@ document.getElementById('create-modal').addEventListener('click', function(e) {
     }catch(e){}
   };
   evtSource.onerror = function(){ evtSource.close(); setTimeout(initSSE, 2000); };
+})();
+
+// Show tracked URL banner after quick-register reload
+(function(){
+  const url = sessionStorage.getItem('newTrackedUrl');
+  if (url) {
+    const banner = document.getElementById('new-link-banner');
+    document.getElementById('new-link-url').value = url;
+    banner.style.display = 'block';
+    sessionStorage.removeItem('newTrackedUrl');
+  }
 })();
 
 // Keep Railway container warm
