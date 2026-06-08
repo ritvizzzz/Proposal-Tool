@@ -84,7 +84,9 @@ def init_db():
             centre_ids TEXT NOT NULL,
             centre_names TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            created_by TEXT DEFAULT 'myHQ'
+            created_by TEXT DEFAULT 'myHQ',
+            client_email TEXT,
+            client_phone TEXT
         );
         CREATE TABLE IF NOT EXISTS link_events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -105,6 +107,14 @@ def init_db():
         cols = [r[1] for r in conn.execute("PRAGMA table_info(proposals)").fetchall()]
         if 'pdf_filename' not in cols:
             conn.execute("ALTER TABLE proposals ADD COLUMN pdf_filename TEXT")
+    # migrate: add client_email and client_phone to share_links if missing
+    with get_db() as conn:
+        for col_def in ['client_email TEXT', 'client_phone TEXT']:
+            col_name = col_def.split()[0]
+            try:
+                conn.execute(f'ALTER TABLE share_links ADD COLUMN {col_name} TEXT')
+            except Exception:
+                pass  # column already exists
 
 # SSE event broadcast for real-time dashboard
 _sse_queues = []
@@ -872,6 +882,8 @@ def share_link_create():
     data = request.json or {}
     centre_ids = [str(c) for c in data.get('centre_ids', [])]
     label = data.get('label', '')
+    client_email = data.get('client_email', '') or None
+    client_phone = data.get('client_phone', '') or None
     if not centre_ids:
         return jsonify({'error': 'centre_ids required'}), 400
     centre_names = data.get('centre_names', [])
@@ -900,8 +912,8 @@ def share_link_create():
         if not token:
             token = secrets.token_urlsafe(8)
             conn.execute(
-                'INSERT INTO share_links (token, label, centre_ids, centre_names) VALUES (?,?,?,?)',
-                (token, label, json.dumps(centre_ids), json.dumps(centre_names))
+                'INSERT INTO share_links (token, label, centre_ids, centre_names, client_email, client_phone) VALUES (?,?,?,?,?,?)',
+                (token, label, json.dumps(centre_ids), json.dumps(centre_names), client_email, client_phone)
             )
         elif label:
             conn.execute('UPDATE share_links SET label=? WHERE token=?', (label, token))
@@ -933,6 +945,11 @@ def _load_centres_for_compare(conn, hubble_ids):
                 c['amenities_list'] = json.loads(c.get('amenities') or '[]')
             except Exception:
                 c['amenities_list'] = []
+            # Suppress brands that are just generic words or numbers (e.g. "The", "26")
+            _BAD_BRANDS = {'the','a','an','our','new','old','my','one','at','of','in','by'}
+            b = (c.get('brand') or '').strip()
+            if b.lower() in _BAD_BRANDS or (b and b.isdigit()):
+                c['brand'] = ''
             centres.append(c)
     return centres
 
@@ -1158,6 +1175,93 @@ def dashboard_detail(token):
     return render_template('dashboard_detail.html', link=link, events=events,
                            chart_labels=chart_labels, chart_data=chart_data,
                            centres=centres, base_url=_base_url(), token=token)
+
+
+@app.route('/dashboard/analytics')
+def dashboard_analytics():
+    with get_db() as conn:
+        # Top centres by click count
+        top_centres = conn.execute("""
+            SELECT centre_name, COUNT(*) as clicks
+            FROM link_events WHERE event_type='click' AND centre_name IS NOT NULL
+            GROUP BY centre_name ORDER BY clicks DESC LIMIT 10
+        """).fetchall()
+
+        # Top brands (extract from centre_name — first word before ' - ' or ' – ')
+        # We'll compute this in Python
+        all_clicks = conn.execute("""
+            SELECT centre_name FROM link_events WHERE event_type='click' AND centre_name IS NOT NULL
+        """).fetchall()
+
+        # Avg dwell time (in seconds)
+        avg_dwell = conn.execute("""
+            SELECT AVG(dwell_seconds) FROM link_events
+            WHERE event_type='dwell' AND dwell_seconds IS NOT NULL AND dwell_seconds > 5
+        """).fetchone()[0]
+
+        # Total opens, clicks, unique clients
+        total_opens = conn.execute("SELECT COUNT(*) FROM link_events WHERE event_type='open'").fetchone()[0]
+        total_clicks = conn.execute("SELECT COUNT(*) FROM link_events WHERE event_type='click'").fetchone()[0]
+        unique_links = conn.execute("SELECT COUNT(DISTINCT token) FROM share_links").fetchone()[0]
+
+        # Booking time preferences
+        time_prefs = conn.execute("""
+            SELECT booking_time, COUNT(*) as cnt FROM link_events
+            WHERE event_type='booking_request' AND booking_time IS NOT NULL
+            GROUP BY booking_time ORDER BY cnt DESC LIMIT 8
+        """).fetchall()
+
+        # Avg spaces per link
+        avg_spaces = conn.execute("""
+            SELECT AVG(json_array_length(centre_ids)) FROM share_links WHERE centre_ids IS NOT NULL
+        """).fetchone()[0]
+
+        # Avg clicks per link (shows engagement depth)
+        avg_clicks_per_link = conn.execute("""
+            SELECT AVG(c) FROM (
+                SELECT token, COUNT(*) as c FROM link_events WHERE event_type='click' GROUP BY token
+            )
+        """).fetchone()[0]
+
+    # Compute brands from centre names
+    from collections import Counter
+    brand_counts = Counter()
+    for row in all_clicks:
+        name = row[0] or ''
+        # Extract brand from name patterns like "WeWork - Moorgate" or "Fora - Covent Garden"
+        parts = re.split(r'\s*[-–]\s*', name, maxsplit=1)
+        brand = parts[0].strip() if parts else name
+        # Map common brand variations
+        bl = brand.lower()
+        if 'wework' in bl: brand = 'WeWork'
+        elif 'fora' in bl: brand = 'Fora'
+        elif 'regus' in bl: brand = 'Regus'
+        elif 'spaces' in bl and 'co' not in bl: brand = 'Spaces'
+        elif 'iwg' in bl: brand = 'IWG'
+        elif 'workspace' in bl: brand = 'Workspace'
+        elif 'labs' in bl: brand = 'LABS'
+        elif 'x+why' in bl or 'x why' in bl or 'xwhy' in bl: brand = 'x+why'
+        elif 'runway' in bl: brand = 'Runway East'
+        elif 'uncommon' in bl: brand = 'Uncommon'
+        elif 'the brew' in bl: brand = 'The Brew'
+        elif 'huckletree' in bl: brand = 'Huckletree'
+        elif 'trampery' in bl: brand = 'The Trampery'
+        if brand:
+            brand_counts[brand] += 1
+
+    top_brands = brand_counts.most_common(8)
+
+    return render_template('analytics.html',
+        top_centres=[dict(r) for r in top_centres],
+        top_brands=top_brands,
+        avg_dwell=round(avg_dwell or 0),
+        total_opens=total_opens,
+        total_clicks=total_clicks,
+        unique_links=unique_links,
+        time_prefs=[dict(r) for r in time_prefs],
+        avg_spaces=round(avg_spaces or 0, 1),
+        avg_clicks_per_link=round(avg_clicks_per_link or 0, 1),
+    )
 
 
 if __name__ == '__main__':

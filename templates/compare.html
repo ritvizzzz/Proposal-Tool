@@ -92,8 +92,9 @@
 
   /* ── Cards Grid ── */
   .cards-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 24px;
   }
 
@@ -106,6 +107,9 @@
     cursor: pointer;
     display: flex;
     flex-direction: column;
+    width: 340px;
+    max-width: 100%;
+    flex-shrink: 0;
   }
   .space-card:hover {
     box-shadow: 0 4px 20px rgba(30,34,170,0.12);
@@ -192,11 +196,25 @@
   }
   .card-address svg { flex-shrink: 0; margin-top: 2px; }
 
+  .card-transport {
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+    color: #1E22AA;
+    margin-top: -4px;
+  }
+  .transport-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-style: normal;
+  }
+
   .card-meta {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    min-height: 52px;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-height: 32px;
   }
   .meta-item {
     display: flex;
@@ -360,7 +378,8 @@
     .page-intro p { font-size: 13px; }
 
     /* Cards: full width, no hover lift */
-    .cards-grid { grid-template-columns: 1fr; gap: 16px; }
+    .cards-grid { gap: 16px; }
+    .space-card { width: 100%; }
     .space-card:hover { transform: none; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
 
     /* Photo area: slightly shorter on phone */
@@ -421,7 +440,7 @@
 
 <header class="header">
   <a href="https://myhqspaces.com" class="header-logo" target="_blank" rel="noopener" style="text-decoration:none">
-    <img src="/static/myhq-logo.svg" alt="myHQ" style="height:28px;width:auto">
+    <img src="/static/myhq-logo.svg" alt="myHQ" style="height:42px;width:auto">
   </a>
   {% if link.label %}
   <span class="header-label" style="margin-left:auto">{{ link.label }}</span>
@@ -482,18 +501,21 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
           </svg>
-          <span>{{ c.address }}{% if c.transport %}<br><small class="transport-line" data-transport="{{ c.transport }}" style="color:#1E22AA;display:inline-flex;align-items:center;gap:4px"></small>{% endif %}</span>
+          <span>{{ c.address }}</span>
+        </div>
+        {% if c.transport %}
+        <div class="card-transport">
+          <small class="transport-line" data-transport="{{ c.transport }}"></small>
         </div>
         {% endif %}
+        {% endif %}
 
+        {% if c.price_from %}
         <div class="card-meta">
-          {% if c.price_from %}
-          <div class="meta-item">
-            <span class="meta-label">Price / desk</span>
-            <span class="meta-value price">£{{ c.price_from }}<small style="font-weight:400;font-size:12px">/{{ c.price_unit or 'mo' }}</small></span>
-          </div>
-          {% endif %}
+          <span class="meta-label">From</span>
+          <span class="meta-value price" style="font-size:18px">£{{ c.price_from }}<span style="font-size:12px;font-weight:700;color:#6B7280">/month</span></span>
         </div>
+        {% endif %}
 
         {% if c.amenities_list %}
         <div class="amenities">
@@ -574,7 +596,7 @@
 
 <footer class="footer">
   <a href="https://myhqspaces.com" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none">
-    <img src="/static/myhq-logo.svg" alt="myHQ" style="height:24px;width:auto;opacity:0.85">
+    <img src="/static/myhq-logo.svg" alt="myHQ" style="height:34px;width:auto;opacity:0.85">
   </a>
 </footer>
 
@@ -761,7 +783,8 @@ function renderCal() {
 function showTimeSlots() {
   if (!_selectedDate) return;
   const slots = ['9:00 AM','9:30 AM','10:00 AM','10:30 AM','11:00 AM','11:30 AM',
-                 '12:00 PM','2:00 PM','2:30 PM','3:00 PM','3:30 PM','4:00 PM','4:30 PM'];
+                 '12:00 PM','2:00 PM','2:30 PM','3:00 PM','3:30 PM','4:00 PM','4:30 PM',
+                 '5:00 PM','5:30 PM','6:00 PM'];
   const grid = document.getElementById('slots-grid');
   grid.innerHTML = slots.map(s =>
     `<button class="slot-btn" onclick="selectSlot(this,'${s}')">${s}</button>`
