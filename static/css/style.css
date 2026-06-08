@@ -189,11 +189,33 @@ select.input { cursor: pointer; }
 
 /* ── Mobile global ───────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
-  .topnav { padding: 0 14px; gap: 10px; height: 52px; }
-  .nav-links { overflow-x: auto; gap: 0; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  /* Nav: row 1 = logo + action button, row 2 = scrollable links */
+  .topnav {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 10px 14px 0;
+    gap: 0;
+    align-items: center;
+  }
+  .nav-logo { flex: 1; padding-bottom: 10px; }
+  .topnav > .btn.btn-primary {
+    font-size: 12px;
+    padding: 7px 12px;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+  }
+  .nav-links {
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 0;
+    padding: 4px 0 8px;
+    border-top: 1px solid var(--border);
+  }
   .nav-links::-webkit-scrollbar { display: none; }
-  .nav-link { font-size: 11px; padding: 5px 8px; white-space: nowrap; }
-  .topnav .btn.btn-primary { font-size: 11px; padding: 6px 10px; white-space: nowrap; flex-shrink: 0; }
+  .nav-link { font-size: 12px; padding: 8px 10px; white-space: nowrap; }
   .main-content { padding: 16px 12px; }
 }
 
