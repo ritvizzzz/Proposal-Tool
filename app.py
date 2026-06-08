@@ -952,7 +952,14 @@ def share_link_create():
         elif label:
             conn.execute('UPDATE share_links SET label=? WHERE token=?', (label, token))
 
-    return jsonify({'token': token, 'url': f'{_base_url()}/compare/{token}'})
+    return jsonify({
+        'token': token,
+        'url': f'{_base_url()}/compare/{token}',
+        'label': label,
+        'centre_names_list': centre_names,
+        'client_email': client_email,
+        'client_phone': client_phone,
+    })
 
 
 _BAD_BRANDS = {'the','a','an','our','new','old','my','one','at','of','in','by'}
@@ -1375,9 +1382,8 @@ def dashboard_detail(token):
         except Exception:
             link['centre_names_list'] = []
 
-        # Fetch full centre data for the client view
-        hubble_ids = json.loads(link.get('centre_ids') or '[]')
-        centres = _load_centres_for_compare(conn, hubble_ids)
+        # Skip loading full centre profile/images — analytics page doesn't need them
+        centres = []
 
         # Per-space stats: clicks, interest, bookings
         space_stats = {}
