@@ -1164,31 +1164,14 @@ def track_event():
                 )
         except Exception:
             pass
-        _push_sse({'token': token, 'event_type': event_type, 'centre_name': data.get('centre_name', '')})
     threading.Thread(target=_do_track, daemon=True).start()
     return jsonify({'ok': True})
 
 
 @app.route('/dashboard/stream')
 def dashboard_stream():
-    from flask import Response
-    def gen():
-        q = queue.Queue(maxsize=50)
-        with _sse_lock:
-            _sse_queues.append(q)
-        try:
-            while True:
-                try:
-                    data = q.get(timeout=15)
-                    yield f'data: {json.dumps(data)}\n\n'
-                except queue.Empty:
-                    yield ': keepalive\n\n'
-        finally:
-            with _sse_lock:
-                if q in _sse_queues:
-                    _sse_queues.remove(q)
-    return Response(gen(), mimetype='text/event-stream',
-                    headers={'Cache-Control':'no-cache','X-Accel-Buffering':'no'})
+    # SSE replaced by polling — return 410 so old browser tabs stop retrying
+    return jsonify({'error': 'use polling'}), 410
 
 
 @app.route('/dashboard')
