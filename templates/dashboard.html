@@ -20,7 +20,13 @@
     style="flex:1;min-width:200px;padding:9px 12px;border:1.5px solid #C7D2FE;border-radius:8px;font-size:13px;outline:none;font-family:inherit"
     onfocus="this.style.borderColor='#1E22AA'" onblur="this.style.borderColor='#C7D2FE'">
   <input id="quick-client-name" type="text" placeholder="Client name"
-    style="width:160px;padding:9px 12px;border:1.5px solid #C7D2FE;border-radius:8px;font-size:13px;outline:none;font-family:inherit"
+    style="width:140px;padding:9px 12px;border:1.5px solid #C7D2FE;border-radius:8px;font-size:13px;outline:none;font-family:inherit"
+    onfocus="this.style.borderColor='#1E22AA'" onblur="this.style.borderColor='#C7D2FE'">
+  <input id="quick-client-email" type="email" placeholder="Client email"
+    style="width:170px;padding:9px 12px;border:1.5px solid #C7D2FE;border-radius:8px;font-size:13px;outline:none;font-family:inherit"
+    onfocus="this.style.borderColor='#1E22AA'" onblur="this.style.borderColor='#C7D2FE'">
+  <input id="quick-client-phone" type="tel" placeholder="Client phone"
+    style="width:130px;padding:9px 12px;border:1.5px solid #C7D2FE;border-radius:8px;font-size:13px;outline:none;font-family:inherit"
     onfocus="this.style.borderColor='#1E22AA'" onblur="this.style.borderColor='#C7D2FE'">
   <button onclick="quickRegister()"
     style="padding:9px 18px;background:#1E22AA;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">
@@ -352,8 +358,10 @@ function showToast(msg) {
 // Close modal on backdrop click
 // ── Quick register: paste map URL directly from the dashboard top bar ────
 async function quickRegister() {
-  const url   = document.getElementById('quick-map-url').value.trim();
-  const label = document.getElementById('quick-client-name').value.trim();
+  const url    = document.getElementById('quick-map-url').value.trim();
+  const label  = document.getElementById('quick-client-name').value.trim();
+  const email  = document.getElementById('quick-client-email').value.trim();
+  const phone  = document.getElementById('quick-client-phone').value.trim();
   const status = document.getElementById('quick-status');
 
   if (!url) { alert('Paste the map link first.'); return; }
@@ -385,7 +393,9 @@ async function quickRegister() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         centre_ids: ids,
-        label: label || names.slice(0,2).join(', ') || 'Map link'
+        label: label || names.slice(0,2).join(', ') || 'Map link',
+        client_email: email || null,
+        client_phone: phone || null
       })
     });
     const data = await r.json();
@@ -441,8 +451,11 @@ document.getElementById('create-modal').addEventListener('click', function(e) {
         }).catch(()=>{});
     }catch(e){}
   };
-  evtSource.onerror = function(){ setTimeout(initSSE, 5000); evtSource.close(); };
+  evtSource.onerror = function(){ evtSource.close(); setTimeout(initSSE, 2000); };
 })();
+
+// Keep Railway container warm
+setInterval(() => fetch('/health').catch(() => {}), 240000);
 
 // Close search results on outside click
 document.addEventListener('click', function(e) {

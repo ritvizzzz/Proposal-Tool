@@ -873,6 +873,8 @@ function closeLightbox() {
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeLightbox();
 });
+// Keep Railway container warm — ping /health every 4 minutes while page is open
+setInterval(() => fetch('/health').catch(() => {}), 240000);
 </script>
 </body>
 </html>

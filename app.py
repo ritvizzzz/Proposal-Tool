@@ -121,6 +121,12 @@ def init_db():
             conn.execute('CREATE INDEX IF NOT EXISTS idx_share_links_canonical ON share_links(canonical_ids)')
         except Exception:
             pass
+    # migrate: add booking columns to link_events if missing
+    with get_db() as conn:
+        cols = [r[1] for r in conn.execute('PRAGMA table_info(link_events)').fetchall()]
+        if 'booking_date' not in cols:
+            conn.execute('ALTER TABLE link_events ADD COLUMN booking_date TEXT')
+            conn.execute('ALTER TABLE link_events ADD COLUMN booking_time TEXT')
 
 # SSE event broadcast for real-time dashboard
 _sse_queues = []
@@ -1059,14 +1065,29 @@ def compare_page(token):
         link = dict(link)
         hubble_ids = json.loads(link['centre_ids'])
         centres = _load_centres_for_compare(conn, hubble_ids)
-        ip      = request.remote_addr or ''
-        ip_hash = hashlib.md5(ip.encode()).hexdigest()[:8]
-        ua      = request.headers.get('User-Agent', '')
-        conn.execute(
-            'INSERT INTO link_events (token, event_type, ip_hash, user_agent) VALUES (?,?,?,?)',
-            (token, 'open', ip_hash, ua)
-        )
+
+    ip_hash = hashlib.md5((request.remote_addr or '').encode()).hexdigest()[:8]
+    ua      = request.headers.get('User-Agent', '')
+
+    def _log_open():
+        try:
+            with get_db() as c:
+                c.execute(
+                    'INSERT INTO link_events (token, event_type, ip_hash, user_agent) VALUES (?,?,?,?)',
+                    (token, 'open', ip_hash, ua)
+                )
+        except Exception:
+            pass
+        # Push SSE outside DB context so it always fires even if DB write fails
+        _push_sse({'token': token, 'event_type': 'open', 'centre_name': ''})
+
+    threading.Thread(target=_log_open, daemon=True).start()
     return render_template('compare.html', link=link, centres=centres, token=token)
+
+
+@app.route('/health')
+def health():
+    return jsonify({'ok': True})
 
 
 @app.route('/track', methods=['POST'])
@@ -1081,11 +1102,6 @@ def track_event():
     ip_hash = hashlib.md5(ip.encode()).hexdigest()[:8]
     ua = request.headers.get('User-Agent', '')
     with get_db() as conn:
-        # Add booking columns if they don't exist yet (migration)
-        cols = [r[1] for r in conn.execute('PRAGMA table_info(link_events)').fetchall()]
-        if 'booking_date' not in cols:
-            conn.execute('ALTER TABLE link_events ADD COLUMN booking_date TEXT')
-            conn.execute('ALTER TABLE link_events ADD COLUMN booking_time TEXT')
         conn.execute(
             '''INSERT INTO link_events
                (token, event_type, centre_id, centre_name, dwell_seconds, ip_hash, user_agent, booking_date, booking_time)
