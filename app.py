@@ -882,6 +882,17 @@ from generation import (
 _RAILWAY_URL = 'https://web-production-df90c.up.railway.app'
 BASE_URL = os.environ.get('BASE_URL', '')  # resolved dynamically per request below
 
+def _self_warmup():
+    import urllib.request as _ur
+    while True:
+        time.sleep(200)
+        try:
+            _ur.urlopen(f'{_RAILWAY_URL}/health', timeout=10)
+        except Exception:
+            pass
+
+threading.Thread(target=_self_warmup, daemon=True).start()
+
 def _base_url():
     """Use request host URL so links always work wherever Flask is running."""
     try:
@@ -1101,16 +1112,27 @@ def track_event():
     ip = request.remote_addr or ''
     ip_hash = hashlib.md5(ip.encode()).hexdigest()[:8]
     ua = request.headers.get('User-Agent', '')
-    with get_db() as conn:
-        conn.execute(
-            '''INSERT INTO link_events
-               (token, event_type, centre_id, centre_name, dwell_seconds, ip_hash, user_agent, booking_date, booking_time)
-               VALUES (?,?,?,?,?,?,?,?,?)''',
-            (token, event_type, data.get('centre_id'), data.get('centre_name'),
-             data.get('dwell_seconds'), ip_hash, ua,
-             data.get('booking_date'), data.get('booking_time'))
-        )
-        _push_sse({'token': token, 'event_type': event_type, 'centre_name': data.get('centre_name','')})
+    payload = {
+        'token': token, 'event_type': event_type,
+        'centre_id': data.get('centre_id'), 'centre_name': data.get('centre_name'),
+        'dwell_seconds': data.get('dwell_seconds'), 'ip_hash': ip_hash, 'ua': ua,
+        'booking_date': data.get('booking_date'), 'booking_time': data.get('booking_time'),
+    }
+    def _do_track():
+        try:
+            with get_db() as conn:
+                conn.execute(
+                    '''INSERT INTO link_events
+                       (token, event_type, centre_id, centre_name, dwell_seconds, ip_hash, user_agent, booking_date, booking_time)
+                       VALUES (?,?,?,?,?,?,?,?,?)''',
+                    (payload['token'], payload['event_type'], payload['centre_id'],
+                     payload['centre_name'], payload['dwell_seconds'], payload['ip_hash'],
+                     payload['ua'], payload['booking_date'], payload['booking_time'])
+                )
+        except Exception:
+            pass
+        _push_sse({'token': token, 'event_type': event_type, 'centre_name': data.get('centre_name', '')})
+    threading.Thread(target=_do_track, daemon=True).start()
     return jsonify({'ok': True})
 
 
@@ -1124,7 +1146,7 @@ def dashboard_stream():
         try:
             while True:
                 try:
-                    data = q.get(timeout=25)
+                    data = q.get(timeout=15)
                     yield f'data: {json.dumps(data)}\n\n'
                 except queue.Empty:
                     yield ': keepalive\n\n'
@@ -1174,6 +1196,48 @@ def dashboard_stats(token):
         clicks = conn.execute("SELECT COUNT(*) FROM link_events WHERE token=? AND event_type='click'", (token,)).fetchone()[0]
         top = conn.execute("SELECT centre_name, COUNT(*) as cnt FROM link_events WHERE token=? AND event_type='click' AND centre_name IS NOT NULL GROUP BY centre_name ORDER BY cnt DESC LIMIT 1", (token,)).fetchone()
     return jsonify({'opens': opens, 'clicks': clicks, 'top_space': top[0] if top else None})
+
+
+@app.route('/api/link-detail/<token>')
+def api_link_detail(token):
+    with get_db() as conn:
+        link = conn.execute('SELECT * FROM share_links WHERE token=?', (token,)).fetchone()
+        if not link:
+            return jsonify({'error': 'not found'}), 404
+        link = dict(link)
+        try:
+            link['centre_names_list'] = json.loads(link.get('centre_names') or '[]')
+        except Exception:
+            link['centre_names_list'] = []
+        events = conn.execute(
+            'SELECT event_type, centre_name, centre_id, created_at, dwell_seconds, booking_date, booking_time FROM link_events WHERE token=? ORDER BY created_at DESC LIMIT 200',
+            (token,)
+        ).fetchall()
+        events = [dict(e) for e in events]
+        space_stats = {}
+        for ev in events:
+            cn = ev.get('centre_name') or ev.get('centre_id') or ''
+            if not cn:
+                continue
+            if cn not in space_stats:
+                space_stats[cn] = {'clicks': 0, 'interested': 0, 'not_interested': 0, 'bookings': []}
+            t = ev.get('event_type', '')
+            if t == 'click':
+                space_stats[cn]['clicks'] += 1
+            elif t == 'interested':
+                space_stats[cn]['interested'] += 1
+            elif t == 'not_interested':
+                space_stats[cn]['not_interested'] += 1
+            elif t == 'booking_request' and ev.get('booking_date'):
+                space_stats[cn]['bookings'].append(f"{ev['booking_date']} {ev.get('booking_time','')}")
+        opens = sum(1 for e in events if e['event_type'] == 'open')
+        clicks = sum(1 for e in events if e['event_type'] == 'click')
+    return jsonify({
+        'link': {k: link[k] for k in ('label','token','client_email','client_phone','created_at','centre_names_list') if k in link},
+        'stats': {'opens': opens, 'clicks': clicks},
+        'space_stats': [{'name': k, **v} for k, v in space_stats.items()],
+        'events': events[:50],
+    })
 
 
 @app.route('/dashboard/<token>')
