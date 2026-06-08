@@ -83,11 +83,13 @@ def init_db():
             label TEXT,
             centre_ids TEXT NOT NULL,
             centre_names TEXT NOT NULL,
+            canonical_ids TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             created_by TEXT DEFAULT 'myHQ',
             client_email TEXT,
             client_phone TEXT
         );
+        CREATE INDEX IF NOT EXISTS idx_share_links_canonical ON share_links(canonical_ids);
         CREATE TABLE IF NOT EXISTS link_events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             token TEXT NOT NULL,
@@ -107,14 +109,19 @@ def init_db():
         cols = [r[1] for r in conn.execute("PRAGMA table_info(proposals)").fetchall()]
         if 'pdf_filename' not in cols:
             conn.execute("ALTER TABLE proposals ADD COLUMN pdf_filename TEXT")
-    # migrate: add client_email and client_phone to share_links if missing
+    # migrate: add new columns to share_links if missing
     with get_db() as conn:
-        for col_def in ['client_email TEXT', 'client_phone TEXT']:
+        for col_def in ['client_email TEXT', 'client_phone TEXT', 'canonical_ids TEXT']:
             col_name = col_def.split()[0]
             try:
                 conn.execute(f'ALTER TABLE share_links ADD COLUMN {col_name} TEXT')
             except Exception:
                 pass  # column already exists
+        # Ensure index exists for canonical_ids lookups
+        try:
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_share_links_canonical ON share_links(canonical_ids)')
+        except Exception:
+            pass
 
 # SSE event broadcast for real-time dashboard
 _sse_queues = []
@@ -900,20 +907,29 @@ def share_link_create():
                 centre_names.append(row['name'] if row else cid)
 
         # Reuse existing link with same space set (avoids dashboard duplicates)
+        canonical_key = '|'.join(sorted_ids)
         token = None
-        for row in conn.execute('SELECT token, centre_ids FROM share_links ORDER BY created_at DESC').fetchall():
-            try:
-                if sorted(json.loads(row['centre_ids'])) == sorted_ids:
-                    token = row['token']
-                    break
-            except Exception:
-                continue
+        row = conn.execute(
+            'SELECT token FROM share_links WHERE canonical_ids=? ORDER BY created_at DESC LIMIT 1',
+            (canonical_key,)
+        ).fetchone()
+        if row:
+            token = row['token']
+        else:
+            for old_row in conn.execute('SELECT token, centre_ids FROM share_links WHERE canonical_ids IS NULL ORDER BY created_at DESC LIMIT 200').fetchall():
+                try:
+                    if sorted(json.loads(old_row['centre_ids'])) == sorted_ids:
+                        token = old_row['token']
+                        conn.execute('UPDATE share_links SET canonical_ids=? WHERE token=?', (canonical_key, token))
+                        break
+                except Exception:
+                    continue
 
         if not token:
             token = secrets.token_urlsafe(8)
             conn.execute(
-                'INSERT INTO share_links (token, label, centre_ids, centre_names, client_email, client_phone) VALUES (?,?,?,?,?,?)',
-                (token, label, json.dumps(centre_ids), json.dumps(centre_names), client_email, client_phone)
+                'INSERT INTO share_links (token, label, centre_ids, centre_names, canonical_ids, client_email, client_phone) VALUES (?,?,?,?,?,?,?)',
+                (token, label, json.dumps(centre_ids), json.dumps(centre_names), canonical_key, client_email, client_phone)
             )
         elif label:
             conn.execute('UPDATE share_links SET label=? WHERE token=?', (label, token))
@@ -921,36 +937,53 @@ def share_link_create():
     return jsonify({'token': token, 'url': f'{_base_url()}/compare/{token}'})
 
 
+_BAD_BRANDS = {'the','a','an','our','new','old','my','one','at','of','in','by'}
+
 def _load_centres_for_compare(conn, hubble_ids):
-    """Fetch centre data + images for a list of hubble_ids."""
+    """Fetch centre data + images for a list of hubble_ids (batched)."""
+    if not hubble_ids:
+        return []
+    ph = ','.join('?' * len(hubble_ids))
+    rows = conn.execute(f'SELECT * FROM centres WHERE hubble_id IN ({ph})', hubble_ids).fetchall()
+    # Also try by DB id for any that didn't match by hubble_id
+    found_hids = {r['hubble_id'] for r in rows}
+    fallback_ids = [h for h in hubble_ids if h not in found_hids]
+    if fallback_ids:
+        ph2 = ','.join('?' * len(fallback_ids))
+        rows = list(rows) + conn.execute(f'SELECT * FROM centres WHERE id IN ({ph2})', fallback_ids).fetchall()
+
+    centre_map = {r['hubble_id']: dict(r) for r in rows}
+    # Fetch all images in one query
+    cids = [c['id'] for c in centre_map.values()]
+    if cids:
+        ph3 = ','.join('?' * len(cids))
+        img_rows = conn.execute(
+            f'SELECT centre_id, filename FROM centre_images WHERE centre_id IN ({ph3}) ORDER BY is_primary DESC, sort_order',
+            cids
+        ).fetchall()
+        imgs_by_centre = {}
+        for ir in img_rows:
+            imgs_by_centre.setdefault(ir['centre_id'], []).append(ir['filename'])
+
     centres = []
     for hid in hubble_ids:
-        c = conn.execute('SELECT * FROM centres WHERE hubble_id=?', (hid,)).fetchone()
+        c = centre_map.get(hid)
         if not c:
-            # fallback: treat as DB id
-            c = conn.execute('SELECT * FROM centres WHERE id=?', (hid,)).fetchone()
-        if c:
-            c = dict(c)
-            cid = c['id']
-            imgs = conn.execute(
-                'SELECT filename FROM centre_images WHERE centre_id=? ORDER BY is_primary DESC, sort_order LIMIT 4',
-                (cid,)
-            ).fetchall()
-            c['image_urls'] = [
-                r['filename'] if r['filename'].startswith('http')
-                else f'/centre-image/{cid}/{r["filename"]}'
-                for r in imgs
-            ]
-            try:
-                c['amenities_list'] = json.loads(c.get('amenities') or '[]')
-            except Exception:
-                c['amenities_list'] = []
-            # Suppress brands that are just generic words or numbers (e.g. "The", "26")
-            _BAD_BRANDS = {'the','a','an','our','new','old','my','one','at','of','in','by'}
-            b = (c.get('brand') or '').strip()
-            if b.lower() in _BAD_BRANDS or (b and b.isdigit()):
-                c['brand'] = ''
-            centres.append(c)
+            continue
+        cid = c['id']
+        raw_imgs = imgs_by_centre.get(cid, [])[:4] if cids else []
+        c['image_urls'] = [
+            fn if fn.startswith('http') else f'/centre-image/{cid}/{fn}'
+            for fn in raw_imgs
+        ]
+        try:
+            c['amenities_list'] = json.loads(c.get('amenities') or '[]')
+        except Exception:
+            c['amenities_list'] = []
+        b = (c.get('brand') or '').strip()
+        if b.lower() in _BAD_BRANDS or (b and b.isdigit()):
+            c['brand'] = ''
+        centres.append(c)
     return centres
 
 
@@ -975,16 +1008,29 @@ def compare_direct():
         centre_names = names or [str(h) for h in hubble_ids]
 
         # Reuse an existing share_link with the same set of space IDs
+        # Use a canonical key (sorted, pipe-separated) to match without scanning all rows
+        canonical_key = '|'.join(sorted_ids)
         token = None
         existing_label = None
-        for row in conn.execute('SELECT token, label, centre_ids FROM share_links ORDER BY created_at DESC').fetchall():
-            try:
-                if sorted(json.loads(row['centre_ids'])) == sorted_ids:
-                    token = row['token']
-                    existing_label = row['label']
-                    break
-            except Exception:
-                continue
+        row = conn.execute(
+            'SELECT token, label FROM share_links WHERE canonical_ids=? ORDER BY created_at DESC LIMIT 1',
+            (canonical_key,)
+        ).fetchone()
+        if row:
+            token = row['token']
+            existing_label = row['label']
+        else:
+            # Legacy: scan recent links (capped) for backward compat with rows without canonical_ids
+            for old_row in conn.execute('SELECT token, label, centre_ids FROM share_links WHERE canonical_ids IS NULL ORDER BY created_at DESC LIMIT 200').fetchall():
+                try:
+                    if sorted(json.loads(old_row['centre_ids'])) == sorted_ids:
+                        token = old_row['token']
+                        existing_label = old_row['label']
+                        # Backfill canonical_ids
+                        conn.execute('UPDATE share_links SET canonical_ids=? WHERE token=?', (canonical_key, token))
+                        break
+                except Exception:
+                    continue
 
         if not token:
             token = _sec.token_urlsafe(8)
@@ -994,8 +1040,8 @@ def compare_direct():
             else:
                 label = ', '.join(centre_names[:2]) + (' + more' if len(centre_names) > 2 else '')
             conn.execute(
-                'INSERT INTO share_links (token, label, centre_ids, centre_names) VALUES (?,?,?,?)',
-                (token, label, json.dumps(hubble_ids), json.dumps(centre_names))
+                'INSERT INTO share_links (token, label, centre_ids, centre_names, canonical_ids) VALUES (?,?,?,?,?)',
+                (token, label, json.dumps(hubble_ids), json.dumps(centre_names), canonical_key)
             )
         elif client_name and (not existing_label or existing_label != client_name):
             # Update label to the client name if admin provided one
@@ -1179,6 +1225,7 @@ def dashboard_detail(token):
 
 @app.route('/dashboard/analytics')
 def dashboard_analytics():
+    from collections import Counter
     with get_db() as conn:
         # Top centres by click count
         top_centres = conn.execute("""
@@ -1187,10 +1234,16 @@ def dashboard_analytics():
             GROUP BY centre_name ORDER BY clicks DESC LIMIT 10
         """).fetchall()
 
-        # Top brands (extract from centre_name — first word before ' - ' or ' – ')
-        # We'll compute this in Python
-        all_clicks = conn.execute("""
-            SELECT centre_name FROM link_events WHERE event_type='click' AND centre_name IS NOT NULL
+        # Top brands — extract brand prefix (before first ' - ' or ' – ') via SQL, aggregate in Python
+        brand_raw_rows = conn.execute("""
+            SELECT TRIM(SUBSTR(centre_name, 1,
+                CASE WHEN INSTR(centre_name,' - ')>0 THEN INSTR(centre_name,' - ')-1
+                     WHEN INSTR(centre_name,' – ')>0 THEN INSTR(centre_name,' – ')-1
+                     ELSE LENGTH(centre_name) END
+            )) as brand, COUNT(*) as cnt
+            FROM link_events
+            WHERE event_type='click' AND centre_name IS NOT NULL
+            GROUP BY brand
         """).fetchall()
 
         # Avg dwell time (in seconds)
@@ -1199,10 +1252,17 @@ def dashboard_analytics():
             WHERE event_type='dwell' AND dwell_seconds IS NOT NULL AND dwell_seconds > 5
         """).fetchone()[0]
 
-        # Total opens, clicks, unique clients
-        total_opens = conn.execute("SELECT COUNT(*) FROM link_events WHERE event_type='open'").fetchone()[0]
-        total_clicks = conn.execute("SELECT COUNT(*) FROM link_events WHERE event_type='click'").fetchone()[0]
-        unique_links = conn.execute("SELECT COUNT(DISTINCT token) FROM share_links").fetchone()[0]
+        # Total opens, clicks, unique links — single query
+        totals = conn.execute("""
+            SELECT
+                SUM(CASE WHEN event_type='open' THEN 1 ELSE 0 END) as opens,
+                SUM(CASE WHEN event_type='click' THEN 1 ELSE 0 END) as clicks,
+                (SELECT COUNT(DISTINCT token) FROM share_links) as unique_links
+            FROM link_events
+        """).fetchone()
+        total_opens = totals[0] or 0
+        total_clicks = totals[1] or 0
+        unique_links = totals[2] or 0
 
         # Booking time preferences
         time_prefs = conn.execute("""
@@ -1211,44 +1271,36 @@ def dashboard_analytics():
             GROUP BY booking_time ORDER BY cnt DESC LIMIT 8
         """).fetchall()
 
-        # Avg spaces per link
+        # Avg spaces per link and avg clicks per link
         avg_spaces = conn.execute("""
             SELECT AVG(json_array_length(centre_ids)) FROM share_links WHERE centre_ids IS NOT NULL
         """).fetchone()[0]
-
-        # Avg clicks per link (shows engagement depth)
         avg_clicks_per_link = conn.execute("""
             SELECT AVG(c) FROM (
-                SELECT token, COUNT(*) as c FROM link_events WHERE event_type='click' GROUP BY token
+                SELECT COUNT(*) as c FROM link_events WHERE event_type='click' GROUP BY token
             )
         """).fetchone()[0]
 
-    # Compute brands from centre names
-    from collections import Counter
+    # Normalise brand names
     brand_counts = Counter()
-    for row in all_clicks:
-        name = row[0] or ''
-        # Extract brand from name patterns like "WeWork - Moorgate" or "Fora - Covent Garden"
-        parts = re.split(r'\s*[-–]\s*', name, maxsplit=1)
-        brand = parts[0].strip() if parts else name
-        # Map common brand variations
-        bl = brand.lower()
-        if 'wework' in bl: brand = 'WeWork'
-        elif 'fora' in bl: brand = 'Fora'
-        elif 'regus' in bl: brand = 'Regus'
-        elif 'spaces' in bl and 'co' not in bl: brand = 'Spaces'
-        elif 'iwg' in bl: brand = 'IWG'
-        elif 'workspace' in bl: brand = 'Workspace'
-        elif 'labs' in bl: brand = 'LABS'
-        elif 'x+why' in bl or 'x why' in bl or 'xwhy' in bl: brand = 'x+why'
-        elif 'runway' in bl: brand = 'Runway East'
-        elif 'uncommon' in bl: brand = 'Uncommon'
-        elif 'the brew' in bl: brand = 'The Brew'
-        elif 'huckletree' in bl: brand = 'Huckletree'
-        elif 'trampery' in bl: brand = 'The Trampery'
-        if brand:
-            brand_counts[brand] += 1
-
+    for brand_raw, cnt in brand_raw_rows:
+        b = (brand_raw or '').strip()
+        bl = b.lower()
+        if 'wework' in bl: b = 'WeWork'
+        elif 'fora' in bl: b = 'Fora'
+        elif 'regus' in bl: b = 'Regus'
+        elif 'spaces' in bl and 'co' not in bl: b = 'Spaces'
+        elif 'iwg' in bl: b = 'IWG'
+        elif 'workspace' in bl: b = 'Workspace'
+        elif 'labs' in bl: b = 'LABS'
+        elif 'x+why' in bl or 'x why' in bl or 'xwhy' in bl: b = 'x+why'
+        elif 'runway' in bl: b = 'Runway East'
+        elif 'uncommon' in bl: b = 'Uncommon'
+        elif 'the brew' in bl: b = 'The Brew'
+        elif 'huckletree' in bl: b = 'Huckletree'
+        elif 'trampery' in bl: b = 'The Trampery'
+        if b:
+            brand_counts[b] += cnt
     top_brands = brand_counts.most_common(8)
 
     return render_template('analytics.html',
