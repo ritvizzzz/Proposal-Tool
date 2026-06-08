@@ -1223,24 +1223,22 @@ def dashboard():
             if t not in top_map or row['cnt'] > top_map[t][1]:
                 top_map[t] = (row['centre_name'], row['cnt'])
 
-        # Space-level stats for the detail panel (all event types, one query)
+        # Space-level stats for the detail panel (one query, no events)
         space_rows = conn.execute(
             """SELECT token, event_type, centre_name, COUNT(*) as cnt
                FROM link_events
-               WHERE centre_name IS NOT NULL AND event_type IN ('click','interested','not_interested','booking_request')
+               WHERE centre_name IS NOT NULL
+                 AND centre_name != ''
+                 AND event_type IN ('click','interested','not_interested','booking_request')
                GROUP BY token, event_type, centre_name"""
         ).fetchall()
-        # Recent events per token for the activity feed (last 30 per token)
-        event_rows = conn.execute(
-            """SELECT token, event_type, centre_name, created_at, booking_date, booking_time
-               FROM link_events ORDER BY created_at DESC LIMIT 500"""
-        ).fetchall()
 
-        # Build per-token space stats dict
         space_stats_map = {}
         for r in space_rows:
             t = r['token']
             cn = r['centre_name']
+            if not cn or cn.isdigit():
+                continue
             space_stats_map.setdefault(t, {}).setdefault(cn, {'clicks':0,'interested':0,'not_interested':0,'bookings':[]})
             et = r['event_type']
             if et == 'click':
@@ -1250,28 +1248,14 @@ def dashboard():
             elif et == 'not_interested':
                 space_stats_map[t][cn]['not_interested'] += r['cnt']
 
-        # Booking dates need individual rows
         booking_rows = conn.execute(
             """SELECT token, centre_name, booking_date, booking_time FROM link_events
                WHERE event_type='booking_request' AND booking_date IS NOT NULL"""
         ).fetchall()
         for r in booking_rows:
             t, cn = r['token'], r['centre_name']
-            if t in space_stats_map and cn and cn in space_stats_map[t]:
+            if cn and not cn.isdigit() and t in space_stats_map and cn in space_stats_map.get(t, {}):
                 space_stats_map[t][cn]['bookings'].append(f"{r['booking_date']} {r.get('booking_time','')}")
-
-        # Build per-token recent events (cap at 30)
-        events_map = {}
-        for r in event_rows:
-            t = r['token']
-            if t not in events_map:
-                events_map[t] = []
-            if len(events_map[t]) < 30:
-                events_map[t].append({
-                    'event_type': r['event_type'],
-                    'centre_name': r['centre_name'],
-                    'created_at': r['created_at'],
-                })
 
         for lnk in links:
             token = lnk['token']
@@ -1284,6 +1268,8 @@ def dashboard():
                 lnk['centre_names_list'] = []
 
         # Serialise detail data for embedding in page (avoids extra round-trips when panel opens)
+        # Events are NOT embedded — fetched lazily per-token when panel opens
+        # This keeps the inline JSON small so the page parses fast
         detail_data = {}
         for lnk in links:
             t = lnk['token']
@@ -1291,7 +1277,7 @@ def dashboard():
             detail_data[t] = {
                 'stats': {'opens': lnk['opens'], 'clicks': lnk['clicks']},
                 'space_stats': [{'name': cn, **v} for cn, v in ss.items()],
-                'events': events_map.get(t, []),
+                'events': None,  # loaded lazily
                 'link': {
                     'label': lnk.get('label',''),
                     'token': t,
@@ -1312,6 +1298,50 @@ def dashboard_stats(token):
         clicks = conn.execute("SELECT COUNT(*) FROM link_events WHERE token=? AND event_type='click'", (token,)).fetchone()[0]
         top = conn.execute("SELECT centre_name, COUNT(*) as cnt FROM link_events WHERE token=? AND event_type='click' AND centre_name IS NOT NULL GROUP BY centre_name ORDER BY cnt DESC LIMIT 1", (token,)).fetchone()
     return jsonify({'opens': opens, 'clicks': clicks, 'top_space': top[0] if top else None})
+
+
+@app.route('/api/poll-updates')
+def api_poll_updates():
+    """Lightweight stats poll — replaces SSE so gunicorn threads stay free."""
+    with get_db() as conn:
+        counts = conn.execute(
+            """SELECT token, event_type, COUNT(*) as cnt
+               FROM link_events WHERE event_type IN ('open','click')
+               GROUP BY token, event_type"""
+        ).fetchall()
+        top = conn.execute(
+            """SELECT token, centre_name, COUNT(*) as cnt
+               FROM link_events WHERE event_type='click' AND centre_name IS NOT NULL AND centre_name != ''
+               GROUP BY token, centre_name"""
+        ).fetchall()
+    stats = {}
+    for r in counts:
+        t = r['token']
+        stats.setdefault(t, {'opens':0,'clicks':0,'top':None})
+        if r['event_type'] == 'open': stats[t]['opens'] = r['cnt']
+        else: stats[t]['clicks'] = r['cnt']
+    top_map = {}
+    for r in top:
+        t = r['token']
+        if t not in top_map or r['cnt'] > top_map[t][1]:
+            top_map[t] = (r['centre_name'], r['cnt'])
+    for t, v in top_map.items():
+        if t in stats: stats[t]['top'] = v[0]
+    return jsonify(stats)
+
+
+@app.route('/api/link-events/<token>')
+def api_link_events(token):
+    """Lazy-loaded activity feed for the detail panel."""
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT event_type, centre_name, created_at FROM link_events
+               WHERE token=? ORDER BY created_at DESC LIMIT 30""",
+            (token,)
+        ).fetchall()
+    events = [dict(r) for r in rows
+              if not (r['centre_name'] and r['centre_name'].isdigit())]
+    return jsonify({'events': events})
 
 
 @app.route('/api/link-detail/<token>')

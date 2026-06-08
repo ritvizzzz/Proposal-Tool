@@ -507,55 +507,49 @@ document.getElementById('create-modal').addEventListener('click', function(e) {
   if (e.target === this) closeCreateModal();
 });
 
-// Real-time dashboard updates via SSE — all local, zero extra fetches
-(function initSSE(){
-  const evtSource = new EventSource('/dashboard/stream');
-  evtSource.onmessage = function(e){
-    try {
-      const d = JSON.parse(e.data);
-      if (!d.token) return;
+// Poll for live updates every 8s — avoids SSE holding a gunicorn thread permanently
+let __lastPollStats = {};
+async function pollUpdates() {
+  try {
+    const r = await fetch('/api/poll-updates');
+    const stats = await r.json();
+    for (const [token, s] of Object.entries(stats)) {
+      const prev = __lastPollStats[token] || {opens:0,clicks:0,top:null};
+      if (s.opens === prev.opens && s.clicks === prev.clicks && s.top === prev.top) continue;
+      __lastPollStats[token] = s;
 
-      // Ensure entry exists in local cache
-      if (!__linkDetails[d.token]) {
-        __linkDetails[d.token] = {stats:{opens:0,clicks:0}, space_stats:[], events:[], link:{label:'',token:d.token,centre_names_list:[]}};
-      }
-      const det = __linkDetails[d.token];
+      // Update local cache
+      if (!__linkDetails[token]) continue;
+      __linkDetails[token].stats.opens  = s.opens;
+      __linkDetails[token].stats.clicks = s.clicks;
 
-      // Update counts
-      if (d.event_type === 'open') det.stats.opens++;
-      else if (d.event_type === 'click') det.stats.clicks++;
-
-      // Update space stats
-      if (d.centre_name && ['click','interested','not_interested'].includes(d.event_type)) {
-        let ss = det.space_stats.find(s => s.name === d.centre_name);
-        if (!ss) { ss = {name:d.centre_name,clicks:0,interested:0,not_interested:0,bookings:[]}; det.space_stats.push(ss); }
-        if (d.event_type === 'click') ss.clicks++;
-        else if (d.event_type === 'interested') ss.interested++;
-        else if (d.event_type === 'not_interested') ss.not_interested++;
-      }
-
-      // Prepend to events feed
-      det.events.unshift({event_type:d.event_type, centre_name:d.centre_name||null, created_at:new Date().toISOString()});
-      if (det.events.length > 30) det.events.pop();
-
-      // Update table row cells directly
-      const row = document.querySelector(`tr.link-row[data-token="${d.token}"]`);
+      // Update table cells
+      const row = document.querySelector(`tr.link-row[data-token="${token}"]`);
       if (row) {
         const cells = row.querySelectorAll('td');
-        if (cells[3]) cells[3].innerHTML = `<span style="font-size:20px;font-weight:800;color:#1E22AA">${det.stats.opens}</span>`;
-        if (cells[4]) cells[4].innerHTML = `<span style="font-size:20px;font-weight:800;color:#059669">${det.stats.clicks}</span>`;
-        const topSpace = det.space_stats.slice().sort((a,b)=>b.clicks-a.clicks)[0];
-        if (cells[5]) cells[5].innerHTML = `<span style="font-size:13px;color:#4B4F6A">${topSpace ? topSpace.name : '—'}</span>`;
+        if (cells[3]) cells[3].innerHTML = `<span style="font-size:20px;font-weight:800;color:#1E22AA">${s.opens}</span>`;
+        if (cells[4]) cells[4].innerHTML = `<span style="font-size:20px;font-weight:800;color:#059669">${s.clicks}</span>`;
+        if (cells[5] && s.top) cells[5].innerHTML = `<span style="font-size:13px;color:#4B4F6A">${s.top}</span>`;
       }
 
-      // Refresh panel if it's currently showing this token
-      if (currentPanelToken === d.token) {
-        renderDetail(det, d.token, document.getElementById('detail-title'), document.getElementById('detail-body'));
+      // Refresh open panel — invalidate events so they reload fresh
+      if (currentPanelToken === token) {
+        __linkDetails[token].events = null;
+        renderDetail(__linkDetails[token], token, document.getElementById('detail-title'), document.getElementById('detail-body'));
+        fetch(`/api/link-events/${token}`).then(r=>r.json()).then(ev=>{
+          __linkDetails[token].events = ev.events || [];
+          if (currentPanelToken === token) {
+            const sec = document.getElementById('detail-events-section');
+            if (sec) sec.innerHTML = buildEventsHtml(__linkDetails[token].events);
+          }
+        }).catch(()=>{});
       }
-    } catch(e) {}
-  };
-  evtSource.onerror = function(){ evtSource.close(); setTimeout(initSSE, 2000); };
-})();
+    }
+  } catch(e) {}
+}
+// Initialise baseline then poll every 8 seconds
+pollUpdates();
+setInterval(pollUpdates, 8000);
 
 
 // ── Detail slide-over panel ──────────────────────────────────────────────────
@@ -572,16 +566,48 @@ function showDetail(token) {
 
   const d = __linkDetails[token];
   if (d) {
+    // Render stats + spaces immediately (no network call)
     renderDetail(d, token, title, body);
+    // Lazy-load events if not yet fetched
+    if (d.events === null) {
+      const evSection = document.getElementById('detail-events-section');
+      if (evSection) evSection.innerHTML = '<div style="color:#9CA3AF;font-size:13px">Loading activity…</div>';
+      fetch(`/api/link-events/${token}`)
+        .then(r => r.json())
+        .then(ev => {
+          d.events = ev.events || [];
+          if (currentPanelToken === token) {
+            const evSection2 = document.getElementById('detail-events-section');
+            if (evSection2) evSection2.innerHTML = buildEventsHtml(d.events);
+          }
+        }).catch(() => {});
+    }
   } else {
     body.innerHTML = '<div style="text-align:center;padding:40px;color:#9CA3AF">Loading…</div>';
     title.textContent = '…';
-    fetch(`/api/link-detail/${token}`).then(r => r.json()).then(d => {
-      renderDetail(d, token, title, body);
+    fetch(`/api/link-detail/${token}`).then(r => r.json()).then(d2 => {
+      __linkDetails[token] = d2;
+      renderDetail(d2, token, title, body);
     }).catch(() => {
       body.innerHTML = '<div style="color:#EF4444;padding:20px">Failed to load.</div>';
     });
   }
+}
+
+function buildEventsHtml(events) {
+  const evIcons = {open:'👁', click:'🖱', interested:'✅', not_interested:'❌', booking_request:'📅'};
+  const valid = (events || []).filter(e => !e.centre_name || !/^\d+$/.test(e.centre_name.trim())).slice(0, 20);
+  if (!valid.length) return '<div style="color:#9CA3AF;font-size:13px">No events yet.</div>';
+  return valid.map(e => {
+    const icon = evIcons[e.event_type] || '•';
+    const name = e.centre_name ? `<b>${e.centre_name}</b>` : e.event_type;
+    const ts = (e.created_at || '').replace('T',' ').slice(0,16);
+    return `<div style="display:flex;gap:8px;align-items:baseline;padding:5px 0;border-bottom:1px solid #F3F4F6;font-size:12px">
+      <span style="width:20px;flex-shrink:0">${icon}</span>
+      <span style="flex:1;color:#374151">${name}</span>
+      <span style="color:#9CA3AF;white-space:nowrap">${ts}</span>
+    </div>`;
+  }).join('');
 }
 
 function renderDetail(d, token, title, body) {
@@ -611,22 +637,9 @@ function renderDetail(d, token, title, body) {
       });
       if (!validSpaces.length) spacesHtml = '<div style="color:#9CA3AF;font-size:13px">No space interactions yet.</div>';
 
-      const evIcons = {open:'👁', click:'🖱', interested:'✅', not_interested:'❌', booking_request:'📅'};
-      let evHtml = '';
-      const validEvents = (d.events || []).filter(e =>
-        !e.centre_name || !/^\d+$/.test(e.centre_name.trim())
-      ).slice(0, 20);
-      validEvents.forEach(e => {
-        const icon = evIcons[e.event_type] || '•';
-        const name = e.centre_name ? `<b>${e.centre_name}</b>` : e.event_type;
-        const ts = (e.created_at || '').replace('T',' ').slice(0,16);
-        evHtml += `<div style="display:flex;gap:8px;align-items:baseline;padding:5px 0;border-bottom:1px solid #F3F4F6;font-size:12px">
-          <span style="width:20px;flex-shrink:0">${icon}</span>
-          <span style="flex:1;color:#374151">${name}</span>
-          <span style="color:#9CA3AF;white-space:nowrap">${ts}</span>
-        </div>`;
-      });
-      if (!validEvents.length) evHtml = '<div style="color:#9CA3AF;font-size:13px">No events yet.</div>';
+      const eventsHtml = d.events === null
+        ? '<div style="color:#9CA3AF;font-size:13px">Loading activity…</div>'
+        : buildEventsHtml(d.events);
 
       body.innerHTML = `
         ${contactLine ? `<div style="font-size:13px;color:#6B7280;margin-bottom:4px">${contactLine}</div>` : ''}
@@ -638,7 +651,7 @@ function renderDetail(d, token, title, body) {
         <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280;margin-bottom:8px">Space Engagement</div>
         ${spacesHtml}
         <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280;margin:16px 0 8px">Recent Activity</div>
-        ${evHtml}
+        <div id="detail-events-section">${eventsHtml}</div>
         <div style="margin-top:20px;padding-top:16px;border-top:1px solid #E5E7EB">
           <a href="/dashboard/${token}" style="font-size:13px;color:#1E22AA;font-weight:600">View full analytics →</a>
         </div>`;
