@@ -47,7 +47,8 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 }
 .agent-pill-header:hover { background: #F0F1FA; border-color: #C7D2FE; }
 .agent-avatar-sm {
-  width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 2px solid #E8E9F3; flex-shrink: 0;
+  width: 34px; height: 34px; border-radius: 50%; object-fit: cover; object-position: center top;
+  border: 2px solid #E8E9F3; flex-shrink: 0; image-rendering: -webkit-optimize-contrast;
 }
 .agent-pill-header span { font-size: 13px; font-weight: 600; color: #4B4F6A; }
 
@@ -58,7 +59,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
   border: 1px solid #E8E9F3; padding: 20px; width: 240px;
 }
 .agent-popup.open { display: block; }
-.agent-popup-photo { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; display: block; margin: 0 auto 12px; border: 3px solid #1E22AA; }
+.agent-popup-photo { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; object-position: center top; display: block; margin: 0 auto 12px; border: 3px solid #1E22AA; }
 .agent-popup-name { font-size: 16px; font-weight: 800; color: #1A1A2E; text-align: center; }
 .agent-popup-role { font-size: 12px; color: #6B7280; text-align: center; margin-top: 2px; margin-bottom: 12px; }
 .agent-popup-phone { display: block; text-align: center; font-size: 14px; font-weight: 700; color: #1E22AA; text-decoration: none; padding: 9px; background: #F0F1FA; border-radius: 8px; }
@@ -1068,15 +1069,8 @@ function closeActivePopup() {
 }
 function popupBook(id) {
   const c = _cd[id] || {};
-  if (window.innerWidth <= 640) {
-    toggleSchedule(id, c.name||'', c.img||'', c.price||null);
-    // Update popup button
-    const pb = document.getElementById('popup-book-' + id);
-    if (pb) { pb.textContent = _schedule.has(String(id)) ? '✓ Added' : '📅 Book a Viewing'; pb.style.background = _schedule.has(String(id)) ? '#059669' : '#1E22AA'; }
-  } else {
-    closeActivePopup();
-    openBooking(id, c.name||'', null);
-  }
+  closeActivePopup();
+  openBooking(id, c.name||'', null);
 }
 
 function highlightOnMap(centreId) {
