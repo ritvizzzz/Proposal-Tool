@@ -17,7 +17,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 .header {
   background: #fff; border-bottom: 1px solid #E8E9F3;
   padding: 10px 24px; display: flex; align-items: center; gap: 12px;
-  position: sticky; top: 0; z-index: 300; height: 60px;
+  position: sticky; top: 0; z-index: 1000; height: 60px;
 }
 .header-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; flex-shrink: 0; }
 .header-center {
@@ -47,8 +47,8 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 }
 .agent-pill-header:hover { background: #F0F1FA; border-color: #C7D2FE; }
 .agent-avatar-sm {
-  width: 34px; height: 34px; border-radius: 50%; object-fit: cover; object-position: center top;
-  border: 2px solid #E8E9F3; flex-shrink: 0; image-rendering: -webkit-optimize-contrast;
+  width: 40px; height: 40px; border-radius: 50%; object-fit: cover; object-position: center 15%;
+  border: 2px solid #E8E9F3; flex-shrink: 0;
 }
 .agent-pill-header span { font-size: 13px; font-weight: 600; color: #4B4F6A; }
 
@@ -257,7 +257,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
     display: flex;
     position: sticky;
     top: 54px; /* header height */
-    z-index: 299;
+    z-index: 999;
     background: #fff;
     border-bottom: 2px solid #E8E9F3;
   }
@@ -1124,6 +1124,9 @@ if (window.innerWidth <= 640) {
   document.getElementById('cards-grid').style.display = 'none';
   document.getElementById('map-section').classList.add('phone-map-active');
   if (document.getElementById('tabs-row')) document.getElementById('tabs-row').style.display = 'none';
+  // Leaflet was initialised while the map section was hidden (display:none),
+  // so it measured 0×0. Force a resize after the browser paints the container.
+  setTimeout(() => { if (_compareMap) _compareMap.invalidateSize(); }, 200);
 }
 
 {% if canonical_url is defined %}
