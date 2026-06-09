@@ -414,10 +414,10 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 
 <!-- Phone-only: Spaces / Map tabs -->
 <div class="phone-view-tabs" id="phone-view-tabs">
-  <button class="pvt-btn active" id="pvt-spaces" onclick="switchPhoneView('spaces')">
+  <button class="pvt-btn" id="pvt-spaces" onclick="switchPhoneView('spaces')">
     🏢 Shortlist <span class="pvt-count" id="pvt-spaces-count">{{ centres|length }}</span>
   </button>
-  <button class="pvt-btn" id="pvt-map" onclick="switchPhoneView('map')">
+  <button class="pvt-btn active" id="pvt-map" onclick="switchPhoneView('map')">
     🗺 Map
   </button>
 </div>
@@ -962,7 +962,7 @@ function confirmBooking(date, time) {
 }
 
 // ── Phone tab switching ──
-let _phoneView = 'spaces';
+let _phoneView = 'map';
 function switchPhoneView(view) {
   _phoneView = view;
   const isSpaces = view === 'spaces';
@@ -1118,6 +1118,13 @@ document.addEventListener('click', e => {
 
 // ── Keep Railway warm ──
 setInterval(() => fetch('/health').catch(()=>{}), 240000);
+
+// ── Phone: default to Map tab on load ──
+if (window.innerWidth <= 640) {
+  document.getElementById('cards-grid').style.display = 'none';
+  document.getElementById('map-section').classList.add('phone-map-active');
+  if (document.getElementById('tabs-row')) document.getElementById('tabs-row').style.display = 'none';
+}
 
 {% if canonical_url is defined %}
 if (window.location.pathname !== new URL('{{ canonical_url }}').pathname) {
