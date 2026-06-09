@@ -76,7 +76,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 .main { flex: 1; padding: 24px 32px 48px; max-width: 1400px; margin: 0 auto; width: 100%; }
 
 /* ── Map section (desktop: inline) ── */
-#map-section { margin-bottom: 12px; }
+#map-section { margin-bottom: 12px; isolation: isolate; }
 #compare-map { height: 440px; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 16px rgba(0,0,0,0.1); transition: height 0.3s, opacity 0.3s; }
 #compare-map.hidden { height: 0; opacity: 0; pointer-events: none; }
 .map-overlay-bar { display: none; } /* phone only */
@@ -1010,7 +1010,8 @@ let _activePinEl = null;
     if (pvtMap) pvtMap.style.display = 'none';
     return;
   }
-  _compareMap = L.map('compare-map', {zoomControl:true, scrollWheelZoom:false});
+  _compareMap = L.map('compare-map', {zoomControl:false, scrollWheelZoom:false});
+  L.control.zoom({position:'bottomleft'}).addTo(_compareMap);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
     {attribution:'© OpenStreetMap © CartoDB', maxZoom:18}).addTo(_compareMap);
 
