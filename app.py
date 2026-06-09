@@ -121,6 +121,8 @@ def init_db():
             conn.execute('CREATE INDEX IF NOT EXISTS idx_share_links_canonical ON share_links(canonical_ids)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_link_events_token_type ON link_events(token, event_type)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_link_events_token ON link_events(token)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_centres_hubble_id ON centres(hubble_id)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_centre_images_centre_id ON centre_images(centre_id)')
         except Exception:
             pass
     # migrate: add booking columns to link_events if missing
@@ -1072,9 +1074,7 @@ def compare_direct():
             # Update label to the client name if admin provided one
             conn.execute('UPDATE share_links SET label=? WHERE token=?', (client_name, token))
 
-    # Render directly — eliminates the extra round-trip from a 302 redirect.
-    # The compare template uses history.replaceState to update the browser URL to /compare/<token>.
-    with get_db() as conn:
+        # Load data in the same connection — avoids a second round-trip
         link = conn.execute('SELECT * FROM share_links WHERE token=?', (token,)).fetchone()
         if not link:
             return 'Link not found', 500

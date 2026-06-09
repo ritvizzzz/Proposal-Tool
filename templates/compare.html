@@ -10,461 +10,544 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  body {
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    background: #F7F8FC;
-    color: #1A1A2E;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background: #F7F8FC;
+  color: #1A1A2E;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
 
-  /* ── Header ── */
-  .header {
-    background: #fff;
-    border-bottom: 1px solid #E8E9F3;
-    padding: 16px 32px;
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-  .header-logo {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    text-decoration: none;
-  }
-  .logo-text {
-    font-weight: 800;
-    font-size: 22px;
-    color: #1E22AA;
-    letter-spacing: -0.5px;
-  }
-  .header-divider {
-    width: 1px;
-    height: 28px;
-    background: #E8E9F3;
-  }
-  .header-title {
-    font-size: 15px;
-    font-weight: 600;
-    color: #4B4F6A;
-  }
-  .header-label {
-    margin-left: auto;
-    font-size: 13px;
-    color: #8B90B0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 160px;
-  }
-  @media (max-width: 400px) { .header-label { display: none; } }
+/* ── Header ── */
+.header {
+  background: #fff;
+  border-bottom: 1px solid #E8E9F3;
+  padding: 14px 32px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; flex-shrink: 0; }
+.header-label { margin-left: auto; font-size: 13px; color: #8B90B0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; font-weight: 600; }
+@media (max-width: 400px) { .header-label { display: none; } }
 
-  /* ── Main ── */
-  .main {
-    flex: 1;
-    padding: 40px 32px;
-    max-width: 1400px;
-    margin: 0 auto;
-    width: 100%;
-  }
+/* ── Main ── */
+.main {
+  flex: 1;
+  padding: 28px 32px 48px;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
 
-  .page-intro {
-    text-align: center;
-    margin-bottom: 36px;
-  }
-  .page-intro h1 {
-    font-size: 28px;
-    font-weight: 800;
-    color: #1A1A2E;
-  }
-  .page-intro p {
-    margin-top: 8px;
-    font-size: 15px;
-    color: #6B7280;
-  }
+.page-intro { text-align: center; margin-bottom: 24px; }
+.page-intro h1 { font-size: 26px; font-weight: 800; color: #1A1A2E; }
+.page-intro p { margin-top: 6px; font-size: 15px; color: #6B7280; }
 
-  /* ── Cards Grid ── */
-  .cards-grid {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 24px;
-  }
+/* ── Map section (desktop: inline hero; phone: full-screen overlay) ── */
+#map-section { margin-bottom: 12px; }
+#compare-map {
+  height: 440px;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.1);
+  transition: height 0.3s ease, opacity 0.3s ease;
+}
+#compare-map.hidden { height: 0; opacity: 0; pointer-events: none; }
 
-  .space-card {
-    background: #fff;
-    border-radius: 16px;
-    overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(30,34,170,0.06);
-    transition: box-shadow 0.2s, transform 0.2s;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    width: 340px;
-    max-width: 100%;
-    flex-shrink: 0;
-  }
-  .space-card:hover {
-    box-shadow: 0 4px 20px rgba(30,34,170,0.12);
-    transform: translateY(-2px);
-  }
+/* Phone map overlay header (hidden on desktop) */
+.map-overlay-bar { display: none; }
 
-  /* ── Photo carousel ── */
-  .photo-area {
-    position: relative;
-    height: 160px;
-    overflow: hidden;
-    background: #E8E9F3;
-  }
-  .photo-main {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
-  .photo-thumbs {
-    position: absolute;
-    bottom: 10px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 6px;
-  }
-  .photo-thumb {
-    width: 44px;
-    height: 34px;
-    border-radius: 6px;
-    overflow: hidden;
-    border: 2px solid rgba(255,255,255,0.8);
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-  .photo-thumb img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  .photo-thumb.active {
-    border-color: #1E22AA;
-  }
-  .photo-placeholder {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, #E8E9F3 0%, #D0D3F0 100%);
-    color: #8B90B0;
-    font-size: 40px;
-  }
+/* ── Desktop map toggle ── */
+.map-toggle-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 28px;
+}
+#map-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 20px;
+  border: 1.5px solid #E8E9F3;
+  border-radius: 20px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6B7280;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+#map-toggle-btn:hover { background: #F0F1FA; border-color: #C7D2FE; color: #1E22AA; }
 
-  /* ── Card body ── */
-  .card-body {
-    padding: 16px;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .card-brand {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: #1E22AA;
-  }
-  .card-name {
-    font-size: 17px;
-    font-weight: 700;
-    color: #1A1A2E;
-    line-height: 1.3;
-  }
-  .card-address {
-    font-size: 13px;
-    color: #6B7280;
-    line-height: 1.5;
-    display: flex;
-    gap: 6px;
-    align-items: flex-start;
-  }
-  .card-address svg { flex-shrink: 0; margin-top: 2px; }
+/* ── Leaflet price pins ── */
+.price-pin-icon { background: none !important; border: none !important; }
+.price-pin-label {
+  display: inline-block;
+  background: #1E22AA;
+  color: #fff;
+  padding: 5px 11px;
+  border-radius: 12px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 2px 10px rgba(30,34,170,0.4);
+  border: 2.5px solid #fff;
+  transform: translate(-50%, calc(-100% - 10px));
+  cursor: pointer;
+  position: relative;
+}
+.price-pin-label::after {
+  content: '';
+  position: absolute;
+  bottom: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 9px solid #1E22AA;
+}
+.price-pin-label.pin-active { background: #0d1085; transform: translate(-50%, calc(-100% - 10px)) scale(1.1); }
+.price-pin-label.pin-active::after { border-top-color: #0d1085; }
 
-  .card-transport {
-    display: flex;
-    align-items: center;
-    font-size: 12px;
-    color: #1E22AA;
-    margin-top: -4px;
-  }
-  .transport-line {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-style: normal;
-  }
+/* Popup styles */
+.leaflet-popup-content { margin: 0 !important; }
+.leaflet-popup-content-wrapper {
+  padding: 0 !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important;
+  border: none !important;
+}
+.leaflet-popup-tip-container { display: none !important; }
 
-  .card-meta {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    min-height: 32px;
-  }
-  .meta-item {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .meta-label {
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    color: #9CA3AF;
-  }
-  .meta-value {
-    font-size: 15px;
-    font-weight: 700;
-    color: #1A1A2E;
-  }
-  .meta-value.price {
-    color: #1E22AA;
-  }
+/* ── Tabs row ── */
+.tabs-row { display: none; gap: 4px; margin-bottom: 20px; }
+.tab-btn { padding: 8px 18px; border-radius: 20px; border: 1.5px solid #E8E9F3; background: #fff; font-size: 13px; font-weight: 600; cursor: pointer; color: #6B7280; transition: all 0.15s; font-family: inherit; }
+.tab-btn.active { background: #1E22AA; color: #fff; border-color: #1E22AA; }
+.tab-count { display: inline-block; background: rgba(255,255,255,0.25); border-radius: 10px; padding: 0 7px; font-size: 12px; margin-left: 4px; }
+.tab-btn:not(.active) .tab-count { background: #F0F1FA; color: #1E22AA; }
 
-  .amenities {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    min-height: 28px;
-  }
-  .amenity-pill {
-    font-size: 11px;
-    font-weight: 500;
-    background: #F0F1FA;
-    color: #4B4F6A;
-    padding: 4px 10px;
-    border-radius: 20px;
-  }
+/* ── Cards grid ── */
+.cards-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 24px;
+}
 
-  .card-actions {
-    margin-top: auto;
-    padding-top: 12px;
-    border-top: 1px solid #F3F4F6;
-    display: flex;
-    gap: 10px;
-  }
-  .btn-map {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 13px;
-    font-weight: 600;
-    color: #1E22AA;
-    text-decoration: none;
-    padding: 8px 14px;
-    border-radius: 8px;
-    background: #F0F1FA;
-    transition: background 0.15s;
-  }
-  .btn-map:hover { background: #E0E3F5; }
+/* ── Space card ── */
+.space-card {
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(30,34,170,0.06);
+  transition: box-shadow 0.2s, transform 0.2s;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  width: 340px;
+  max-width: 100%;
+  flex-shrink: 0;
+  outline: 3px solid transparent;
+  outline-offset: 2px;
+  transition: box-shadow 0.2s, transform 0.2s, outline-color 0.2s;
+}
+.space-card:hover { box-shadow: 0 4px 20px rgba(30,34,170,0.12); transform: translateY(-2px); }
+.space-card.map-highlight { outline-color: #1E22AA; }
 
-  /* Dismiss X button on card top-right */
-  .dismiss-btn {
-    position: absolute; top: 8px; right: 8px; z-index: 10;
-    width: 28px; height: 28px; border-radius: 50%;
-    background: rgba(0,0,0,0.45); border: none; color: white;
-    font-size: 14px; cursor: pointer; display: flex; align-items: center;
-    justify-content: center; line-height: 1; transition: background 0.15s;
-  }
-  .dismiss-btn:hover { background: rgba(0,0,0,0.7); }
+/* ── Photo area ── */
+.photo-area { position: relative; height: 180px; overflow: hidden; background: #E8E9F3; flex-shrink: 0; }
+.photo-main { width: 100%; height: 100%; object-fit: cover; display: block; cursor: zoom-in; }
+.photo-thumbs { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; }
+.photo-thumb { width: 44px; height: 34px; border-radius: 6px; overflow: hidden; border: 2px solid rgba(255,255,255,0.8); cursor: pointer; flex-shrink: 0; }
+.photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.photo-thumb.active { border-color: #1E22AA; }
+.photo-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #E8E9F3, #D0D3F0); color: #8B90B0; font-size: 40px; }
 
-  /* Tabs row */
-  .tabs-row { display: none; gap: 4px; margin-bottom: 20px; }
-  .tab-btn {
-    padding: 8px 18px; border-radius: 20px; border: 1.5px solid #E8E9F3;
-    background: white; font-size: 13px; font-weight: 600; cursor: pointer;
-    color: #6B7280; transition: all 0.15s;
-  }
-  .tab-btn.active { background: #1E22AA; color: white; border-color: #1E22AA; }
-  .tab-count {
-    display: inline-block; background: rgba(255,255,255,0.25);
-    border-radius: 10px; padding: 0 7px; font-size: 12px; margin-left: 4px;
-  }
-  .tab-btn:not(.active) .tab-count { background: #F0F1FA; color: #1E22AA; }
+.dismiss-btn {
+  position: absolute; top: 8px; right: 8px; z-index: 10;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: rgba(0,0,0,0.45); border: none; color: #fff;
+  font-size: 14px; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; transition: background 0.15s;
+}
+.dismiss-btn:hover { background: rgba(0,0,0,0.7); }
 
-  .btn-book { flex:1;padding:9px 12px;border-radius:10px;border:none;
-    background:#1E22AA;color:white;font-size:13px;font-weight:600;cursor:pointer;
-    transition:background 0.15s; }
-  .btn-book:hover { background:#1a1e96; }
+/* ── Card body ── */
+.card-body { padding: 16px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+.card-brand { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #1E22AA; }
+.card-name { font-size: 17px; font-weight: 700; color: #1A1A2E; line-height: 1.3; }
+.card-address { font-size: 13px; color: #6B7280; display: flex; gap: 6px; align-items: flex-start; line-height: 1.5; }
+.card-address svg { flex-shrink: 0; margin-top: 2px; }
+.card-transport { display: flex; align-items: center; font-size: 12px; color: #1E22AA; margin-top: -4px; }
+.transport-line { display: inline-flex; align-items: center; gap: 5px; }
+.card-meta { display: flex; align-items: baseline; gap: 6px; min-height: 28px; }
+.meta-item { display: flex; flex-direction: column; gap: 2px; }
+.meta-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #9CA3AF; }
+.meta-value { font-size: 15px; font-weight: 700; color: #1A1A2E; }
+.meta-value.price { color: #1E22AA; }
+.amenities { display: flex; flex-wrap: wrap; gap: 6px; }
+.amenity-pill { font-size: 11px; font-weight: 500; background: #F0F1FA; color: #4B4F6A; padding: 4px 10px; border-radius: 20px; }
 
-  /* Custom calendar */
-  #cal-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:14px; }
-  #cal-header button { width:32px;height:32px;border:none;background:#F0F1FA;border-radius:8px;
-    font-size:20px;cursor:pointer;color:#1E22AA;display:flex;align-items:center;justify-content:center; }
-  #cal-header button:hover { background:#E0E3F5; }
-  #cal-month-label { font-weight:700;font-size:15px;color:#1A1A2E; }
-  #cal-dow-row { display:grid;grid-template-columns:repeat(7,1fr);text-align:center;
-    margin-bottom:4px;font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase; }
-  #cal-grid { display:grid;grid-template-columns:repeat(7,1fr);gap:3px; }
-  .cal-day { aspect-ratio:1;display:flex;align-items:center;justify-content:center;
-    font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;transition:all 0.15s; }
-  .cal-day:not(.past):not(.empty):hover { background:#E0E3F5;color:#1E22AA; }
-  .cal-day.past { color:#D1D5DB;cursor:default; }
-  .cal-day.empty { cursor:default; }
-  .cal-day.selected { background:#1E22AA;color:white;font-weight:700; }
-  .slot-btn { padding:9px 4px;border-radius:8px;border:1.5px solid #e2e8f0;background:white;
-    font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s;color:#374151; }
-  .slot-btn:hover,.slot-btn.active { background:#1E22AA;color:white;border-color:#1E22AA; }
+/* ── Card actions ── */
+.card-actions {
+  margin-top: auto;
+  padding: 12px 16px 16px;
+  border-top: 1px solid #F3F4F6;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.btn-book {
+  width: 100%;
+  padding: 11px 16px;
+  border-radius: 10px;
+  border: none;
+  background: #1E22AA;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.15s;
+}
+.btn-book:hover { background: #181c96; }
+.btn-book.scheduled { background: #059669; }
+.btn-book.scheduled:hover { background: #047857; }
+.btn-map-card {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6B7280;
+  text-decoration: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: #F7F8FC;
+  border: 1px solid #E8E9F3;
+  transition: all 0.15s;
+  font-family: inherit;
+  cursor: pointer;
+}
+.btn-map-card:hover { background: #EEEFFE; color: #1E22AA; border-color: #C7D2FE; text-decoration: none; }
 
-  /* ── Lightbox ── */
-  .lightbox {
-    display: none;
+/* ── Mobile bottom bar (phone only) ── */
+.mobile-bottom-bar { display: none; }
+
+/* ── Schedule panel ── */
+#schedule-panel {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 901;
+  background: rgba(0,0,0,0.5);
+  align-items: flex-end;
+}
+#schedule-panel.open { display: flex; }
+#schedule-sheet {
+  width: 100%;
+  background: #fff;
+  border-radius: 20px 20px 0 0;
+  padding: 24px 20px 32px;
+  max-height: 82vh;
+  overflow-y: auto;
+}
+.sched-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #F3F4F6;
+}
+.sched-thumb {
+  width: 60px; height: 46px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #E8E9F3;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; color: #9CA3AF;
+}
+.sched-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+.sched-info { flex: 1; min-width: 0; }
+.sched-name { font-weight: 700; font-size: 14px; color: #1A1A2E; line-height: 1.3; }
+.sched-price { font-size: 12px; color: #6B7280; margin-top: 2px; }
+.sched-del {
+  width: 32px; height: 32px; border-radius: 8px; border: none;
+  background: #FEF2F2; color: #DC2626; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-size: 15px;
+}
+.btn-book-all {
+  width: 100%;
+  padding: 14px;
+  background: #1E22AA;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 20px;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.btn-book-all:hover { background: #181c96; }
+.btn-book-all:disabled { background: #9CA3AF; cursor: default; }
+
+/* ── Custom calendar ── */
+#cal-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:14px; }
+#cal-header button { width:32px;height:32px;border:none;background:#F0F1FA;border-radius:8px;font-size:20px;cursor:pointer;color:#1E22AA;display:flex;align-items:center;justify-content:center; }
+#cal-header button:hover { background:#E0E3F5; }
+#cal-month-label { font-weight:700;font-size:15px;color:#1A1A2E; }
+#cal-dow-row { display:grid;grid-template-columns:repeat(7,1fr);text-align:center;margin-bottom:4px;font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase; }
+#cal-grid { display:grid;grid-template-columns:repeat(7,1fr);gap:3px; }
+.cal-day { aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;transition:all 0.15s; }
+.cal-day:not(.past):not(.empty):hover { background:#E0E3F5;color:#1E22AA; }
+.cal-day.past { color:#D1D5DB;cursor:default; }
+.cal-day.empty { cursor:default; }
+.cal-day.selected { background:#1E22AA;color:#fff;font-weight:700; }
+.slot-btn { padding:9px 4px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s;color:#374151; }
+.slot-btn:hover,.slot-btn.active { background:#1E22AA;color:#fff;border-color:#1E22AA; }
+
+/* ── Lightbox ── */
+.lightbox { display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:1000;align-items:center;justify-content:center; }
+.lightbox.open { display:flex; }
+.lightbox img { max-width:90vw;max-height:85vh;object-fit:contain;border-radius:8px; }
+.lightbox-close { position:absolute;top:20px;right:24px;background:none;border:none;color:#fff;font-size:32px;cursor:pointer;line-height:1; }
+
+/* ── Footer ── */
+.footer { text-align:center;padding:24px 32px;font-size:13px;color:#9CA3AF;border-top:1px solid #E8E9F3;background:#fff; }
+
+/* ════════════════════════════════════════
+   PHONE (≤ 640px)
+════════════════════════════════════════ */
+@media (max-width: 640px) {
+  .header { padding: 10px 14px; gap: 10px; }
+
+  /* Main: no top padding for map section; extra bottom padding for bottom bar */
+  .main { padding: 16px 0 96px; overflow-x: hidden; }
+  .page-intro { padding: 0 16px; margin-bottom: 16px; }
+  .page-intro h1 { font-size: 20px; }
+  .page-intro p { font-size: 13px; }
+
+  /* Map section: fixed full-screen overlay, slides up when .map-open added */
+  #map-section {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.85);
-    z-index: 1000;
+    z-index: 500;
+    margin: 0;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.35s cubic-bezier(0.32,0.72,0,1);
+    pointer-events: none;
+  }
+  #map-section.map-open {
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+  #compare-map {
+    flex: 1;
+    height: auto !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    transition: none !important;
+  }
+  #compare-map.hidden { height: auto !important; opacity: 1 !important; pointer-events: auto !important; }
+
+  /* Map overlay bar visible on phone */
+  .map-overlay-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: #fff;
+    border-bottom: 1px solid #E8E9F3;
+    flex-shrink: 0;
+    gap: 10px;
+  }
+  .map-overlay-bar span { font-size: 14px; font-weight: 700; color: #1A1A2E; flex: 1; text-align: center; }
+  .map-overlay-bar button {
+    padding: 8px 14px;
+    border-radius: 20px;
+    border: 1.5px solid #E8E9F3;
+    background: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #4B4F6A;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+  .map-book-btn { background: #1E22AA !important; color: #fff !important; border-color: #1E22AA !important; }
+
+  /* Hide desktop map toggle on phone */
+  .map-toggle-row { display: none; }
+
+  /* Cards: horizontal swipe carousel */
+  .cards-grid {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    gap: 12px;
+    padding: 0 16px 12px;
+    justify-content: flex-start;
+    scrollbar-width: none;
+  }
+  .cards-grid::-webkit-scrollbar { display: none; }
+  .space-card {
+    scroll-snap-align: start;
+    flex-shrink: 0;
+    width: calc(100vw - 48px);
+    max-width: 360px;
+  }
+  .space-card:hover { transform: none; }
+  .photo-area { height: 200px; }
+
+  /* Card actions: stacked */
+  .card-actions { flex-direction: column; gap: 8px; }
+
+  /* Tabs row */
+  .tabs-row { padding: 0 16px; }
+
+  /* Mobile bottom bar */
+  .mobile-bottom-bar {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 200;
+    background: #fff;
+    border-top: 1px solid #E8E9F3;
+    padding: 10px 12px;
+    gap: 8px;
+    align-items: center;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
+  }
+  .mobile-bottom-bar > button {
+    display: flex;
     align-items: center;
     justify-content: center;
-  }
-  .lightbox.open { display: flex; }
-  .lightbox img {
-    max-width: 90vw;
-    max-height: 85vh;
-    object-fit: contain;
-    border-radius: 8px;
-  }
-  .lightbox-close {
-    position: absolute;
-    top: 20px;
-    right: 24px;
-    background: none;
-    border: none;
-    color: #fff;
-    font-size: 32px;
-    cursor: pointer;
-    line-height: 1;
-  }
-
-  /* ── Footer ── */
-  .footer {
-    text-align: center;
-    padding: 24px 32px;
-    font-size: 13px;
-    color: #9CA3AF;
-    border-top: 1px solid #E8E9F3;
+    gap: 5px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1.5px solid #E8E9F3;
     background: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    color: #4B4F6A;
+    white-space: nowrap;
   }
-  .footer strong { color: #1E22AA; }
-
-  /* ── Mobile (phone) ── */
-  @media (max-width: 640px) {
-    /* Header */
-    .header { padding: 10px 14px; gap: 10px; }
-    .logo-text { font-size: 18px; }
-    .header-label { font-size: 11px; }
-    .header-divider { display: none; }
-    .header-title { font-size: 13px; }
-
-    /* Main layout */
-    .main { padding: 16px 12px 24px; }
-    .page-intro { margin-bottom: 20px; }
-    .page-intro h1 { font-size: 20px; }
-    .page-intro p { font-size: 13px; }
-
-    /* Cards: full width, no hover lift */
-    .cards-grid { gap: 16px; }
-    .space-card { width: 100%; }
-    .space-card:hover { transform: none; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-
-    /* Photo area: slightly shorter on phone */
-    .photo-area { max-height: 160px; }
-    .photo-main { max-height: 160px; }
-    .photo-thumbs { gap: 4px; padding: 4px; }
-    .photo-thumb { width: 48px; height: 36px; }
-
-    /* Card body */
-    .card-body { padding: 12px 14px; }
-    .card-name { font-size: 16px; }
-    .card-address { font-size: 12px; }
-
-    /* Meta table */
-    .card-meta { grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
-    .meta-value { font-size: 16px; }
-    .meta-value.price { font-size: 20px; }
-
-    /* Amenity pills — wrap tightly */
-    .amenities { gap: 4px; }
-    .amenity-pill { font-size: 11px; padding: 3px 8px; }
-
-    .card-actions { flex-direction: column; gap: 8px; padding: 10px 14px 14px; }
-    .btn-map, .btn-book { width: 100%; justify-content: center; padding: 12px; font-size: 14px; }
-
-    /* Map section */
-    #compare-map { height: 280px !important; }
-
-    /* Lightbox */
-    .lightbox-close { top: 12px; right: 12px; width: 36px; height: 36px; font-size: 20px; }
-
-    /* Booking modal: full screen on phone */
-    #booking-modal > div {
-      width: 100% !important;
-      max-width: 100% !important;
-      border-radius: 20px 20px 0 0 !important;
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      max-height: 85vh;
-    }
-    #booking-modal {
-      align-items: flex-end !important;
-    }
-    #slots-grid { grid-template-columns: repeat(3,1fr) !important; gap: 6px; }
-    .slot-btn { font-size: 12px; padding: 10px 4px; }
+  #phone-map-btn  { flex: 0 0 auto; }
+  #phone-share-btn { flex: 0 0 auto; }
+  #phone-book-btn {
+    flex: 1;
+    background: #1E22AA;
+    color: #fff;
+    border-color: #1E22AA;
+    font-weight: 700;
   }
 
-  /* ── Touch: bigger tap targets ── */
-  @media (hover: none) {
-    .btn-interest, .btn-book, .btn-map, .slot-btn { min-height: 44px; }
-    .amenity-pill { padding: 5px 10px; }
+  /* Booking modal: full-screen bottom sheet */
+  #booking-modal > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 20px 20px 0 0 !important;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    max-height: 85vh;
   }
+  #booking-modal { align-items: flex-end !important; }
+  #slots-grid { grid-template-columns: repeat(3,1fr) !important; gap: 6px; }
+  .slot-btn { font-size: 12px; padding: 10px 4px; }
+
+  /* Lightbox */
+  .lightbox-close { top: 12px; right: 12px; font-size: 24px; }
+
+  /* Footer extra space for bottom bar */
+  .footer { padding-bottom: 96px; }
+}
+
+@media (hover: none) {
+  .btn-book, .btn-map-card, .slot-btn { min-height: 44px; }
+}
 </style>
 </head>
 <body>
 
 <header class="header">
   <a href="https://myhqspaces.com" class="header-logo" target="_blank" rel="noopener" style="text-decoration:none">
-    <img src="/static/myhq-logo.svg" alt="myHQ" style="height:42px;width:auto">
+    <img src="/static/myhq-logo.svg" alt="myHQ" style="height:40px;width:auto" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+    <span style="display:none;font-weight:800;font-size:20px;color:#1E22AA">myHQ</span>
   </a>
   {% if link.label %}
-  <span class="header-label" style="margin-left:auto">{{ link.label }}</span>
+  <span class="header-label">{{ link.label }}</span>
   {% endif %}
 </header>
 
 <main class="main">
   <div class="page-intro">
-    <h1>Compare Workspaces</h1>
+    <h1>Your Workspace Options</h1>
     <p>{{ centres|length }} space{{ 's' if centres|length != 1 }} curated for you</p>
   </div>
 
-  <!-- Dismissed / Active tab switcher (shown once at least one card is dismissed) -->
-  <div class="tabs-row" id="tabs-row">
-    <button class="tab-btn active" id="tab-active" onclick="showTab('active')">Spaces <span class="tab-count" id="tab-active-count">{{ centres|length }}</span></button>
-    <button class="tab-btn" id="tab-dismissed" onclick="showTab('dismissed')">Removed <span class="tab-count" id="tab-dismissed-count">0</span></button>
+  <!-- ── Map (desktop: inline hero; phone: full-screen overlay) ── -->
+  <div id="map-section">
+    <!-- Phone-only top bar (hidden on desktop via CSS) -->
+    <div class="map-overlay-bar">
+      <button onclick="closeMapOverlay()">← List</button>
+      <span>All spaces on map</span>
+      <button class="map-book-btn" onclick="openSchedulePanel()">
+        Book viewings <span id="map-book-count">0</span>
+      </button>
+    </div>
+    <div id="compare-map"></div>
   </div>
 
-  <div class="cards-grid">
+  <!-- Desktop map toggle -->
+  <div class="map-toggle-row">
+    <button id="map-toggle-btn" onclick="toggleDesktopMap()">🗺 Hide map</button>
+  </div>
+
+  <!-- Dismissed/Active tab switcher -->
+  <div class="tabs-row" id="tabs-row">
+    <button class="tab-btn active" id="tab-active" onclick="showTab('active')">
+      Spaces <span class="tab-count" id="tab-active-count">{{ centres|length }}</span>
+    </button>
+    <button class="tab-btn" id="tab-dismissed" onclick="showTab('dismissed')">
+      Removed <span class="tab-count" id="tab-dismissed-count">0</span>
+    </button>
+  </div>
+
+  <!-- ── Space cards ── -->
+  <div class="cards-grid" id="cards-grid">
     {% for c in centres %}
     <div class="space-card"
          data-centre-id="{{ c.id }}"
-         data-centre-name="{{ c.name }}"
-         onclick="onCardClick('{{ c.id }}', '{{ c.name|replace("'","\\'")|replace('"','\\"') }}')">
+         onclick="onCardClick('{{ c.id }}', {{ c.name|tojson }})">
 
       <!-- Photo area -->
       <div class="photo-area" id="photo-area-{{ c.id }}" style="position:relative">
@@ -478,8 +561,8 @@
           <div class="photo-thumbs">
             {% for img_url in c.image_urls %}
             <div class="photo-thumb {% if loop.first %}active{% endif %}" id="thumb-{{ c.id }}-{{ loop.index0 }}"
-                 onclick="switchPhoto('{{ c.id }}', '{{ img_url }}', {{ loop.index0 }}, event)">
-              <img src="{{ img_url }}" alt="">
+                 onclick="switchPhoto('{{ c.id }}', {{ img_url|tojson }}, {{ loop.index0 }}, event)">
+              <img src="{{ img_url }}" alt="" loading="lazy">
             </div>
             {% endfor %}
           </div>
@@ -512,8 +595,10 @@
 
         {% if c.price_from %}
         <div class="card-meta">
-          <span class="meta-label">From</span>
-          <span class="meta-value price" style="font-size:18px">£{{ c.price_from }}<span style="font-size:12px;font-weight:700;color:#6B7280">/month</span></span>
+          <div class="meta-item">
+            <span class="meta-label">From</span>
+            <span class="meta-value price" style="font-size:20px">£{{ c.price_from }}<span style="font-size:12px;font-weight:700;color:#6B7280">/month</span></span>
+          </div>
         </div>
         {% endif %}
 
@@ -526,29 +611,32 @@
         {% endif %}
 
         <div class="card-actions">
+          <button class="btn-book" id="book-btn-{{ c.id }}"
+                  onclick="handleBookClick('{{ c.id }}', {{ c.name|tojson }}, {{ (c.image_urls[0] if c.image_urls else '')|tojson }}, {{ c.price_from|tojson }}, event)">
+            📅 Book a Viewing
+          </button>
           {% if c.map_url %}
-          <a class="btn-map" href="{{ c.map_url }}" target="_blank" rel="noopener"
+          <a class="btn-map-card" href="{{ c.map_url }}" target="_blank" rel="noopener"
              onclick="event.stopPropagation()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="3 11 22 2 13 21 11 13 3 11"/>
-            </svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
             View on map
           </a>
           {% endif %}
-          <button class="btn-book" onclick="openBooking('{{ c.id }}','{{ c.name|replace("'","\\'") }}',event)">📅 Book a Viewing</button>
         </div>
       </div>
     </div>
     {% endfor %}
   </div>
-
-  <!-- Mini map section -->
-  <div style="margin-top:48px">
-    <h2 style="font-size:20px;font-weight:700;color:#1A1A2E;margin-bottom:4px">View on Map</h2>
-    <p style="font-size:14px;color:#6B7280;margin-bottom:16px">All {{ centres|length }} shortlisted spaces</p>
-    <div id="compare-map" style="height:400px;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.1)"></div>
-  </div>
 </main>
+
+<!-- Phone bottom bar -->
+<div class="mobile-bottom-bar">
+  <button id="phone-map-btn" onclick="openMapOverlay()">📍 Map</button>
+  <button id="phone-share-btn" onclick="sharePage()">⬆ Share</button>
+  <button id="phone-book-btn" onclick="openSchedulePanel()">
+    📅 Book viewings <span id="phone-book-count"></span>
+  </button>
+</div>
 
 <!-- Lightbox -->
 <div class="lightbox" id="lightbox" onclick="closeLightbox()">
@@ -556,24 +644,20 @@
   <img id="lightbox-img" src="" alt="">
 </div>
 
-<!-- Booking modal -->
+<!-- Desktop booking modal (per-space date picker) -->
 <div id="booking-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center">
-  <div style="background:white;border-radius:20px;padding:32px;max-width:440px;width:90%;max-height:90vh;overflow-y:auto">
+  <div style="background:#fff;border-radius:20px;padding:32px;max-width:440px;width:90%;max-height:90vh;overflow-y:auto">
     <h2 style="font-size:20px;font-weight:700;color:#1A1A2E;margin-bottom:4px">Book a Viewing</h2>
     <p id="booking-space-name" style="font-size:14px;color:#6B7280;margin-bottom:24px"></p>
-
     <div id="booking-step-1">
       <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:12px">Select a date</label>
-      <!-- Custom calendar widget -->
       <div id="cal-widget">
         <div id="cal-header">
           <button type="button" onclick="calNav(-1)">&#8249;</button>
           <span id="cal-month-label"></span>
           <button type="button" onclick="calNav(1)">&#8250;</button>
         </div>
-        <div id="cal-dow-row">
-          <div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div><div>Su</div>
-        </div>
+        <div id="cal-dow-row"><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div><div>Su</div></div>
         <div id="cal-grid"></div>
       </div>
       <div id="time-slots" style="display:none;margin-top:20px">
@@ -581,22 +665,48 @@
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px" id="slots-grid"></div>
       </div>
     </div>
-
     <div id="booking-confirm" style="display:none;text-align:center;padding:20px 0">
       <div style="font-size:48px;margin-bottom:12px">✅</div>
       <h3 style="font-size:18px;font-weight:700;color:#1A1A2E;margin-bottom:8px">Request Received!</h3>
-      <p style="color:#6B7280;font-size:14px;line-height:1.6">We will be confirming these details with you shortly. Our team will reach out to arrange your viewing.</p>
+      <p style="color:#6B7280;font-size:14px;line-height:1.6">We'll confirm the details with you shortly.</p>
     </div>
-
     <div style="display:flex;gap:10px;margin-top:24px" id="booking-btns">
-      <button onclick="closeBooking()" style="flex:1;padding:12px;border:1.5px solid #e2e8f0;border-radius:10px;background:white;color:#374151;font-size:14px;font-weight:600;cursor:pointer">Cancel</button>
+      <button onclick="closeBooking()" style="flex:1;padding:12px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;color:#374151;font-size:14px;font-weight:600;cursor:pointer">Cancel</button>
     </div>
+  </div>
+</div>
+
+<!-- Schedule panel (phone: batch book viewings) -->
+<div id="schedule-panel" onclick="closeSchedulePanel()">
+  <div id="schedule-sheet" onclick="event.stopPropagation()">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <h2 style="font-size:18px;font-weight:800;color:#1A1A2E">Your viewing schedule</h2>
+      <button onclick="closeSchedulePanel()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#9CA3AF;padding:4px 8px;line-height:1">×</button>
+    </div>
+    <p id="sched-subtitle" style="font-size:13px;color:#6B7280;margin-bottom:16px">0 spaces</p>
+    <div id="sched-list"></div>
+    <div id="sched-empty" style="text-align:center;padding:28px 0;color:#9CA3AF">
+      <div style="font-size:36px;margin-bottom:10px">📅</div>
+      <p style="font-size:14px">Tap <strong style="color:#1E22AA">Book a Viewing</strong> on any space card to add it here.</p>
+    </div>
+    <div id="sched-success" style="display:none;text-align:center;padding:28px 0">
+      <div style="font-size:48px;margin-bottom:12px">✅</div>
+      <h3 style="font-size:18px;font-weight:700;color:#1A1A2E;margin-bottom:8px">Viewing Request Sent!</h3>
+      <p style="color:#6B7280;font-size:14px;line-height:1.6">Our team will reach out shortly to arrange your viewings.</p>
+    </div>
+    <button id="sched-book-all-btn" class="btn-book-all" onclick="bookAllViewings()" disabled>
+      Book viewings for me
+    </button>
+    <p style="text-align:center;font-size:12px;color:#9CA3AF;margin-top:14px">
+      Or contact us at <strong style="color:#1E22AA">info@myhqspaces.com</strong>
+    </p>
   </div>
 </div>
 
 <footer class="footer">
   <a href="https://myhqspaces.com" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none">
-    <img src="/static/myhq-logo.svg" alt="myHQ" style="height:34px;width:auto;opacity:0.85">
+    <img src="/static/myhq-logo.svg" alt="myHQ" style="height:34px;width:auto;opacity:0.85" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
+    <strong style="display:none;color:#1E22AA">myHQ</strong>
   </a>
 </footer>
 
@@ -604,35 +714,34 @@
 const TOKEN = {{ token|tojson }};
 const pageStart = Date.now();
 
-// ── Tracking helper — always sends application/json so Flask parses correctly ──
+// ── Tracking ──
 function post(url, data, useBeacon) {
   const body = JSON.stringify(data);
   if (useBeacon && navigator.sendBeacon) {
-    navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
+    navigator.sendBeacon(url, new Blob([body], {type:'application/json'}));
   } else {
-    fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(()=>{});
+    fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body, keepalive:true}).catch(()=>{});
   }
 }
+window.addEventListener('beforeunload', () => {
+  post('/track', {token:TOKEN, event_type:'dwell', dwell_seconds:Math.round((Date.now()-pageStart)/1000)}, true);
+});
 
-// ── Card click: track + highlight map ──
+// ── Card click ──
 function onCardClick(centreId, centreName) {
-  post('/track', { token: TOKEN, event_type: 'click', centre_id: centreId, centre_name: centreName });
+  post('/track', {token:TOKEN, event_type:'click', centre_id:centreId, centre_name:centreName});
   highlightOnMap(centreId);
 }
 
-// ── Track dwell on unload ──
-window.addEventListener('beforeunload', function() {
-  const secs = Math.round((Date.now() - pageStart) / 1000);
-  post('/track', { token: TOKEN, event_type: 'dwell', dwell_seconds: secs }, true);
-});
-
 // ── Dismiss card ──
 const _dismissed = new Set();
-function dismissCard(centreId, event) {
-  event.stopPropagation();
+function dismissCard(centreId, ev) {
+  ev.stopPropagation();
   _dismissed.add(String(centreId));
-  document.querySelector(`[data-centre-id="${centreId}"]`).style.display = 'none';
-  post('/track', { token: TOKEN, event_type: 'dismissed', centre_id: centreId });
+  const card = document.querySelector(`[data-centre-id="${centreId}"]`);
+  if (card) { card.style.opacity='0'; setTimeout(()=>card.style.display='none', 250); }
+  if (_schedule.has(String(centreId))) { _schedule.delete(String(centreId)); updateScheduleCount(); }
+  post('/track', {token:TOKEN, event_type:'dismissed', centre_id:centreId});
   _updateTabs();
 }
 function _updateTabs() {
@@ -648,234 +757,351 @@ function showTab(tab) {
   document.querySelectorAll('.space-card').forEach(card => {
     const id = card.dataset.centreId;
     card.style.display = (tab==='active') ? (_dismissed.has(id)?'none':'') : (_dismissed.has(id)?'':'none');
+    card.style.opacity = '';
   });
 }
 
-// ── Tube line indicator ──
-const _TUBE_MAP = {
-  'bank':          {c:'#E32017', l:'Central'},
-  'st paul':       {c:'#E32017', l:'Central'},
-  'liverpool st':  {c:'#E32017', l:'Central'},
-  'oxford circus': {c:'#E32017', l:'Central'},
-  'tottenham court':{c:'#E32017', l:'Central'},
-  'holborn':       {c:'#E32017', l:'Central'},
-  'notting hill':  {c:'#E32017', l:'Central'},
-  'bethnal green': {c:'#E32017', l:'Central'},
-  'mile end':      {c:'#E32017', l:'Central'},
-  'stratford':     {c:'#E32017', l:'Central'},
-  'waterloo':      {c:'#A0A5A9', l:'Jubilee'},
-  'london bridge': {c:'#000000', l:'Northern'},
-  'canary wharf':  {c:'#A0A5A9', l:'Jubilee'},
-  'bermondsey':    {c:'#A0A5A9', l:'Jubilee'},
-  'southwark':     {c:'#A0A5A9', l:'Jubilee'},
-  'green park':    {c:'#A0A5A9', l:'Jubilee'},
-  'westminster':   {c:'#A0A5A9', l:'Jubilee'},
-  'bond street':   {c:'#A0A5A9', l:'Jubilee'},
-  'leicester square':{c:'#003688', l:'Piccadilly'},
-  'covent garden': {c:'#003688', l:'Piccadilly'},
-  'knightsbridge': {c:'#003688', l:'Piccadilly'},
-  "king's cross":  {c:'#003688', l:'Piccadilly'},
-  'victoria':      {c:'#0098D4', l:'Victoria'},
-  'brixton':       {c:'#0098D4', l:'Victoria'},
-  'vauxhall':      {c:'#0098D4', l:'Victoria'},
-  'pimlico':       {c:'#0098D4', l:'Victoria'},
-  'sloane square': {c:'#FFD300', l:'Circle'},
-  'farringdon':    {c:'#6950A1', l:'Elizabeth'},
-  'paddington':    {c:'#6950A1', l:'Elizabeth'},
-  'whitechapel':   {c:'#6950A1', l:'Elizabeth'},
-  'barbican':      {c:'#FFD300', l:'Circle'},
-  'moorgate':      {c:'#000000', l:'Northern'},
-  'aldgate':       {c:'#FFD300', l:'Circle'},
-  'tower hill':    {c:'#FFD300', l:'Circle'},
-  'embankment':    {c:'#00782A', l:'District'},
-  'temple':        {c:'#00782A', l:'District'},
-  'blackfriars':   {c:'#00782A', l:'District'},
-  'cannon street': {c:'#00782A', l:'District'},
-  'richmond':      {c:'#00782A', l:'District'},
-  'wimbledon':     {c:'#00782A', l:'District'},
-  'old street':    {c:'#000000', l:'Northern'},
-  'angel':         {c:'#000000', l:'Northern'},
-  'borough':       {c:'#000000', l:'Northern'},
-  'clapham':       {c:'#000000', l:'Northern'},
-  'camden':        {c:'#000000', l:'Northern'},
-  'euston':        {c:'#000000', l:'Northern'},
-  'baker street':  {c:'#9B0056', l:'Metropolitan'},
-  'hammersmith':   {c:'#F3A9BB', l:'H&C'},
-  'shoreditch':    {c:'#EE7C0E', l:'Overground'},
-  'hoxton':        {c:'#EE7C0E', l:'Overground'},
-  'dalston':       {c:'#EE7C0E', l:'Overground'},
-  'hackney':       {c:'#EE7C0E', l:'Overground'},
-  'shadwell':      {c:'#EE7C0E', l:'Overground'},
-  'elephant':      {c:'#B36305', l:'Bakerloo'},
-  'lambeth':       {c:'#B36305', l:'Bakerloo'},
-  'charing cross': {c:'#B36305', l:'Bakerloo'},
-  'city airport':  {c:'#00A4A7', l:'DLR'},
-  'overground':    {c:'#EE7C0E', l:'Overground'},
-  'dlr':           {c:'#00A4A7', l:'DLR'},
-  'elizabeth':     {c:'#6950A1', l:'Elizabeth'},
+// ── Tube lines ──
+const _TUBE = {
+  'bank':{c:'#E32017',l:'Central'},'st paul':{c:'#E32017',l:'Central'},'liverpool st':{c:'#E32017',l:'Central'},
+  'oxford circus':{c:'#E32017',l:'Central'},'tottenham court':{c:'#E32017',l:'Central'},'holborn':{c:'#E32017',l:'Central'},
+  'notting hill':{c:'#E32017',l:'Central'},'bethnal green':{c:'#E32017',l:'Central'},'stratford':{c:'#E32017',l:'Central'},
+  'waterloo':{c:'#A0A5A9',l:'Jubilee'},'london bridge':{c:'#000000',l:'Northern'},'canary wharf':{c:'#A0A5A9',l:'Jubilee'},
+  'bermondsey':{c:'#A0A5A9',l:'Jubilee'},'southwark':{c:'#A0A5A9',l:'Jubilee'},'green park':{c:'#A0A5A9',l:'Jubilee'},
+  'westminster':{c:'#A0A5A9',l:'Jubilee'},'bond street':{c:'#A0A5A9',l:'Jubilee'},
+  'leicester square':{c:'#003688',l:'Piccadilly'},'covent garden':{c:'#003688',l:'Piccadilly'},
+  'knightsbridge':{c:'#003688',l:'Piccadilly'},"king's cross":{c:'#003688',l:'Piccadilly'},
+  'victoria':{c:'#0098D4',l:'Victoria'},'brixton':{c:'#0098D4',l:'Victoria'},'vauxhall':{c:'#0098D4',l:'Victoria'},
+  'pimlico':{c:'#0098D4',l:'Victoria'},'sloane square':{c:'#FFD300',l:'Circle'},
+  'farringdon':{c:'#6950A1',l:'Elizabeth'},'paddington':{c:'#6950A1',l:'Elizabeth'},
+  'whitechapel':{c:'#6950A1',l:'Elizabeth'},'barbican':{c:'#FFD300',l:'Circle'},
+  'moorgate':{c:'#000000',l:'Northern'},'aldgate':{c:'#FFD300',l:'Circle'},'tower hill':{c:'#FFD300',l:'Circle'},
+  'embankment':{c:'#00782A',l:'District'},'temple':{c:'#00782A',l:'District'},'blackfriars':{c:'#00782A',l:'District'},
+  'cannon street':{c:'#00782A',l:'District'},'richmond':{c:'#00782A',l:'District'},'wimbledon':{c:'#00782A',l:'District'},
+  'old street':{c:'#000000',l:'Northern'},'angel':{c:'#000000',l:'Northern'},'borough':{c:'#000000',l:'Northern'},
+  'clapham':{c:'#000000',l:'Northern'},'camden':{c:'#000000',l:'Northern'},'euston':{c:'#000000',l:'Northern'},
+  'baker street':{c:'#9B0056',l:'Metropolitan'},'hammersmith':{c:'#F3A9BB',l:'H&C'},
+  'shoreditch':{c:'#EE7C0E',l:'Overground'},'hoxton':{c:'#EE7C0E',l:'Overground'},
+  'dalston':{c:'#EE7C0E',l:'Overground'},'hackney':{c:'#EE7C0E',l:'Overground'},
+  'shadwell':{c:'#EE7C0E',l:'Overground'},'elephant':{c:'#B36305',l:'Bakerloo'},
+  'lambeth':{c:'#B36305',l:'Bakerloo'},'charing cross':{c:'#B36305',l:'Bakerloo'},
+  'city airport':{c:'#00A4A7',l:'DLR'},'overground':{c:'#EE7C0E',l:'Overground'},
+  'dlr':{c:'#00A4A7',l:'DLR'},'elizabeth':{c:'#6950A1',l:'Elizabeth'},
+  'mile end':{c:'#E32017',l:'Central'}
 };
-function _tubeColor(transport) {
-  const s = (transport||'').toLowerCase();
-  for (const [key, val] of Object.entries(_TUBE_MAP)) {
-    if (s.includes(key)) return val;
-  }
-  return null;
-}
 document.querySelectorAll('.transport-line').forEach(el => {
   const t = el.dataset.transport || '';
-  const info = _tubeColor(t);
+  const s = t.toLowerCase();
+  let info = null;
+  for (const [k,v] of Object.entries(_TUBE)) { if (s.includes(k)) { info=v; break; } }
   const dot = info
     ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${info.c};flex-shrink:0" title="${info.l} line"></span>`
     : `<svg width="12" height="12" viewBox="0 0 12 12" style="flex-shrink:0"><circle cx="6" cy="6" r="5" fill="none" stroke="#1E22AA" stroke-width="2"/><circle cx="6" cy="6" r="2" fill="#1E22AA"/></svg>`;
   el.innerHTML = dot + ' ' + t;
 });
 
-// ── Book a Viewing ──
-let _bookingCentreId = null, _bookingCentreName = null, _selectedSlot = null;
-let _calYear, _calMonth, _selectedDate = null;
+// ── Desktop booking modal ──
+let _bookingId=null, _bookingName=null, _calYear, _calMonth, _selDate=null;
 
-function openBooking(centreId, centreName, event) {
-  event.stopPropagation();
-  _bookingCentreId = centreId; _bookingCentreName = centreName;
-  _selectedSlot = null; _selectedDate = null;
+function handleBookClick(centreId, centreName, imgUrl, priceFrom, ev) {
+  ev.stopPropagation();
+  if (window.innerWidth <= 640) {
+    toggleSchedule(centreId, centreName, imgUrl, priceFrom);
+  } else {
+    openBooking(centreId, centreName, ev);
+  }
+}
+
+function openBooking(centreId, centreName, ev) {
+  if (ev) ev.stopPropagation();
+  _bookingId=centreId; _bookingName=centreName; _selDate=null;
   document.getElementById('booking-space-name').textContent = centreName;
-  document.getElementById('time-slots').style.display = 'none';
-  document.getElementById('booking-step-1').style.display = 'block';
-  document.getElementById('booking-confirm').style.display = 'none';
+  document.getElementById('time-slots').style.display='none';
+  document.getElementById('booking-step-1').style.display='block';
+  document.getElementById('booking-confirm').style.display='none';
   document.getElementById('booking-btns').innerHTML =
-    '<button onclick="closeBooking()" style="flex:1;padding:12px;border:1.5px solid #e2e8f0;border-radius:10px;background:white;color:#374151;font-size:14px;font-weight:600;cursor:pointer">Cancel</button>';
-  document.getElementById('booking-modal').style.display = 'flex';
-  const now = new Date();
-  _calYear = now.getFullYear(); _calMonth = now.getMonth();
+    '<button onclick="closeBooking()" style="flex:1;padding:12px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;color:#374151;font-size:14px;font-weight:600;cursor:pointer">Cancel</button>';
+  document.getElementById('booking-modal').style.display='flex';
+  const now = new Date(); _calYear=now.getFullYear(); _calMonth=now.getMonth();
   renderCal();
 }
 function closeBooking() { document.getElementById('booking-modal').style.display='none'; }
 
 function calNav(dir) {
-  _calMonth += dir;
-  if (_calMonth < 0) { _calMonth = 11; _calYear--; }
-  if (_calMonth > 11) { _calMonth = 0; _calYear++; }
+  _calMonth+=dir;
+  if(_calMonth<0){_calMonth=11;_calYear--;}
+  if(_calMonth>11){_calMonth=0;_calYear++;}
   renderCal();
 }
 function renderCal() {
-  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  document.getElementById('cal-month-label').textContent = `${MONTHS[_calMonth]} ${_calYear}`;
-  const grid = document.getElementById('cal-grid');
-  grid.innerHTML = '';
-  const today = new Date(); today.setHours(0,0,0,0);
-  const tomorrow = new Date(today); tomorrow.setDate(today.getDate()+1);
-  const firstDow = (new Date(_calYear, _calMonth, 1).getDay() + 6) % 7;
-  const daysInMonth = new Date(_calYear, _calMonth+1, 0).getDate();
-  for (let i = 0; i < firstDow; i++) {
-    const el = document.createElement('div'); el.className = 'cal-day empty'; grid.appendChild(el);
-  }
-  for (let d = 1; d <= daysInMonth; d++) {
-    const date = new Date(_calYear, _calMonth, d);
-    const ds = `${_calYear}-${String(_calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const isPast = date < tomorrow;
-    const el = document.createElement('div');
-    el.className = 'cal-day' + (isPast?' past':'') + (ds===_selectedDate?' selected':'');
-    el.textContent = d;
-    if (!isPast) el.onclick = () => { _selectedDate = ds; renderCal(); showTimeSlots(); };
-    grid.appendChild(el);
+  const M=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('cal-month-label').textContent=`${M[_calMonth]} ${_calYear}`;
+  const g=document.getElementById('cal-grid'); g.innerHTML='';
+  const today=new Date(); today.setHours(0,0,0,0);
+  const tmrw=new Date(today); tmrw.setDate(today.getDate()+1);
+  const fd=(new Date(_calYear,_calMonth,1).getDay()+6)%7;
+  const dim=new Date(_calYear,_calMonth+1,0).getDate();
+  for(let i=0;i<fd;i++){const e=document.createElement('div');e.className='cal-day empty';g.appendChild(e);}
+  for(let d=1;d<=dim;d++){
+    const date=new Date(_calYear,_calMonth,d);
+    const ds=`${_calYear}-${String(_calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isPast=date<tmrw;
+    const el=document.createElement('div');
+    el.className='cal-day'+(isPast?' past':'')+(ds===_selDate?' selected':'');
+    el.textContent=d;
+    if(!isPast) el.onclick=()=>{_selDate=ds;renderCal();showSlots();};
+    g.appendChild(el);
   }
 }
-function showTimeSlots() {
-  if (!_selectedDate) return;
-  const slots = ['9:00 AM','9:30 AM','10:00 AM','10:30 AM','11:00 AM','11:30 AM',
-                 '12:00 PM','2:00 PM','2:30 PM','3:00 PM','3:30 PM','4:00 PM','4:30 PM',
-                 '5:00 PM','5:30 PM','6:00 PM'];
-  const grid = document.getElementById('slots-grid');
-  grid.innerHTML = slots.map(s =>
-    `<button class="slot-btn" onclick="selectSlot(this,'${s}')">${s}</button>`
-  ).join('');
-  document.getElementById('time-slots').style.display = 'block';
+function showSlots() {
+  const slots=['9:00 AM','9:30 AM','10:00 AM','10:30 AM','11:00 AM','11:30 AM','12:00 PM',
+               '2:00 PM','2:30 PM','3:00 PM','3:30 PM','4:00 PM','4:30 PM','5:00 PM','5:30 PM','6:00 PM'];
+  document.getElementById('slots-grid').innerHTML=slots.map(s=>`<button class="slot-btn" onclick="pickSlot(this,'${s}')">${s}</button>`).join('');
+  document.getElementById('time-slots').style.display='block';
 }
-function selectSlot(btn, time) {
-  document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active'); _selectedSlot = time;
-  document.getElementById('booking-btns').innerHTML = `
-    <button onclick="closeBooking()" style="flex:1;padding:12px;border:1.5px solid #e2e8f0;border-radius:10px;background:white;color:#374151;font-size:14px;font-weight:600;cursor:pointer">Cancel</button>
-    <button onclick="confirmBooking('${_selectedDate}','${time}')" style="flex:2;padding:12px;border:none;border-radius:10px;background:#1E22AA;color:white;font-size:14px;font-weight:700;cursor:pointer">Confirm Viewing →</button>`;
+function pickSlot(btn, time) {
+  document.querySelectorAll('.slot-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('booking-btns').innerHTML=`
+    <button onclick="closeBooking()" style="flex:1;padding:12px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;color:#374151;font-size:14px;font-weight:600;cursor:pointer">Cancel</button>
+    <button onclick="confirmBooking('${_selDate}','${time}')" style="flex:2;padding:12px;border:none;border-radius:10px;background:#1E22AA;color:#fff;font-size:14px;font-weight:700;cursor:pointer">Confirm Viewing →</button>`;
 }
 function confirmBooking(date, time) {
-  post('/track', { token: TOKEN, event_type: 'booking_request',
-    centre_id: _bookingCentreId, centre_name: _bookingCentreName,
-    dwell_seconds: 0, booking_date: date, booking_time: time });
-  document.getElementById('booking-step-1').style.display = 'none';
-  document.getElementById('booking-confirm').style.display = 'block';
-  document.getElementById('booking-btns').innerHTML =
-    '<button onclick="closeBooking()" style="flex:1;padding:12px;border:none;border-radius:10px;background:#1E22AA;color:white;font-size:14px;font-weight:700;cursor:pointer">Done</button>';
+  post('/track',{token:TOKEN,event_type:'booking_request',centre_id:_bookingId,centre_name:_bookingName,dwell_seconds:0,booking_date:date,booking_time:time});
+  document.getElementById('booking-step-1').style.display='none';
+  document.getElementById('booking-confirm').style.display='block';
+  document.getElementById('booking-btns').innerHTML=
+    '<button onclick="closeBooking()" style="flex:1;padding:12px;border:none;border-radius:10px;background:#1E22AA;color:#fff;font-size:14px;font-weight:700;cursor:pointer">Done</button>';
 }
 
-// ── Mini map ──
+// ── Schedule (phone) ──
+const _schedule = new Map(); // id → {id,name,img,price}
+
+function toggleSchedule(centreId, centreName, imgUrl, priceFrom) {
+  const id = String(centreId);
+  const btn = document.getElementById('book-btn-' + centreId);
+  if (_schedule.has(id)) {
+    _schedule.delete(id);
+    if (btn) { btn.textContent='📅 Book a Viewing'; btn.classList.remove('scheduled'); }
+  } else {
+    _schedule.set(id, {id:centreId, name:centreName, img:imgUrl, price:priceFrom});
+    if (btn) { btn.textContent='✓ Added to Schedule'; btn.classList.add('scheduled'); }
+    post('/track',{token:TOKEN,event_type:'click',centre_id:centreId,centre_name:centreName});
+  }
+  updateScheduleCount();
+}
+
+function updateScheduleCount() {
+  const n = _schedule.size;
+  const label = n > 0 ? String(n) : '';
+  document.getElementById('phone-book-count').textContent = label;
+  const mc = document.getElementById('map-book-count');
+  if (mc) mc.textContent = label;
+}
+
+function openSchedulePanel() {
+  renderScheduleList();
+  document.getElementById('sched-success').style.display='none';
+  document.getElementById('sched-book-all-btn').style.display='';
+  document.getElementById('sched-list').style.display='';
+  document.getElementById('schedule-panel').classList.add('open');
+}
+function closeSchedulePanel() {
+  document.getElementById('schedule-panel').classList.remove('open');
+}
+function renderScheduleList() {
+  const list = document.getElementById('sched-list');
+  const empty = document.getElementById('sched-empty');
+  const subtitle = document.getElementById('sched-subtitle');
+  const bookBtn = document.getElementById('sched-book-all-btn');
+  const n = _schedule.size;
+  subtitle.textContent = n + ' space' + (n!==1?'s':'') + ' selected';
+  bookBtn.textContent = `Book ${n} viewing${n!==1?'s':''} for me`;
+  bookBtn.disabled = n === 0;
+  empty.style.display = n === 0 ? '' : 'none';
+  list.innerHTML = '';
+  _schedule.forEach((c, id) => {
+    const priceText = c.price ? `£${Number(c.price).toLocaleString()}/mo excl. VAT` : '';
+    const row = document.createElement('div');
+    row.className = 'sched-row';
+    row.innerHTML = `
+      <div class="sched-thumb">
+        ${c.img ? `<img src="${c.img}" alt="${c.name.replace(/"/g,'')}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">` : '🏢'}
+      </div>
+      <div class="sched-info">
+        <div class="sched-name">${c.name}</div>
+        ${priceText ? `<div class="sched-price">${priceText}</div>` : ''}
+      </div>
+      <button class="sched-del" onclick="removeFromSchedule('${id}')">🗑</button>`;
+    list.appendChild(row);
+  });
+}
+function removeFromSchedule(id) {
+  _schedule.delete(id);
+  const btn = document.getElementById('book-btn-' + id);
+  if (btn) { btn.textContent='📅 Book a Viewing'; btn.classList.remove('scheduled'); }
+  updateScheduleCount();
+  renderScheduleList();
+}
+function bookAllViewings() {
+  _schedule.forEach(c => {
+    post('/track',{token:TOKEN,event_type:'booking_request',centre_id:c.id,centre_name:c.name,dwell_seconds:0,booking_date:'tbd',booking_time:'tbd'});
+  });
+  document.getElementById('sched-list').style.display='none';
+  document.getElementById('sched-book-all-btn').style.display='none';
+  document.getElementById('sched-empty').style.display='none';
+  document.getElementById('sched-success').style.display='block';
+}
+
+// ── Map overlay (phone) ──
+function openMapOverlay() {
+  document.getElementById('map-section').classList.add('map-open');
+  if (_compareMap) setTimeout(()=>_compareMap.invalidateSize(), 380);
+}
+function closeMapOverlay() {
+  document.getElementById('map-section').classList.remove('map-open');
+}
+
+// ── Desktop map toggle ──
+let _mapVisible = true;
+function toggleDesktopMap() {
+  _mapVisible = !_mapVisible;
+  const btn = document.getElementById('map-toggle-btn');
+  const mapEl = document.getElementById('compare-map');
+  if (_mapVisible) {
+    mapEl.classList.remove('hidden');
+    btn.textContent = '🗺 Hide map';
+    if (_compareMap) setTimeout(()=>_compareMap.invalidateSize(), 320);
+  } else {
+    mapEl.classList.add('hidden');
+    btn.textContent = '🗺 Show map';
+  }
+}
+
+// ── Map with price pins ──
 let _compareMap = null;
 const _mapMarkers = {};
-(function initCompareMap(){
+let _activePinEl = null;
+
+(function initMap(){
   const centres = {{ centres | tojson }};
   const pts = centres.filter(c => c.coordinates);
-  if(!pts.length) return;
+  if (!pts.length) {
+    document.getElementById('map-section').style.display = 'none';
+    document.querySelector('.map-toggle-row').style.display = 'none';
+    return;
+  }
 
   _compareMap = L.map('compare-map', {zoomControl:true, scrollWheelZoom:false});
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    {attribution:'© OpenStreetMap, © CartoDB',maxZoom:18}).addTo(_compareMap);
+    {attribution:'© OpenStreetMap © CartoDB', maxZoom:18}).addTo(_compareMap);
 
   const bounds = [];
-  pts.forEach((c, idx) => {
-    const coords = c.coordinates ? c.coordinates.split(';') : null;
-    if(!coords || coords.length < 2) return;
-    const lng = parseFloat(coords[0]), lat = parseFloat(coords[1]);
-    if(isNaN(lat)||isNaN(lng)) return;
-    bounds.push([lat,lng]);
+  pts.forEach(c => {
+    const parts = c.coordinates.split(';');
+    if (parts.length < 2) return;
+    const lng = parseFloat(parts[0]), lat = parseFloat(parts[1]);
+    if (isNaN(lat) || isNaN(lng)) return;
+    bounds.push([lat, lng]);
+
+    const priceText = c.price_from
+      ? `£${Number(c.price_from).toLocaleString()}/mo`
+      : (c.name.length > 14 ? c.name.substring(0,14)+'…' : c.name);
+
     const icon = L.divIcon({
-      className:'',
-      html:`<div style="width:32px;height:32px;border-radius:50% 50% 50% 0;background:#1E22AA;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 10px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center"><span style="transform:rotate(45deg);color:white;font-size:12px;font-weight:700">${idx+1}</span></div>`,
-      iconSize:[32,32],iconAnchor:[16,32]
+      className: 'price-pin-icon',
+      html: `<span class="price-pin-label">${priceText}</span>`,
+      iconSize: null,
+      iconAnchor: null
     });
-    const marker = L.marker([lat,lng],{icon}).addTo(_compareMap)
-      .bindPopup(`<b>${c.name}</b><br>${c.address||''}`);
+
+    const imgHtml = (c.image_urls && c.image_urls.length)
+      ? `<img src="${c.image_urls[0]}" style="width:100%;height:90px;object-fit:cover;display:block">`
+      : '';
+    const popup = L.popup({maxWidth:210, minWidth:200, closeButton:false})
+      .setContent(`<div style="width:200px;font-family:'Plus Jakarta Sans',sans-serif;overflow:hidden;border-radius:12px">
+        ${imgHtml}
+        <div style="padding:10px 12px">
+          <div style="font-weight:700;font-size:13px;color:#1A1A2E;line-height:1.3;margin-bottom:4px">${c.name}</div>
+          ${c.price_from ? `<div style="font-size:14px;font-weight:700;color:#1E22AA">£${Number(c.price_from).toLocaleString()}<span style="font-size:11px;font-weight:600;color:#6B7280">/month</span></div>` : ''}
+          ${c.address ? `<div style="font-size:11px;color:#6B7280;margin-top:4px">${c.address}</div>` : ''}
+        </div>
+      </div>`);
+
+    const marker = L.marker([lat, lng], {icon}).addTo(_compareMap).bindPopup(popup);
+
+    marker.on('click', () => {
+      post('/track', {token:TOKEN, event_type:'click', centre_id:String(c.id), centre_name:c.name});
+      // Highlight card
+      document.querySelectorAll('.space-card').forEach(el => el.classList.remove('map-highlight'));
+      const card = document.querySelector(`[data-centre-id="${c.id}"]`);
+      if (card) {
+        card.classList.add('map-highlight');
+        if (window.innerWidth > 640) card.scrollIntoView({behavior:'smooth', block:'nearest'});
+        setTimeout(() => card.classList.remove('map-highlight'), 2500);
+      }
+      // Highlight pin
+      if (_activePinEl) _activePinEl.classList.remove('pin-active');
+      const pinEl = marker.getElement()?.querySelector('.price-pin-label');
+      if (pinEl) { pinEl.classList.add('pin-active'); _activePinEl = pinEl; }
+    });
+
     _mapMarkers[String(c.id)] = marker;
   });
-  if(bounds.length) _compareMap.fitBounds(bounds, {padding:[40,40],maxZoom:14});
+
+  if (bounds.length) _compareMap.fitBounds(bounds, {padding:[50,50], maxZoom:14});
 })();
 
 function highlightOnMap(centreId) {
+  if (window.innerWidth <= 640) return; // on phone, map is in overlay
   const marker = _mapMarkers[String(centreId)];
   if (!marker || !_compareMap) return;
-  document.querySelector('.main > div:last-child').scrollIntoView({behavior:'smooth', block:'start'});
-  setTimeout(() => {
-    _compareMap.setView(marker.getLatLng(), 15, {animate:true});
-    marker.openPopup();
-  }, 450);
+  _compareMap.setView(marker.getLatLng(), 15, {animate:true});
+  marker.openPopup();
+  if (_activePinEl) _activePinEl.classList.remove('pin-active');
+  const pinEl = marker.getElement()?.querySelector('.price-pin-label');
+  if (pinEl) { pinEl.classList.add('pin-active'); _activePinEl = pinEl; }
 }
 
 // ── Photo carousel ──
-function switchPhoto(centreId, url, idx, event) {
-  event.stopPropagation();
-  const mainImg = document.getElementById('main-img-' + centreId);
-  if (mainImg) mainImg.src = url;
-  // update active thumb
-  const area = document.getElementById('photo-area-' + centreId);
-  area.querySelectorAll('.photo-thumb').forEach((t, i) => {
-    t.classList.toggle('active', i === idx);
-  });
+function switchPhoto(centreId, url, idx, ev) {
+  ev.stopPropagation();
+  const img = document.getElementById('main-img-' + centreId);
+  if (img) img.src = url;
+  document.getElementById('photo-area-' + centreId)
+    .querySelectorAll('.photo-thumb')
+    .forEach((t,i) => t.classList.toggle('active', i===idx));
 }
 
 // ── Lightbox ──
-function openLightbox(src, event) {
-  event.stopPropagation();
+function openLightbox(src, ev) {
+  ev.stopPropagation();
   document.getElementById('lightbox-img').src = src;
   document.getElementById('lightbox').classList.add('open');
 }
-function closeLightbox() {
-  document.getElementById('lightbox').classList.remove('open');
-}
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') closeLightbox();
+function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeLightbox(); closeBooking(); closeSchedulePanel(); closeMapOverlay(); }
 });
-// Keep Railway container warm — ping /health every 4 minutes while page is open
-setInterval(() => fetch('/health').catch(() => {}), 240000);
-// Update browser URL to canonical token URL without a reload
+
+// ── Share page ──
+function sharePage() {
+  const url = window.location.href;
+  if (navigator.share) {
+    navigator.share({title:'Workspace recommendations – myHQ', url}).catch(()=>{});
+  } else {
+    navigator.clipboard.writeText(url).then(() => {
+      const btn = document.getElementById('phone-share-btn');
+      const orig = btn.innerHTML;
+      btn.textContent = '✓ Copied!';
+      setTimeout(() => btn.innerHTML = orig, 2000);
+    });
+  }
+}
+
+// ── Keep Railway warm ──
+setInterval(() => fetch('/health').catch(()=>{}), 240000);
+
 {% if canonical_url is defined %}
 if (window.location.pathname !== new URL('{{ canonical_url }}').pathname) {
   history.replaceState(null, '', '{{ canonical_url }}');
