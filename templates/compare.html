@@ -12,6 +12,8 @@
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color: #1A1A2E; min-height: 100vh; display: flex; flex-direction: column; }
+/* Keep Leaflet controls below our sticky header (Leaflet sets these to 1000 by default) */
+.leaflet-top, .leaflet-bottom { z-index: 800 !important; }
 
 /* ── Header ── */
 .header {
@@ -29,7 +31,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 /* My Viewings header button (desktop only) */
 .btn-my-viewings-header {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 14px; border-radius: 20px; border: 1.5px solid #E8E9F3;
+  height: 36px; padding: 0 14px; border-radius: 20px; border: 1.5px solid #E8E9F3;
   background: #fff; font-size: 13px; font-weight: 600; color: #4B4F6A;
   cursor: pointer; font-family: inherit; white-space: nowrap; transition: all 0.15s;
 }
@@ -39,16 +41,18 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 }
 .btn-my-viewings-header .mv-count.visible { display: inline-block; }
 
-/* Agent pill (header, desktop) */
+/* Agent pill (header, desktop) — same height as My viewings button */
 .agent-pill-header {
-  display: flex; align-items: center; gap: 8px; padding: 6px 12px;
+  display: flex; align-items: center; gap: 8px;
+  height: 36px; padding: 0 12px;
   border-radius: 20px; border: 1.5px solid #E8E9F3; background: #fff;
   cursor: pointer; transition: all 0.15s; white-space: nowrap;
 }
 .agent-pill-header:hover { background: #F0F1FA; border-color: #C7D2FE; }
 .agent-avatar-sm {
-  width: 40px; height: 40px; border-radius: 50%; object-fit: cover; object-position: center 15%;
-  border: 2px solid #E8E9F3; flex-shrink: 0;
+  width: 26px; height: 26px; border-radius: 50%; object-fit: cover; object-position: center 20%;
+  border: 1.5px solid #E8E9F3; flex-shrink: 0;
+  transform: translateZ(0); /* GPU layer — sharper circular crop */
 }
 .agent-pill-header span { font-size: 13px; font-weight: 600; color: #4B4F6A; }
 
