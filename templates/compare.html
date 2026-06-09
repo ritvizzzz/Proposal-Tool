@@ -31,9 +31,11 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 /* My Viewings header button (desktop only) */
 .btn-my-viewings-header {
   display: inline-flex; align-items: center; gap: 6px;
-  height: 36px; padding: 0 14px; border-radius: 20px; border: 1.5px solid #E8E9F3;
+  height: 34px; min-height: 34px; max-height: 34px;
+  padding: 0 14px; border-radius: 17px; border: 1.5px solid #E8E9F3;
   background: #fff; font-size: 13px; font-weight: 600; color: #4B4F6A;
   cursor: pointer; font-family: inherit; white-space: nowrap; transition: all 0.15s;
+  box-sizing: border-box; line-height: 1;
 }
 .btn-my-viewings-header:hover { background: #F0F1FA; border-color: #C7D2FE; color: #1E22AA; }
 .btn-my-viewings-header .mv-count {
@@ -41,18 +43,19 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 }
 .btn-my-viewings-header .mv-count.visible { display: inline-block; }
 
-/* Agent pill (header, desktop) — same height as My viewings button */
+/* Agent pill — identical height/shape to My viewings */
 .agent-pill-header {
-  display: flex; align-items: center; gap: 8px;
-  height: 36px; padding: 0 12px;
-  border-radius: 20px; border: 1.5px solid #E8E9F3; background: #fff;
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 34px; min-height: 34px; max-height: 34px;
+  padding: 0 12px;
+  border-radius: 17px; border: 1.5px solid #E8E9F3; background: #fff;
   cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  box-sizing: border-box; line-height: 1; overflow: hidden;
 }
 .agent-pill-header:hover { background: #F0F1FA; border-color: #C7D2FE; }
 .agent-avatar-sm {
-  width: 26px; height: 26px; border-radius: 50%; object-fit: cover; object-position: center 20%;
-  border: 1.5px solid #E8E9F3; flex-shrink: 0;
-  transform: translateZ(0); /* GPU layer — sharper circular crop */
+  width: 24px; height: 24px; border-radius: 50%; object-fit: cover; object-position: center 15%;
+  flex-shrink: 0; display: block;
 }
 .agent-pill-header span { font-size: 13px; font-weight: 600; color: #4B4F6A; }
 
@@ -63,7 +66,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
   border: 1px solid #E8E9F3; padding: 20px; width: 240px;
 }
 .agent-popup.open { display: block; }
-.agent-popup-photo { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; object-position: center top; display: block; margin: 0 auto 12px; border: 3px solid #1E22AA; }
+.agent-popup-photo { width: 88px; height: 88px; border-radius: 50%; object-fit: cover; object-position: center 10%; display: block; margin: 0 auto 12px; border: 3px solid #1E22AA; }
 .agent-popup-name { font-size: 16px; font-weight: 800; color: #1A1A2E; text-align: center; }
 .agent-popup-role { font-size: 12px; color: #6B7280; text-align: center; margin-top: 2px; margin-bottom: 12px; }
 .agent-popup-phone { display: block; text-align: center; font-size: 14px; font-weight: 700; color: #1E22AA; text-decoration: none; padding: 9px; background: #F0F1FA; border-radius: 8px; }
@@ -402,7 +405,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
     </button>
     <!-- Agent pill (desktop) -->
     <button class="agent-pill-header" onclick="toggleAgentPopup()">
-      <img src="/static/images/agent-arjun.jpg" class="agent-avatar-sm" alt="Arjun">
+      <img src="/static/images/agent-arjun.png" class="agent-avatar-sm" alt="Arjun">
       <span>Contact Arjun</span>
     </button>
   </div>
@@ -410,7 +413,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 
 <!-- Agent popup — OUTSIDE header so it isn't trapped in header's stacking context -->
 <div class="agent-popup" id="agent-popup">
-  <img src="/static/images/agent-arjun.jpg" class="agent-popup-photo" alt="Arjun">
+  <img src="/static/images/agent-arjun.png" class="agent-popup-photo" alt="Arjun">
   <div class="agent-popup-name">Arjun</div>
   <div class="agent-popup-role">Talk to our expert</div>
   <a href="tel:+447863754009" class="agent-popup-phone">📞 +44 7863 754009</a>
@@ -550,7 +553,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 <div class="mobile-bottom-bar">
   <!-- Agent mini card -->
   <div class="agent-mini" onclick="toggleAgentPopup()">
-    <img src="/static/images/agent-arjun.jpg" class="agent-mini-avatar" alt="Arjun">
+    <img src="/static/images/agent-arjun.png" class="agent-mini-avatar" alt="Arjun">
     <span>Contact<br>Arjun</span>
   </div>
   <!-- My viewings -->
