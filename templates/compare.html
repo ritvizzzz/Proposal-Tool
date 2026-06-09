@@ -21,7 +21,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 }
 .header-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; flex-shrink: 0; }
 .header-center {
-  flex: 1; text-align: center; font-size: 14px; font-weight: 700; color: #1A1A2E;
+  flex: 1; text-align: right; font-size: 14px; font-weight: 700; color: #1A1A2E;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px;
 }
 .header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
@@ -53,8 +53,8 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 
 /* Agent popup */
 .agent-popup {
-  display: none; position: absolute; top: 68px; right: 16px; z-index: 400;
-  background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+  display: none; position: fixed; top: 68px; right: 16px; z-index: 9500;
+  background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.15);
   border: 1px solid #E8E9F3; padding: 20px; width: 240px;
 }
 .agent-popup.open { display: block; }
@@ -312,10 +312,10 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
   /* Compact "Book" button next to price (phone only) */
   .btn-book-compact {
     display: inline-flex; align-items: center; gap: 4px;
-    padding: 8px 12px; border-radius: 8px; border: none;
+    padding: 0 14px; height: 34px; border-radius: 8px; border: none;
     background: #1E22AA; color: #fff; font-size: 12px; font-weight: 700;
     cursor: pointer; font-family: inherit; flex-shrink: 0; white-space: nowrap;
-    transition: background 0.15s;
+    align-self: center; transition: background 0.15s;
   }
   .btn-book-compact.scheduled { background: #059669; }
   /* Hide the large btn-book from card-actions on phone */
@@ -353,7 +353,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 
   /* Agent popup on phone: positioned above the bottom bar */
   .agent-popup {
-    top: auto !important; bottom: 72px; right: 12px; left: 12px; width: auto;
+    top: auto !important; bottom: 74px !important; right: 12px; left: 12px; width: auto;
   }
 
   /* Booking modal: bottom sheet */
@@ -393,14 +393,14 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
     <!-- Agent pill (desktop) -->
     <button class="agent-pill-header" onclick="toggleAgentPopup()">
       <img src="/static/images/agent-arjun.jpg" class="agent-avatar-sm" alt="Arjun">
-      <span>Arjun</span>
+      <span>Contact Arjun</span>
     </button>
   </div>
   <!-- Agent popup (both) -->
   <div class="agent-popup" id="agent-popup">
     <img src="/static/images/agent-arjun.jpg" class="agent-popup-photo" alt="Arjun">
     <div class="agent-popup-name">Arjun</div>
-    <div class="agent-popup-role">myHQ Space Advisor</div>
+    <div class="agent-popup-role">Talk to an expert</div>
     <a href="tel:+447863754009" class="agent-popup-phone">📞 +44 7863 754009</a>
   </div>
 </header>
@@ -496,7 +496,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
                   data-img="{{ (c.image_urls[0] if c.image_urls else '')|e }}"
                   data-price="{{ c.price_from or '' }}"
                   onclick="handleBookClick(this, event)">
-            📅 Book
+            📅 Book viewing
           </button>
         </div>
         {% endif %}
@@ -539,7 +539,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
   <!-- Agent mini card -->
   <div class="agent-mini" onclick="toggleAgentPopup()">
     <img src="/static/images/agent-arjun.jpg" class="agent-mini-avatar" alt="Arjun">
-    <span>Your<br>advisor</span>
+    <span>Contact<br>Arjun</span>
   </div>
   <!-- My viewings -->
   <button id="phone-book-btn" onclick="openSchedulePanel()">
@@ -605,10 +605,10 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
       <p style="color:#6B7280;font-size:14px;line-height:1.6">Our team will reach out to arrange your viewings.</p>
     </div>
     <button id="sched-book-all-btn" class="btn-book-all" onclick="bookAllViewings()" disabled>
-      Book viewings for me
+      Confirm viewings
     </button>
     <p style="text-align:center;font-size:12px;color:#9CA3AF;margin-top:14px">
-      Or contact us at <strong style="color:#1E22AA">info@myhqspaces.com</strong>
+      Or contact us at <strong style="color:#1E22AA">contact@myhqspaces.com</strong>
     </p>
   </div>
 </div>
@@ -752,20 +752,14 @@ document.querySelectorAll('.photo-area').forEach(area => {
   }, {passive:true});
 });
 
-// ── Book a Viewing: desktop = modal, phone = schedule toggle ──
+// ── Book a Viewing: always opens the calendar modal ──
 const _schedule = new Map(); // id → {id,name,img,price,date,time}
 
 function handleBookClick(btn, ev) {
   ev.stopPropagation();
   const id = btn.dataset.cid;
   const name = btn.dataset.cname;
-  const img = btn.dataset.img;
-  const price = btn.dataset.price;
-  if (window.innerWidth <= 640) {
-    toggleSchedule(id, name, img, price);
-  } else {
-    openBooking(id, name, null);
-  }
+  openBooking(id, name, null);
 }
 
 // ── Schedule system ──
@@ -815,7 +809,7 @@ function renderScheduleList() {
   const btn = document.getElementById('sched-book-all-btn');
   const n = _schedule.size;
   subtitle.textContent = n + ' space' + (n!==1?'s':'') + ' scheduled';
-  btn.textContent = 'Book ' + n + ' viewing' + (n!==1?'s':'') + ' for me';
+  btn.textContent = 'Confirm viewings';
   btn.disabled = n === 0;
   empty.style.display = n === 0 ? '' : 'none';
   list.innerHTML = '';
