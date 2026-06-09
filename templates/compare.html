@@ -66,7 +66,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
   border: 1px solid #E8E9F3; padding: 20px; width: 240px;
 }
 .agent-popup.open { display: block; }
-.agent-popup-photo { width: 88px; height: 88px; border-radius: 50%; object-fit: contain; background: #fff; display: block; margin: 0 auto 12px; border: 3px solid #1E22AA; }
+.agent-popup-photo { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; object-position: center 30%; display: block; margin: 0 auto 12px; border: 3px solid #1E22AA; }
 .agent-popup-name { font-size: 16px; font-weight: 800; color: #1A1A2E; text-align: center; }
 .agent-popup-role { font-size: 12px; color: #6B7280; text-align: center; margin-top: 2px; margin-bottom: 12px; }
 .agent-popup-phone { display: block; text-align: center; font-size: 14px; font-weight: 700; color: #1E22AA; text-decoration: none; padding: 9px; background: #F0F1FA; border-radius: 8px; }
@@ -405,7 +405,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
     </button>
     <!-- Agent pill (desktop) -->
     <button class="agent-pill-header" onclick="toggleAgentPopup()">
-      <img src="/static/images/agent-arjun.png" class="agent-avatar-sm" alt="Arjun">
+      <img src="/static/images/agent-arjun.png?v=2" class="agent-avatar-sm" alt="Arjun">
       <span>Contact Arjun</span>
     </button>
   </div>
@@ -413,7 +413,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 
 <!-- Agent popup — OUTSIDE header so it isn't trapped in header's stacking context -->
 <div class="agent-popup" id="agent-popup">
-  <img src="/static/images/agent-arjun.png" class="agent-popup-photo" alt="Arjun">
+  <img src="/static/images/agent-arjun.png?v=2" class="agent-popup-photo" alt="Arjun">
   <div class="agent-popup-name">Arjun</div>
   <div class="agent-popup-role">Talk to our expert</div>
   <a href="tel:+447863754009" class="agent-popup-phone">📞 +44 7863 754009</a>
@@ -553,7 +553,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 <div class="mobile-bottom-bar">
   <!-- Agent mini card -->
   <div class="agent-mini" onclick="toggleAgentPopup()">
-    <img src="/static/images/agent-arjun.png" class="agent-mini-avatar" alt="Arjun">
+    <img src="/static/images/agent-arjun.png?v=2" class="agent-mini-avatar" alt="Arjun">
     <span>Contact<br>Arjun</span>
   </div>
   <!-- My viewings -->
