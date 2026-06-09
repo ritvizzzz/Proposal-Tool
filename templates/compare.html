@@ -11,126 +11,104 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-body {
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  background: #F7F8FC;
-  color: #1A1A2E;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
+body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color: #1A1A2E; min-height: 100vh; display: flex; flex-direction: column; }
 
 /* ── Header ── */
 .header {
-  background: #fff;
-  border-bottom: 1px solid #E8E9F3;
-  padding: 14px 32px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  position: sticky;
-  top: 0;
-  z-index: 100;
+  background: #fff; border-bottom: 1px solid #E8E9F3;
+  padding: 10px 24px; display: flex; align-items: center; gap: 12px;
+  position: sticky; top: 0; z-index: 300; height: 60px;
 }
-.header-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; flex-shrink: 0; }
-.header-label { margin-left: auto; font-size: 13px; color: #8B90B0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; font-weight: 600; }
-@media (max-width: 400px) { .header-label { display: none; } }
+.header-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; flex-shrink: 0; }
+.header-center {
+  flex: 1; text-align: center; font-size: 14px; font-weight: 700; color: #1A1A2E;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px;
+}
+.header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+/* My Viewings header button (desktop only) */
+.btn-my-viewings-header {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 20px; border: 1.5px solid #E8E9F3;
+  background: #fff; font-size: 13px; font-weight: 600; color: #4B4F6A;
+  cursor: pointer; font-family: inherit; white-space: nowrap; transition: all 0.15s;
+}
+.btn-my-viewings-header:hover { background: #F0F1FA; border-color: #C7D2FE; color: #1E22AA; }
+.btn-my-viewings-header .mv-count {
+  background: #1E22AA; color: #fff; border-radius: 10px; padding: 0 6px; font-size: 11px; display: none;
+}
+.btn-my-viewings-header .mv-count.visible { display: inline-block; }
+
+/* Agent pill (header, desktop) */
+.agent-pill-header {
+  display: flex; align-items: center; gap: 8px; padding: 6px 12px;
+  border-radius: 20px; border: 1.5px solid #E8E9F3; background: #fff;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.agent-pill-header:hover { background: #F0F1FA; border-color: #C7D2FE; }
+.agent-avatar-sm {
+  width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 2px solid #E8E9F3; flex-shrink: 0;
+}
+.agent-pill-header span { font-size: 13px; font-weight: 600; color: #4B4F6A; }
+
+/* Agent popup */
+.agent-popup {
+  display: none; position: absolute; top: 68px; right: 16px; z-index: 400;
+  background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+  border: 1px solid #E8E9F3; padding: 20px; width: 240px;
+}
+.agent-popup.open { display: block; }
+.agent-popup-photo { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; display: block; margin: 0 auto 12px; border: 3px solid #1E22AA; }
+.agent-popup-name { font-size: 16px; font-weight: 800; color: #1A1A2E; text-align: center; }
+.agent-popup-role { font-size: 12px; color: #6B7280; text-align: center; margin-top: 2px; margin-bottom: 12px; }
+.agent-popup-phone { display: block; text-align: center; font-size: 14px; font-weight: 700; color: #1E22AA; text-decoration: none; padding: 9px; background: #F0F1FA; border-radius: 8px; }
+.agent-popup-phone:hover { background: #EEEFFE; }
 
 /* ── Main ── */
-.main {
-  flex: 1;
-  padding: 28px 32px 48px;
-  max-width: 1400px;
-  margin: 0 auto;
-  width: 100%;
-}
+.main { flex: 1; padding: 24px 32px 48px; max-width: 1400px; margin: 0 auto; width: 100%; }
 
-.page-intro { text-align: center; margin-bottom: 24px; }
-.page-intro h1 { font-size: 26px; font-weight: 800; color: #1A1A2E; }
-.page-intro p { margin-top: 6px; font-size: 15px; color: #6B7280; }
-
-/* ── Map section (desktop: inline hero; phone: full-screen overlay) ── */
+/* ── Map section (desktop: inline) ── */
 #map-section { margin-bottom: 12px; }
-#compare-map {
-  height: 440px;
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.1);
-  transition: height 0.3s ease, opacity 0.3s ease;
-}
+#compare-map { height: 440px; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 16px rgba(0,0,0,0.1); transition: height 0.3s, opacity 0.3s; }
 #compare-map.hidden { height: 0; opacity: 0; pointer-events: none; }
+.map-overlay-bar { display: none; } /* phone only */
 
-/* Phone map overlay header (hidden on desktop) */
-.map-overlay-bar { display: none; }
-
-/* ── Desktop map toggle ── */
-.map-toggle-row {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 28px;
-}
+/* Desktop map toggle */
+.map-toggle-row { display: flex; justify-content: center; margin-bottom: 28px; }
 #map-toggle-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 20px;
-  border: 1.5px solid #E8E9F3;
-  border-radius: 20px;
-  background: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  color: #6B7280;
-  cursor: pointer;
-  transition: all 0.15s;
-  font-family: inherit;
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 20px;
+  border: 1.5px solid #E8E9F3; border-radius: 20px; background: #fff;
+  font-size: 13px; font-weight: 600; color: #6B7280; cursor: pointer;
+  transition: all 0.15s; font-family: inherit;
 }
 #map-toggle-btn:hover { background: #F0F1FA; border-color: #C7D2FE; color: #1E22AA; }
 
 /* ── Leaflet price pins ── */
 .price-pin-icon { background: none !important; border: none !important; }
 .price-pin-label {
-  display: inline-block;
-  background: #1E22AA;
-  color: #fff;
-  padding: 5px 11px;
-  border-radius: 12px;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-  box-shadow: 0 2px 10px rgba(30,34,170,0.4);
-  border: 2.5px solid #fff;
-  transform: translate(-50%, calc(-100% - 10px));
-  cursor: pointer;
-  position: relative;
+  display: inline-block; background: #1E22AA; color: #fff;
+  padding: 5px 11px; border-radius: 12px;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px; font-weight: 700;
+  white-space: nowrap; box-shadow: 0 2px 10px rgba(30,34,170,0.4);
+  border: 2.5px solid #fff; transform: translate(-50%, calc(-100% - 10px));
+  cursor: pointer; position: relative;
 }
 .price-pin-label::after {
-  content: '';
-  position: absolute;
-  bottom: -9px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 0; height: 0;
-  border-left: 7px solid transparent;
-  border-right: 7px solid transparent;
+  content: ''; position: absolute; bottom: -9px; left: 50%;
+  transform: translateX(-50%); width: 0; height: 0;
+  border-left: 7px solid transparent; border-right: 7px solid transparent;
   border-top: 9px solid #1E22AA;
 }
 .price-pin-label.pin-active { background: #0d1085; transform: translate(-50%, calc(-100% - 10px)) scale(1.1); }
 .price-pin-label.pin-active::after { border-top-color: #0d1085; }
-
-/* Popup styles */
 .leaflet-popup-content { margin: 0 !important; }
-.leaflet-popup-content-wrapper {
-  padding: 0 !important;
-  border-radius: 12px !important;
-  overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important;
-  border: none !important;
-}
+.leaflet-popup-content-wrapper { padding: 0 !important; border-radius: 12px !important; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important; border: none !important; }
 .leaflet-popup-tip-container { display: none !important; }
 
-/* ── Tabs row ── */
+/* ── Phone view tabs (PHONE ONLY — hidden on desktop) ── */
+.phone-view-tabs { display: none; }
+
+/* ── Dismissed/active tabs ── */
 .tabs-row { display: none; gap: 4px; margin-bottom: 20px; }
 .tab-btn { padding: 8px 18px; border-radius: 20px; border: 1.5px solid #E8E9F3; background: #fff; font-size: 13px; font-weight: 600; cursor: pointer; color: #6B7280; transition: all 0.15s; font-family: inherit; }
 .tab-btn.active { background: #1E22AA; color: #fff; border-color: #1E22AA; }
@@ -138,52 +116,33 @@ body {
 .tab-btn:not(.active) .tab-count { background: #F0F1FA; color: #1E22AA; }
 
 /* ── Cards grid ── */
-.cards-grid {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 24px;
-}
+.cards-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 24px; }
 
 /* ── Space card ── */
 .space-card {
-  background: #fff;
-  border-radius: 16px;
-  overflow: hidden;
+  background: #fff; border-radius: 16px; overflow: hidden;
   box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(30,34,170,0.06);
-  transition: box-shadow 0.2s, transform 0.2s;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  width: 340px;
-  max-width: 100%;
-  flex-shrink: 0;
-  outline: 3px solid transparent;
-  outline-offset: 2px;
   transition: box-shadow 0.2s, transform 0.2s, outline-color 0.2s;
+  cursor: pointer; display: flex; flex-direction: column;
+  width: 340px; max-width: 100%; flex-shrink: 0;
+  outline: 3px solid transparent; outline-offset: 2px;
 }
 .space-card:hover { box-shadow: 0 4px 20px rgba(30,34,170,0.12); transform: translateY(-2px); }
 .space-card.map-highlight { outline-color: #1E22AA; }
 
-/* ── Photo area ── */
-.photo-area { position: relative; height: 180px; overflow: hidden; background: #E8E9F3; flex-shrink: 0; }
-.photo-main { width: 100%; height: 100%; object-fit: cover; display: block; cursor: zoom-in; }
-.photo-thumbs { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; }
-.photo-thumb { width: 44px; height: 34px; border-radius: 6px; overflow: hidden; border: 2px solid rgba(255,255,255,0.8); cursor: pointer; flex-shrink: 0; }
-.photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.photo-thumb.active { border-color: #1E22AA; }
+/* Photo area */
+.photo-area { position: relative; height: 180px; overflow: hidden; background: #E8E9F3; flex-shrink: 0; cursor: grab; }
+.photo-main { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; border-radius: 50%; background: rgba(0,0,0,0.4); border: none; color: #fff; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 5; }
+.photo-nav.prev { left: 8px; }
+.photo-nav.next { right: 8px; }
+.photo-nav:hover { background: rgba(0,0,0,0.65); }
+.photo-counter { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.45); color: #fff; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
 .photo-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #E8E9F3, #D0D3F0); color: #8B90B0; font-size: 40px; }
-
-.dismiss-btn {
-  position: absolute; top: 8px; right: 8px; z-index: 10;
-  width: 28px; height: 28px; border-radius: 50%;
-  background: rgba(0,0,0,0.45); border: none; color: #fff;
-  font-size: 14px; cursor: pointer; display: flex; align-items: center;
-  justify-content: center; transition: background 0.15s;
-}
+.dismiss-btn { position: absolute; top: 8px; right: 8px; z-index: 10; width: 28px; height: 28px; border-radius: 50%; background: rgba(0,0,0,0.45); border: none; color: #fff; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
 .dismiss-btn:hover { background: rgba(0,0,0,0.7); }
 
-/* ── Card body ── */
+/* Card body */
 .card-body { padding: 16px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
 .card-brand { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #1E22AA; }
 .card-name { font-size: 17px; font-weight: 700; color: #1A1A2E; line-height: 1.3; }
@@ -191,128 +150,66 @@ body {
 .card-address svg { flex-shrink: 0; margin-top: 2px; }
 .card-transport { display: flex; align-items: center; font-size: 12px; color: #1E22AA; margin-top: -4px; }
 .transport-line { display: inline-flex; align-items: center; gap: 5px; }
-.card-meta { display: flex; align-items: baseline; gap: 6px; min-height: 28px; }
-.meta-item { display: flex; flex-direction: column; gap: 2px; }
+
+/* Price row — contains price + phone-only compact book button */
+.card-price-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.card-meta { display: flex; flex-direction: column; gap: 2px; }
 .meta-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #9CA3AF; }
 .meta-value { font-size: 15px; font-weight: 700; color: #1A1A2E; }
-.meta-value.price { color: #1E22AA; }
+.meta-value.price { color: #1E22AA; font-size: 20px; }
+.price-suffix { font-size: 12px; font-weight: 700; color: #6B7280; }
+
+/* Compact book button (PHONE ONLY — hidden on desktop) */
+.btn-book-compact { display: none; }
+
 .amenities { display: flex; flex-wrap: wrap; gap: 6px; }
 .amenity-pill { font-size: 11px; font-weight: 500; background: #F0F1FA; color: #4B4F6A; padding: 4px 10px; border-radius: 20px; }
 
-/* ── Card actions ── */
-.card-actions {
-  margin-top: auto;
-  padding: 12px 16px 16px;
-  border-top: 1px solid #F3F4F6;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
+/* Card actions (visible on both, phone hides btn-book via @media) */
+.card-actions { margin-top: auto; padding: 12px 16px 16px; border-top: 1px solid #F3F4F6; display: flex; flex-direction: column; gap: 8px; }
 .btn-book {
-  width: 100%;
-  padding: 11px 16px;
-  border-radius: 10px;
-  border: none;
-  background: #1E22AA;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  font-family: inherit;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
+  width: 100%; padding: 11px 16px; border-radius: 10px; border: none;
+  background: #1E22AA; color: #fff; font-size: 14px; font-weight: 700;
+  cursor: pointer; font-family: inherit;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
   transition: background 0.15s;
 }
 .btn-book:hover { background: #181c96; }
 .btn-book.scheduled { background: #059669; }
 .btn-book.scheduled:hover { background: #047857; }
 .btn-map-card {
-  width: 100%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #6B7280;
-  text-decoration: none;
-  padding: 8px 14px;
-  border-radius: 8px;
-  background: #F7F8FC;
-  border: 1px solid #E8E9F3;
-  transition: all 0.15s;
-  font-family: inherit;
-  cursor: pointer;
+  width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: 12px; font-weight: 600; color: #6B7280; text-decoration: none;
+  padding: 8px 14px; border-radius: 8px; background: #F7F8FC; border: 1px solid #E8E9F3;
+  transition: all 0.15s; font-family: inherit; cursor: pointer;
 }
 .btn-map-card:hover { background: #EEEFFE; color: #1E22AA; border-color: #C7D2FE; text-decoration: none; }
 
-/* ── Mobile bottom bar (phone only) ── */
+/* ── Mobile bottom bar (PHONE ONLY) ── */
 .mobile-bottom-bar { display: none; }
 
-/* ── Schedule panel ── */
-#schedule-panel {
-  display: none;
-  position: fixed;
-  inset: 0;
-  z-index: 901;
-  background: rgba(0,0,0,0.5);
-  align-items: flex-end;
-}
+/* Phone agent mini card (PHONE ONLY) */
+.agent-mini { display: none; }
+
+/* ── My Viewings / Schedule panel ── */
+#schedule-panel { display: none; position: fixed; inset: 0; z-index: 901; background: rgba(0,0,0,0.5); align-items: flex-end; }
 #schedule-panel.open { display: flex; }
-#schedule-sheet {
-  width: 100%;
-  background: #fff;
-  border-radius: 20px 20px 0 0;
-  padding: 24px 20px 32px;
-  max-height: 82vh;
-  overflow-y: auto;
-}
-.sched-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid #F3F4F6;
-}
-.sched-thumb {
-  width: 60px; height: 46px;
-  border-radius: 8px;
-  object-fit: cover;
-  flex-shrink: 0;
-  background: #E8E9F3;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 20px; color: #9CA3AF;
-}
-.sched-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+#schedule-sheet { width: 100%; background: #fff; border-radius: 20px 20px 0 0; padding: 24px 20px 32px; max-height: 82vh; overflow-y: auto; }
+.sched-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid #F3F4F6; }
+.sched-thumb { width: 60px; height: 48px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: #E8E9F3; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #9CA3AF; overflow: hidden; }
+.sched-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .sched-info { flex: 1; min-width: 0; }
 .sched-name { font-weight: 700; font-size: 14px; color: #1A1A2E; line-height: 1.3; }
 .sched-price { font-size: 12px; color: #6B7280; margin-top: 2px; }
-.sched-del {
-  width: 32px; height: 32px; border-radius: 8px; border: none;
-  background: #FEF2F2; color: #DC2626; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; font-size: 15px;
-}
-.btn-book-all {
-  width: 100%;
-  padding: 14px;
-  background: #1E22AA;
-  color: #fff;
-  border: none;
-  border-radius: 12px;
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
-  margin-top: 20px;
-  font-family: inherit;
-  transition: background 0.15s;
-}
+.sched-date { font-size: 11px; color: #1E22AA; font-weight: 600; margin-top: 4px; }
+.sched-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.sched-edit { width: 30px; height: 30px; border-radius: 7px; border: 1.5px solid #E8E9F3; background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+.sched-del { width: 30px; height: 30px; border-radius: 7px; border: none; background: #FEF2F2; color: #DC2626; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+.btn-book-all { width: 100%; padding: 14px; background: #1E22AA; color: #fff; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 20px; font-family: inherit; transition: background 0.15s; }
 .btn-book-all:hover { background: #181c96; }
 .btn-book-all:disabled { background: #9CA3AF; cursor: default; }
 
-/* ── Custom calendar ── */
+/* ── Calendar ── */
 #cal-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:14px; }
 #cal-header button { width:32px;height:32px;border:none;background:#F0F1FA;border-radius:8px;font-size:20px;cursor:pointer;color:#1E22AA;display:flex;align-items:center;justify-content:center; }
 #cal-header button:hover { background:#E0E3F5; }
@@ -336,194 +233,192 @@ body {
 /* ── Footer ── */
 .footer { text-align:center;padding:24px 32px;font-size:13px;color:#9CA3AF;border-top:1px solid #E8E9F3;background:#fff; }
 
-/* ════════════════════════════════════════
-   PHONE (≤ 640px)
-════════════════════════════════════════ */
+
+/* ════════════════════════════════════════════
+   PHONE — ≤ 640px  (NO desktop changes here)
+════════════════════════════════════════════ */
 @media (max-width: 640px) {
-  .header { padding: 10px 14px; gap: 10px; }
 
-  /* Main: no top padding for map section; extra bottom padding for bottom bar */
-  .main { padding: 16px 0 96px; overflow-x: hidden; }
-  .page-intro { padding: 0 16px; margin-bottom: 16px; }
-  .page-intro h1 { font-size: 20px; }
-  .page-intro p { font-size: 13px; }
+  /* Header */
+  .header { padding: 10px 12px; gap: 8px; height: 54px; }
+  .header-center { font-size: 12px; padding: 0 4px; }
+  /* Hide desktop-only header elements on phone */
+  .agent-pill-header { display: none; }
+  .btn-my-viewings-header { display: none; }
 
-  /* Map section: fixed full-screen overlay, slides up when .map-open added */
-  #map-section {
-    position: fixed;
-    inset: 0;
-    z-index: 500;
-    margin: 0;
-    background: #fff;
+  /* Phone tabs — sticky below header */
+  .phone-view-tabs {
     display: flex;
-    flex-direction: column;
-    transform: translateY(100%);
-    transition: transform 0.35s cubic-bezier(0.32,0.72,0,1);
-    pointer-events: none;
+    position: sticky;
+    top: 54px; /* header height */
+    z-index: 299;
+    background: #fff;
+    border-bottom: 2px solid #E8E9F3;
   }
-  #map-section.map-open {
-    transform: translateY(0);
+  .pvt-btn {
+    flex: 1; padding: 11px 8px; border: none; background: none;
+    font-size: 14px; font-weight: 700; cursor: pointer; color: #9CA3AF;
+    border-bottom: 3px solid transparent; margin-bottom: -2px;
+    transition: all 0.15s; font-family: inherit;
+  }
+  .pvt-btn.active { color: #1E22AA; border-bottom-color: #1E22AA; }
+  .pvt-count { display: inline-block; background: #F0F1FA; color: #1E22AA; border-radius: 10px; padding: 0 6px; font-size: 11px; margin-left: 4px; }
+  .pvt-btn.active .pvt-count { background: #1E22AA; color: #fff; }
+
+  /* Main: padded for bottom bar, no horizontal padding (cards go edge-to-edge) */
+  .main { padding: 12px 0 82px; overflow-x: hidden; }
+
+  /* Map section: fixed below tabs, full height (phone tab view) */
+  #map-section {
+    position: fixed !important;
+    top: 108px; /* 54px header + 54px tabs ≈ */
+    bottom: 62px;
+    left: 0; right: 0;
+    z-index: 250;
+    margin: 0;
+    display: none;
+    background: #fff;
+    transform: none !important;
     pointer-events: auto;
   }
+  #map-section.phone-map-active { display: block; }
   #compare-map {
-    flex: 1;
-    height: auto !important;
+    height: 100% !important;
     border-radius: 0 !important;
     box-shadow: none !important;
     transition: none !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
   }
-  #compare-map.hidden { height: auto !important; opacity: 1 !important; pointer-events: auto !important; }
+  #compare-map.hidden { height: 100% !important; opacity: 1 !important; pointer-events: auto !important; }
 
-  /* Map overlay bar visible on phone */
-  .map-overlay-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 16px;
-    background: #fff;
-    border-bottom: 1px solid #E8E9F3;
-    flex-shrink: 0;
-    gap: 10px;
-  }
-  .map-overlay-bar span { font-size: 14px; font-weight: 700; color: #1A1A2E; flex: 1; text-align: center; }
-  .map-overlay-bar button {
-    padding: 8px 14px;
-    border-radius: 20px;
-    border: 1.5px solid #E8E9F3;
-    background: #fff;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    color: #4B4F6A;
-    font-family: inherit;
-    white-space: nowrap;
-  }
-  .map-book-btn { background: #1E22AA !important; color: #fff !important; border-color: #1E22AA !important; }
+  /* Hide desktop-only elements on phone */
+  .map-toggle-row { display: none !important; }
+  .tabs-row { padding: 0 16px; }
 
-  /* Hide desktop map toggle on phone */
-  .map-toggle-row { display: none; }
-
-  /* Cards: horizontal swipe carousel */
+  /* Cards: horizontal swipe */
   .cards-grid {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    gap: 12px;
-    padding: 0 16px 12px;
-    justify-content: flex-start;
-    scrollbar-width: none;
+    flex-wrap: nowrap; overflow-x: auto; scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch; gap: 12px;
+    padding: 8px 16px 12px; justify-content: flex-start; scrollbar-width: none;
   }
   .cards-grid::-webkit-scrollbar { display: none; }
   .space-card {
-    scroll-snap-align: start;
-    flex-shrink: 0;
-    width: calc(100vw - 48px);
-    max-width: 360px;
+    scroll-snap-align: start; flex-shrink: 0;
+    width: calc(100vw - 48px); max-width: 360px; transform: none !important;
   }
-  .space-card:hover { transform: none; }
   .photo-area { height: 200px; }
 
-  /* Card actions: stacked */
-  .card-actions { flex-direction: column; gap: 8px; }
+  /* Compact "Book" button next to price (phone only) */
+  .btn-book-compact {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 8px 12px; border-radius: 8px; border: none;
+    background: #1E22AA; color: #fff; font-size: 12px; font-weight: 700;
+    cursor: pointer; font-family: inherit; flex-shrink: 0; white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .btn-book-compact.scheduled { background: #059669; }
+  /* Hide the large btn-book from card-actions on phone */
+  .card-actions .btn-book { display: none !important; }
 
-  /* Tabs row */
-  .tabs-row { padding: 0 16px; }
-
-  /* Mobile bottom bar */
+  /* Phone bottom bar */
   .mobile-bottom-bar {
-    display: flex;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 200;
-    background: #fff;
-    border-top: 1px solid #E8E9F3;
-    padding: 10px 12px;
-    gap: 8px;
-    align-items: center;
-    box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
+    display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+    background: #fff; border-top: 1px solid #E8E9F3;
+    padding: 8px 12px; gap: 10px; align-items: center;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.07);
   }
-  .mobile-bottom-bar > button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-    padding: 10px 12px;
-    border-radius: 10px;
-    border: 1.5px solid #E8E9F3;
-    background: #fff;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    font-family: inherit;
-    color: #4B4F6A;
-    white-space: nowrap;
-  }
-  #phone-map-btn  { flex: 0 0 auto; }
-  #phone-share-btn { flex: 0 0 auto; }
   #phone-book-btn {
-    flex: 1;
-    background: #1E22AA;
-    color: #fff;
-    border-color: #1E22AA;
-    font-weight: 700;
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 11px 14px; border-radius: 12px; border: none;
+    background: #1E22AA; color: #fff; font-size: 13px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+  }
+  .phone-count-badge {
+    background: #fff; color: #1E22AA; border-radius: 10px;
+    padding: 1px 7px; font-size: 11px; font-weight: 800;
+    display: none;
+  }
+  .phone-count-badge.visible { display: inline-block; }
+
+  /* Agent mini card (above bottom bar) */
+  .agent-mini {
+    display: flex; align-items: center; gap: 8px; padding: 7px 12px;
+    background: #F7F8FC; border: 1.5px solid #E8E9F3; border-radius: 12px;
+    cursor: pointer; flex-shrink: 0; transition: all 0.15s;
+  }
+  .agent-mini:active { background: #EEEFFE; border-color: #C7D2FE; }
+  .agent-mini-avatar { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; border: 2px solid #1E22AA; flex-shrink: 0; }
+  .agent-mini span { font-size: 11px; font-weight: 700; color: #1A1A2E; line-height: 1.3; white-space: nowrap; }
+
+  /* Agent popup on phone: positioned above the bottom bar */
+  .agent-popup {
+    top: auto !important; bottom: 72px; right: 12px; left: 12px; width: auto;
   }
 
-  /* Booking modal: full-screen bottom sheet */
+  /* Booking modal: bottom sheet */
   #booking-modal > div {
-    width: 100% !important;
-    max-width: 100% !important;
+    width: 100% !important; max-width: 100% !important;
     border-radius: 20px 20px 0 0 !important;
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    max-height: 85vh;
+    position: fixed; bottom: 0; left: 0; right: 0; max-height: 85vh;
   }
   #booking-modal { align-items: flex-end !important; }
   #slots-grid { grid-template-columns: repeat(3,1fr) !important; gap: 6px; }
   .slot-btn { font-size: 12px; padding: 10px 4px; }
 
-  /* Lightbox */
   .lightbox-close { top: 12px; right: 12px; font-size: 24px; }
-
-  /* Footer extra space for bottom bar */
-  .footer { padding-bottom: 96px; }
+  .footer { padding-bottom: 82px; }
 }
 
-@media (hover: none) {
-  .btn-book, .btn-map-card, .slot-btn { min-height: 44px; }
-}
+@media (hover: none) { .btn-book, .btn-book-compact, .btn-map-card, .slot-btn { min-height: 44px; } }
 </style>
 </head>
 <body>
 
-<header class="header">
-  <a href="https://myhqspaces.com" class="header-logo" target="_blank" rel="noopener" style="text-decoration:none">
-    <img src="/static/myhq-logo.svg" alt="myHQ" style="height:40px;width:auto" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
-    <span style="display:none;font-weight:800;font-size:20px;color:#1E22AA">myHQ</span>
+<!-- ── Header ── -->
+<header class="header" style="position:sticky">
+  <a href="https://myhqspaces.com" class="header-logo" target="_blank" rel="noopener">
+    <img src="/static/myhq-logo.svg" alt="myHQ" style="height:36px;width:auto"
+         onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+    <span style="display:none;font-weight:800;font-size:18px;color:#1E22AA">myHQ</span>
   </a>
-  {% if link.label %}
-  <span class="header-label">{{ link.label }}</span>
-  {% endif %}
+  <div class="header-center" id="header-title">
+    {{ centres|length }} workspace option{{ 's' if centres|length != 1 }}{% if link.label %} for {{ link.label }}{% endif %}
+  </div>
+  <div class="header-right">
+    <!-- My viewings (desktop) -->
+    <button class="btn-my-viewings-header" onclick="openSchedulePanel()">
+      📅 My viewings <span class="mv-count" id="hdr-mv-count"></span>
+    </button>
+    <!-- Agent pill (desktop) -->
+    <button class="agent-pill-header" onclick="toggleAgentPopup()">
+      <img src="/static/images/agent-arjun.jpg" class="agent-avatar-sm" alt="Arjun">
+      <span>Arjun</span>
+    </button>
+  </div>
+  <!-- Agent popup (both) -->
+  <div class="agent-popup" id="agent-popup">
+    <img src="/static/images/agent-arjun.jpg" class="agent-popup-photo" alt="Arjun">
+    <div class="agent-popup-name">Arjun</div>
+    <div class="agent-popup-role">myHQ Space Advisor</div>
+    <a href="tel:+447863754009" class="agent-popup-phone">📞 +44 7863 754009</a>
+  </div>
 </header>
 
-<main class="main">
-  <div class="page-intro">
-    <h1>Your Workspace Options</h1>
-    <p>{{ centres|length }} space{{ 's' if centres|length != 1 }} curated for you</p>
-  </div>
+<!-- Phone-only: Spaces / Map tabs -->
+<div class="phone-view-tabs" id="phone-view-tabs">
+  <button class="pvt-btn active" id="pvt-spaces" onclick="switchPhoneView('spaces')">
+    🏢 Spaces <span class="pvt-count" id="pvt-spaces-count">{{ centres|length }}</span>
+  </button>
+  <button class="pvt-btn" id="pvt-map" onclick="switchPhoneView('map')">
+    🗺 Map
+  </button>
+</div>
 
-  <!-- ── Map (desktop: inline hero; phone: full-screen overlay) ── -->
+<main class="main">
+
+  <!-- Map (desktop: inline; phone: controlled by tabs) -->
   <div id="map-section">
-    <!-- Phone-only top bar (hidden on desktop via CSS) -->
-    <div class="map-overlay-bar">
-      <button onclick="closeMapOverlay()">← List</button>
-      <span>All spaces on map</span>
-      <button class="map-book-btn" onclick="openSchedulePanel()">
-        Book viewings <span id="map-book-count">0</span>
-      </button>
-    </div>
     <div id="compare-map"></div>
   </div>
 
@@ -532,7 +427,7 @@ body {
     <button id="map-toggle-btn" onclick="toggleDesktopMap()">🗺 Hide map</button>
   </div>
 
-  <!-- Dismissed/Active tab switcher -->
+  <!-- Dismissed/active tabs -->
   <div class="tabs-row" id="tabs-row">
     <button class="tab-btn active" id="tab-active" onclick="showTab('active')">
       Spaces <span class="tab-count" id="tab-active-count">{{ centres|length }}</span>
@@ -542,31 +437,28 @@ body {
     </button>
   </div>
 
-  <!-- ── Space cards ── -->
+  <!-- Cards -->
   <div class="cards-grid" id="cards-grid">
     {% for c in centres %}
     <div class="space-card"
          data-centre-id="{{ c.id }}"
-         onclick="onCardClick('{{ c.id }}', {{ c.name|tojson }})">
+         data-centre-name="{{ c.name|e }}"
+         onclick="onCardClick(this)">
 
       <!-- Photo area -->
       <div class="photo-area" id="photo-area-{{ c.id }}" style="position:relative">
-        <button class="dismiss-btn" title="Remove" onclick="dismissCard('{{ c.id }}', event)">✕</button>
+        <button class="dismiss-btn" onclick="dismissCard('{{ c.id }}', event)" title="Remove">✕</button>
         {% if c.image_urls %}
           <img class="photo-main" id="main-img-{{ c.id }}"
                src="{{ c.image_urls[0] }}"
-               alt="{{ c.name }}"
+               alt="{{ c.name|e }}"
                onclick="openLightbox(this.src, event)">
           {% if c.image_urls|length > 1 %}
-          <div class="photo-thumbs">
-            {% for img_url in c.image_urls %}
-            <div class="photo-thumb {% if loop.first %}active{% endif %}" id="thumb-{{ c.id }}-{{ loop.index0 }}"
-                 onclick="switchPhoto('{{ c.id }}', {{ img_url|tojson }}, {{ loop.index0 }}, event)">
-              <img src="{{ img_url }}" alt="" loading="lazy">
-            </div>
-            {% endfor %}
-          </div>
+            <button class="photo-nav prev" onclick="navPhoto('{{ c.id }}', -1, {{ c.image_urls|length }}, event)">‹</button>
+            <button class="photo-nav next" onclick="navPhoto('{{ c.id }}', 1, {{ c.image_urls|length }}, event)">›</button>
+            <div class="photo-counter" id="photo-counter-{{ c.id }}">1 / {{ c.image_urls|length }}</div>
           {% endif %}
+
         {% else %}
           <div class="photo-placeholder">🏢</div>
         {% endif %}
@@ -574,9 +466,7 @@ body {
 
       <!-- Card body -->
       <div class="card-body">
-        {% if c.brand %}
-        <div class="card-brand">{{ c.brand }}</div>
-        {% endif %}
+        {% if c.brand %}<div class="card-brand">{{ c.brand }}</div>{% endif %}
         <div class="card-name">{{ c.name }}</div>
 
         {% if c.address %}
@@ -588,17 +478,26 @@ body {
         </div>
         {% if c.transport %}
         <div class="card-transport">
-          <small class="transport-line" data-transport="{{ c.transport }}"></small>
+          <small class="transport-line" data-transport="{{ c.transport|e }}"></small>
         </div>
         {% endif %}
         {% endif %}
 
         {% if c.price_from %}
-        <div class="card-meta">
-          <div class="meta-item">
+        <div class="card-price-row">
+          <div class="card-meta">
             <span class="meta-label">From</span>
-            <span class="meta-value price" style="font-size:20px">£{{ c.price_from }}<span style="font-size:12px;font-weight:700;color:#6B7280">/month</span></span>
+            <span class="meta-value price">£{{ c.price_from }}<span class="price-suffix">/month</span></span>
           </div>
+          <!-- Phone-only compact book button next to price (hidden on desktop via CSS) -->
+          <button class="btn-book-compact" id="book-compact-{{ c.id }}"
+                  data-cid="{{ c.id }}"
+                  data-cname="{{ c.name|e }}"
+                  data-img="{{ (c.image_urls[0] if c.image_urls else '')|e }}"
+                  data-price="{{ c.price_from or '' }}"
+                  onclick="handleBookClick(this, event)">
+            📅 Book
+          </button>
         </div>
         {% endif %}
 
@@ -611,8 +510,13 @@ body {
         {% endif %}
 
         <div class="card-actions">
+          <!-- Full Book a Viewing button (desktop visible; hidden on phone via CSS) -->
           <button class="btn-book" id="book-btn-{{ c.id }}"
-                  onclick="handleBookClick('{{ c.id }}', {{ c.name|tojson }}, {{ (c.image_urls[0] if c.image_urls else '')|tojson }}, {{ c.price_from|tojson }}, event)">
+                  data-cid="{{ c.id }}"
+                  data-cname="{{ c.name|e }}"
+                  data-img="{{ (c.image_urls[0] if c.image_urls else '')|e }}"
+                  data-price="{{ c.price_from or '' }}"
+                  onclick="handleBookClick(this, event)">
             📅 Book a Viewing
           </button>
           {% if c.map_url %}
@@ -627,14 +531,20 @@ body {
     </div>
     {% endfor %}
   </div>
+
 </main>
 
 <!-- Phone bottom bar -->
 <div class="mobile-bottom-bar">
-  <button id="phone-map-btn" onclick="openMapOverlay()">📍 Map</button>
-  <button id="phone-share-btn" onclick="sharePage()">⬆ Share</button>
+  <!-- Agent mini card -->
+  <div class="agent-mini" onclick="toggleAgentPopup()">
+    <img src="/static/images/agent-arjun.jpg" class="agent-mini-avatar" alt="Arjun">
+    <span>Your<br>advisor</span>
+  </div>
+  <!-- My viewings -->
   <button id="phone-book-btn" onclick="openSchedulePanel()">
-    📅 Book viewings <span id="phone-book-count"></span>
+    📅 My viewings
+    <span class="phone-count-badge" id="phone-mv-count"></span>
   </button>
 </div>
 
@@ -644,7 +554,7 @@ body {
   <img id="lightbox-img" src="" alt="">
 </div>
 
-<!-- Desktop booking modal (per-space date picker) -->
+<!-- Desktop booking modal -->
 <div id="booking-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:20px;padding:32px;max-width:440px;width:90%;max-height:90vh;overflow-y:auto">
     <h2 style="font-size:20px;font-weight:700;color:#1A1A2E;margin-bottom:4px">Book a Viewing</h2>
@@ -676,14 +586,14 @@ body {
   </div>
 </div>
 
-<!-- Schedule panel (phone: batch book viewings) -->
+<!-- My Viewings panel (both desktop + phone) -->
 <div id="schedule-panel" onclick="closeSchedulePanel()">
   <div id="schedule-sheet" onclick="event.stopPropagation()">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-      <h2 style="font-size:18px;font-weight:800;color:#1A1A2E">Your viewing schedule</h2>
+      <h2 style="font-size:18px;font-weight:800;color:#1A1A2E">My Viewings</h2>
       <button onclick="closeSchedulePanel()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#9CA3AF;padding:4px 8px;line-height:1">×</button>
     </div>
-    <p id="sched-subtitle" style="font-size:13px;color:#6B7280;margin-bottom:16px">0 spaces</p>
+    <p id="sched-subtitle" style="font-size:13px;color:#6B7280;margin-bottom:16px">No viewings yet</p>
     <div id="sched-list"></div>
     <div id="sched-empty" style="text-align:center;padding:28px 0;color:#9CA3AF">
       <div style="font-size:36px;margin-bottom:10px">📅</div>
@@ -692,7 +602,7 @@ body {
     <div id="sched-success" style="display:none;text-align:center;padding:28px 0">
       <div style="font-size:48px;margin-bottom:12px">✅</div>
       <h3 style="font-size:18px;font-weight:700;color:#1A1A2E;margin-bottom:8px">Viewing Request Sent!</h3>
-      <p style="color:#6B7280;font-size:14px;line-height:1.6">Our team will reach out shortly to arrange your viewings.</p>
+      <p style="color:#6B7280;font-size:14px;line-height:1.6">Our team will reach out to arrange your viewings.</p>
     </div>
     <button id="sched-book-all-btn" class="btn-book-all" onclick="bookAllViewings()" disabled>
       Book viewings for me
@@ -704,8 +614,9 @@ body {
 </div>
 
 <footer class="footer">
-  <a href="https://myhqspaces.com" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none">
-    <img src="/static/myhq-logo.svg" alt="myHQ" style="height:34px;width:auto;opacity:0.85" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
+  <a href="https://myhqspaces.com" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block">
+    <img src="/static/myhq-logo.svg" alt="myHQ" style="height:32px;width:auto;opacity:0.8"
+         onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
     <strong style="display:none;color:#1E22AA">myHQ</strong>
   </a>
 </footer>
@@ -713,6 +624,19 @@ body {
 <script>
 const TOKEN = {{ token|tojson }};
 const pageStart = Date.now();
+
+// ── Centre data (for JS lookups, avoids onclick attribute escaping issues) ──
+const _cd = {}; // centreId → {name, img, price}
+{% for c in centres %}
+_cd[{{ c.id|tojson }}] = {name:{{ c.name|tojson }}, img:{{ (c.image_urls[0] if c.image_urls else '')|tojson }}, price:{{ c.price_from|tojson }}};
+{% endfor %}
+
+// ── Photo URL data ──
+const _photoUrls = {};
+{% for c in centres %}{% if c.image_urls|length > 1 %}
+_photoUrls[{{ c.id|tojson }}] = {{ c.image_urls|tojson }};
+{% endif %}{% endfor %}
+const _photoIdx = {};
 
 // ── Tracking ──
 function post(url, data, useBeacon) {
@@ -728,9 +652,11 @@ window.addEventListener('beforeunload', () => {
 });
 
 // ── Card click ──
-function onCardClick(centreId, centreName) {
-  post('/track', {token:TOKEN, event_type:'click', centre_id:centreId, centre_name:centreName});
-  highlightOnMap(centreId);
+function onCardClick(card) {
+  const id = card.dataset.centreId;
+  const name = card.dataset.centreName;
+  post('/track', {token:TOKEN, event_type:'click', centre_id:id, centre_name:name});
+  highlightOnMap(id);
 }
 
 // ── Dismiss card ──
@@ -739,7 +665,7 @@ function dismissCard(centreId, ev) {
   ev.stopPropagation();
   _dismissed.add(String(centreId));
   const card = document.querySelector(`[data-centre-id="${centreId}"]`);
-  if (card) { card.style.opacity='0'; setTimeout(()=>card.style.display='none', 250); }
+  if (card) { card.style.transition='opacity 0.2s'; card.style.opacity='0'; setTimeout(()=>card.style.display='none', 220); }
   if (_schedule.has(String(centreId))) { _schedule.delete(String(centreId)); updateScheduleCount(); }
   post('/track', {token:TOKEN, event_type:'dismissed', centre_id:centreId});
   _updateTabs();
@@ -756,19 +682,19 @@ function showTab(tab) {
   document.getElementById('tab-dismissed').classList.toggle('active', tab==='dismissed');
   document.querySelectorAll('.space-card').forEach(card => {
     const id = card.dataset.centreId;
-    card.style.display = (tab==='active') ? (_dismissed.has(id)?'none':'') : (_dismissed.has(id)?'':'none');
     card.style.opacity = '';
+    card.style.display = (tab==='active') ? (_dismissed.has(id)?'none':'') : (_dismissed.has(id)?'':'none');
   });
 }
 
-// ── Tube lines ──
+// ── Tube line indicators ──
 const _TUBE = {
   'bank':{c:'#E32017',l:'Central'},'st paul':{c:'#E32017',l:'Central'},'liverpool st':{c:'#E32017',l:'Central'},
   'oxford circus':{c:'#E32017',l:'Central'},'tottenham court':{c:'#E32017',l:'Central'},'holborn':{c:'#E32017',l:'Central'},
   'notting hill':{c:'#E32017',l:'Central'},'bethnal green':{c:'#E32017',l:'Central'},'stratford':{c:'#E32017',l:'Central'},
-  'waterloo':{c:'#A0A5A9',l:'Jubilee'},'london bridge':{c:'#000000',l:'Northern'},'canary wharf':{c:'#A0A5A9',l:'Jubilee'},
-  'bermondsey':{c:'#A0A5A9',l:'Jubilee'},'southwark':{c:'#A0A5A9',l:'Jubilee'},'green park':{c:'#A0A5A9',l:'Jubilee'},
-  'westminster':{c:'#A0A5A9',l:'Jubilee'},'bond street':{c:'#A0A5A9',l:'Jubilee'},
+  'mile end':{c:'#E32017',l:'Central'},'waterloo':{c:'#A0A5A9',l:'Jubilee'},'london bridge':{c:'#000000',l:'Northern'},
+  'canary wharf':{c:'#A0A5A9',l:'Jubilee'},'bermondsey':{c:'#A0A5A9',l:'Jubilee'},'southwark':{c:'#A0A5A9',l:'Jubilee'},
+  'green park':{c:'#A0A5A9',l:'Jubilee'},'westminster':{c:'#A0A5A9',l:'Jubilee'},'bond street':{c:'#A0A5A9',l:'Jubilee'},
   'leicester square':{c:'#003688',l:'Piccadilly'},'covent garden':{c:'#003688',l:'Piccadilly'},
   'knightsbridge':{c:'#003688',l:'Piccadilly'},"king's cross":{c:'#003688',l:'Piccadilly'},
   'victoria':{c:'#0098D4',l:'Victoria'},'brixton':{c:'#0098D4',l:'Victoria'},'vauxhall':{c:'#0098D4',l:'Victoria'},
@@ -787,7 +713,6 @@ const _TUBE = {
   'lambeth':{c:'#B36305',l:'Bakerloo'},'charing cross':{c:'#B36305',l:'Bakerloo'},
   'city airport':{c:'#00A4A7',l:'DLR'},'overground':{c:'#EE7C0E',l:'Overground'},
   'dlr':{c:'#00A4A7',l:'DLR'},'elizabeth':{c:'#6950A1',l:'Elizabeth'},
-  'mile end':{c:'#E32017',l:'Central'}
 };
 document.querySelectorAll('.transport-line').forEach(el => {
   const t = el.dataset.transport || '';
@@ -800,33 +725,171 @@ document.querySelectorAll('.transport-line').forEach(el => {
   el.innerHTML = dot + ' ' + t;
 });
 
-// ── Desktop booking modal ──
-let _bookingId=null, _bookingName=null, _calYear, _calMonth, _selDate=null;
-
-function handleBookClick(centreId, centreName, imgUrl, priceFrom, ev) {
+// ── Photo navigation ──
+function navPhoto(centreId, dir, total, ev) {
   ev.stopPropagation();
+  const idx = ((_photoIdx[centreId] || 0) + dir + total) % total;
+  _photoIdx[centreId] = idx;
+  _applyPhoto(centreId, idx, total);
+}
+function _applyPhoto(centreId, idx, total) {
+  const urls = _photoUrls[centreId];
+  if (!urls) return;
+  const img = document.getElementById('main-img-' + centreId);
+  if (img) img.src = urls[idx];
+  const counter = document.getElementById('photo-counter-' + centreId);
+  if (counter) counter.textContent = (idx+1) + ' / ' + total;
+}
+// Touch swipe support
+document.querySelectorAll('.photo-area').forEach(area => {
+  const cid = area.id.replace('photo-area-', '');
+  if (!_photoUrls[cid]) return;
+  let tx = 0;
+  area.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, {passive:true});
+  area.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - tx;
+    if (Math.abs(dx) > 40) navPhoto(cid, dx < 0 ? 1 : -1, _photoUrls[cid].length, e);
+  }, {passive:true});
+});
+
+// ── Book a Viewing: desktop = modal, phone = schedule toggle ──
+const _schedule = new Map(); // id → {id,name,img,price,date,time}
+
+function handleBookClick(btn, ev) {
+  ev.stopPropagation();
+  const id = btn.dataset.cid;
+  const name = btn.dataset.cname;
+  const img = btn.dataset.img;
+  const price = btn.dataset.price;
   if (window.innerWidth <= 640) {
-    toggleSchedule(centreId, centreName, imgUrl, priceFrom);
+    toggleSchedule(id, name, img, price);
   } else {
-    openBooking(centreId, centreName, ev);
+    openBooking(id, name, null);
   }
 }
 
-function openBooking(centreId, centreName, ev) {
+// ── Schedule system ──
+function toggleSchedule(id, name, img, price) {
+  const sid = String(id);
+  const mainBtn = document.getElementById('book-btn-' + id);
+  const compactBtn = document.getElementById('book-compact-' + id);
+  if (_schedule.has(sid)) {
+    _schedule.delete(sid);
+    if (mainBtn) { mainBtn.textContent = '📅 Book a Viewing'; mainBtn.classList.remove('scheduled'); }
+    if (compactBtn) { compactBtn.textContent = '📅 Book'; compactBtn.classList.remove('scheduled'); }
+  } else {
+    _schedule.set(sid, {id, name, img, price: price||null, date:null, time:null});
+    if (mainBtn) { mainBtn.textContent = '✓ Added'; mainBtn.classList.add('scheduled'); }
+    if (compactBtn) { compactBtn.textContent = '✓ Added'; compactBtn.classList.add('scheduled'); }
+    post('/track', {token:TOKEN, event_type:'click', centre_id:id, centre_name:name});
+  }
+  updateScheduleCount();
+}
+
+function updateScheduleCount() {
+  const n = _schedule.size;
+  const label = n > 0 ? String(n) : '';
+  // Header button (desktop)
+  const hdrCount = document.getElementById('hdr-mv-count');
+  if (hdrCount) { hdrCount.textContent = label; hdrCount.classList.toggle('visible', n > 0); }
+  // Phone badge
+  const phoneBadge = document.getElementById('phone-mv-count');
+  if (phoneBadge) { phoneBadge.textContent = label; phoneBadge.classList.toggle('visible', n > 0); }
+}
+
+function openSchedulePanel() {
+  renderScheduleList();
+  document.getElementById('sched-success').style.display = 'none';
+  document.getElementById('sched-book-all-btn').style.display = '';
+  document.getElementById('sched-list').style.display = '';
+  document.getElementById('schedule-panel').classList.add('open');
+}
+function closeSchedulePanel() {
+  document.getElementById('schedule-panel').classList.remove('open');
+  _editingSchedId = null;
+}
+function renderScheduleList() {
+  const list = document.getElementById('sched-list');
+  const empty = document.getElementById('sched-empty');
+  const subtitle = document.getElementById('sched-subtitle');
+  const btn = document.getElementById('sched-book-all-btn');
+  const n = _schedule.size;
+  subtitle.textContent = n + ' space' + (n!==1?'s':'') + ' scheduled';
+  btn.textContent = 'Book ' + n + ' viewing' + (n!==1?'s':'') + ' for me';
+  btn.disabled = n === 0;
+  empty.style.display = n === 0 ? '' : 'none';
+  list.innerHTML = '';
+  _schedule.forEach((c, sid) => {
+    const priceText = c.price ? `£${Number(c.price).toLocaleString()}/mo excl. VAT` : '';
+    const dateText = c.date ? `📅 ${c.date}${c.time ? ' at ' + c.time : ''}` : '';
+    const row = document.createElement('div');
+    row.className = 'sched-row';
+    row.id = 'sched-row-' + sid;
+    row.innerHTML = `
+      <div class="sched-thumb">
+        ${c.img ? `<img src="${c.img.replace(/"/g,'&quot;')}" alt="">` : '🏢'}
+      </div>
+      <div class="sched-info">
+        <div class="sched-name">${c.name.replace(/</g,'&lt;')}</div>
+        ${priceText ? `<div class="sched-price">${priceText}</div>` : ''}
+        ${dateText ? `<div class="sched-date">${dateText}</div>` : '<div class="sched-date" style="color:#9CA3AF">No date set yet</div>'}
+      </div>
+      <div class="sched-actions">
+        <button class="sched-edit" onclick="editSchedDate('${sid}')" title="Edit date">✏️</button>
+        <button class="sched-del" onclick="removeFromSchedule('${sid}')" title="Remove">🗑</button>
+      </div>`;
+    list.appendChild(row);
+  });
+}
+function removeFromSchedule(sid) {
+  _schedule.delete(sid);
+  const mainBtn = document.getElementById('book-btn-' + sid);
+  const compactBtn = document.getElementById('book-compact-' + sid);
+  if (mainBtn) { mainBtn.textContent = '📅 Book a Viewing'; mainBtn.classList.remove('scheduled'); }
+  if (compactBtn) { compactBtn.textContent = '📅 Book'; compactBtn.classList.remove('scheduled'); }
+  updateScheduleCount();
+  renderScheduleList();
+}
+function bookAllViewings() {
+  _schedule.forEach(c => {
+    post('/track', {token:TOKEN, event_type:'booking_request', centre_id:c.id, centre_name:c.name,
+      dwell_seconds:0, booking_date:c.date||'tbd', booking_time:c.time||'tbd'});
+  });
+  document.getElementById('sched-list').style.display = 'none';
+  document.getElementById('sched-book-all-btn').style.display = 'none';
+  document.getElementById('sched-empty').style.display = 'none';
+  document.getElementById('sched-success').style.display = 'block';
+}
+
+// ── Edit schedule date (re-use booking modal) ──
+let _editingSchedId = null;
+function editSchedDate(sid) {
+  const c = _schedule.get(sid);
+  if (!c) return;
+  _editingSchedId = sid;
+  closeSchedulePanel();
+  openBooking(c.id, c.name, null);
+}
+
+// ── Desktop booking modal ──
+let _bookingId=null, _bookingName=null, _calYear, _calMonth, _selDate=null;
+function openBooking(id, name, ev) {
   if (ev) ev.stopPropagation();
-  _bookingId=centreId; _bookingName=centreName; _selDate=null;
-  document.getElementById('booking-space-name').textContent = centreName;
+  _bookingId=id; _bookingName=name; _selDate=null;
+  document.getElementById('booking-space-name').textContent = name;
   document.getElementById('time-slots').style.display='none';
   document.getElementById('booking-step-1').style.display='block';
   document.getElementById('booking-confirm').style.display='none';
-  document.getElementById('booking-btns').innerHTML =
+  document.getElementById('booking-btns').innerHTML=
     '<button onclick="closeBooking()" style="flex:1;padding:12px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;color:#374151;font-size:14px;font-weight:600;cursor:pointer">Cancel</button>';
   document.getElementById('booking-modal').style.display='flex';
   const now = new Date(); _calYear=now.getFullYear(); _calMonth=now.getMonth();
   renderCal();
 }
-function closeBooking() { document.getElementById('booking-modal').style.display='none'; }
-
+function closeBooking() {
+  document.getElementById('booking-modal').style.display='none';
+  if (_editingSchedId) { openSchedulePanel(); _editingSchedId=null; }
+}
 function calNav(dir) {
   _calMonth+=dir;
   if(_calMonth<0){_calMonth=11;_calYear--;}
@@ -867,115 +930,49 @@ function pickSlot(btn, time) {
     <button onclick="confirmBooking('${_selDate}','${time}')" style="flex:2;padding:12px;border:none;border-radius:10px;background:#1E22AA;color:#fff;font-size:14px;font-weight:700;cursor:pointer">Confirm Viewing →</button>`;
 }
 function confirmBooking(date, time) {
-  post('/track',{token:TOKEN,event_type:'booking_request',centre_id:_bookingId,centre_name:_bookingName,dwell_seconds:0,booking_date:date,booking_time:time});
+  // Save to schedule (adds if not present, updates if editing)
+  const sid = String(_bookingId);
+  const existingData = _schedule.get(sid) || {id:_bookingId, name:_bookingName, img:(_cd[_bookingId]||{}).img||'', price:(_cd[_bookingId]||{}).price||null};
+  _schedule.set(sid, {...existingData, date, time});
+  updateScheduleCount();
+  // Update book buttons
+  const mainBtn = document.getElementById('book-btn-' + _bookingId);
+  const compactBtn = document.getElementById('book-compact-' + _bookingId);
+  if (mainBtn) { mainBtn.textContent = '✓ Viewing Booked'; mainBtn.classList.add('scheduled'); }
+  if (compactBtn) { compactBtn.textContent = '✓ Booked'; compactBtn.classList.add('scheduled'); }
+  // Post tracking
+  post('/track', {token:TOKEN, event_type:'booking_request', centre_id:_bookingId, centre_name:_bookingName, dwell_seconds:0, booking_date:date, booking_time:time});
   document.getElementById('booking-step-1').style.display='none';
   document.getElementById('booking-confirm').style.display='block';
   document.getElementById('booking-btns').innerHTML=
     '<button onclick="closeBooking()" style="flex:1;padding:12px;border:none;border-radius:10px;background:#1E22AA;color:#fff;font-size:14px;font-weight:700;cursor:pointer">Done</button>';
 }
 
-// ── Schedule (phone) ──
-const _schedule = new Map(); // id → {id,name,img,price}
-
-function toggleSchedule(centreId, centreName, imgUrl, priceFrom) {
-  const id = String(centreId);
-  const btn = document.getElementById('book-btn-' + centreId);
-  if (_schedule.has(id)) {
-    _schedule.delete(id);
-    if (btn) { btn.textContent='📅 Book a Viewing'; btn.classList.remove('scheduled'); }
-  } else {
-    _schedule.set(id, {id:centreId, name:centreName, img:imgUrl, price:priceFrom});
-    if (btn) { btn.textContent='✓ Added to Schedule'; btn.classList.add('scheduled'); }
-    post('/track',{token:TOKEN,event_type:'click',centre_id:centreId,centre_name:centreName});
+// ── Phone tab switching ──
+let _phoneView = 'spaces';
+function switchPhoneView(view) {
+  _phoneView = view;
+  const isSpaces = view === 'spaces';
+  document.getElementById('pvt-spaces').classList.toggle('active', isSpaces);
+  document.getElementById('pvt-map').classList.toggle('active', !isSpaces);
+  document.getElementById('cards-grid').style.display = isSpaces ? '' : 'none';
+  document.getElementById('tabs-row').style.display = isSpaces && _dismissed.size > 0 ? 'flex' : 'none';
+  const mapSec = document.getElementById('map-section');
+  mapSec.classList.toggle('phone-map-active', !isSpaces);
+  if (!isSpaces && _compareMap) {
+    setTimeout(() => _compareMap.invalidateSize(), 60);
   }
-  updateScheduleCount();
-}
-
-function updateScheduleCount() {
-  const n = _schedule.size;
-  const label = n > 0 ? String(n) : '';
-  document.getElementById('phone-book-count').textContent = label;
-  const mc = document.getElementById('map-book-count');
-  if (mc) mc.textContent = label;
-}
-
-function openSchedulePanel() {
-  renderScheduleList();
-  document.getElementById('sched-success').style.display='none';
-  document.getElementById('sched-book-all-btn').style.display='';
-  document.getElementById('sched-list').style.display='';
-  document.getElementById('schedule-panel').classList.add('open');
-}
-function closeSchedulePanel() {
-  document.getElementById('schedule-panel').classList.remove('open');
-}
-function renderScheduleList() {
-  const list = document.getElementById('sched-list');
-  const empty = document.getElementById('sched-empty');
-  const subtitle = document.getElementById('sched-subtitle');
-  const bookBtn = document.getElementById('sched-book-all-btn');
-  const n = _schedule.size;
-  subtitle.textContent = n + ' space' + (n!==1?'s':'') + ' selected';
-  bookBtn.textContent = `Book ${n} viewing${n!==1?'s':''} for me`;
-  bookBtn.disabled = n === 0;
-  empty.style.display = n === 0 ? '' : 'none';
-  list.innerHTML = '';
-  _schedule.forEach((c, id) => {
-    const priceText = c.price ? `£${Number(c.price).toLocaleString()}/mo excl. VAT` : '';
-    const row = document.createElement('div');
-    row.className = 'sched-row';
-    row.innerHTML = `
-      <div class="sched-thumb">
-        ${c.img ? `<img src="${c.img}" alt="${c.name.replace(/"/g,'')}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">` : '🏢'}
-      </div>
-      <div class="sched-info">
-        <div class="sched-name">${c.name}</div>
-        ${priceText ? `<div class="sched-price">${priceText}</div>` : ''}
-      </div>
-      <button class="sched-del" onclick="removeFromSchedule('${id}')">🗑</button>`;
-    list.appendChild(row);
-  });
-}
-function removeFromSchedule(id) {
-  _schedule.delete(id);
-  const btn = document.getElementById('book-btn-' + id);
-  if (btn) { btn.textContent='📅 Book a Viewing'; btn.classList.remove('scheduled'); }
-  updateScheduleCount();
-  renderScheduleList();
-}
-function bookAllViewings() {
-  _schedule.forEach(c => {
-    post('/track',{token:TOKEN,event_type:'booking_request',centre_id:c.id,centre_name:c.name,dwell_seconds:0,booking_date:'tbd',booking_time:'tbd'});
-  });
-  document.getElementById('sched-list').style.display='none';
-  document.getElementById('sched-book-all-btn').style.display='none';
-  document.getElementById('sched-empty').style.display='none';
-  document.getElementById('sched-success').style.display='block';
-}
-
-// ── Map overlay (phone) ──
-function openMapOverlay() {
-  document.getElementById('map-section').classList.add('map-open');
-  if (_compareMap) setTimeout(()=>_compareMap.invalidateSize(), 380);
-}
-function closeMapOverlay() {
-  document.getElementById('map-section').classList.remove('map-open');
 }
 
 // ── Desktop map toggle ──
 let _mapVisible = true;
 function toggleDesktopMap() {
   _mapVisible = !_mapVisible;
-  const btn = document.getElementById('map-toggle-btn');
   const mapEl = document.getElementById('compare-map');
-  if (_mapVisible) {
-    mapEl.classList.remove('hidden');
-    btn.textContent = '🗺 Hide map';
-    if (_compareMap) setTimeout(()=>_compareMap.invalidateSize(), 320);
-  } else {
-    mapEl.classList.add('hidden');
-    btn.textContent = '🗺 Show map';
-  }
+  const btn = document.getElementById('map-toggle-btn');
+  mapEl.classList.toggle('hidden', !_mapVisible);
+  btn.textContent = _mapVisible ? '🗺 Hide map' : '🗺 Show map';
+  if (_mapVisible && _compareMap) setTimeout(()=>_compareMap.invalidateSize(), 320);
 }
 
 // ── Map with price pins ──
@@ -989,115 +986,129 @@ let _activePinEl = null;
   if (!pts.length) {
     document.getElementById('map-section').style.display = 'none';
     document.querySelector('.map-toggle-row').style.display = 'none';
+    const pvtMap = document.getElementById('pvt-map');
+    if (pvtMap) pvtMap.style.display = 'none';
     return;
   }
-
   _compareMap = L.map('compare-map', {zoomControl:true, scrollWheelZoom:false});
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
     {attribution:'© OpenStreetMap © CartoDB', maxZoom:18}).addTo(_compareMap);
 
   const bounds = [];
   pts.forEach(c => {
-    const parts = c.coordinates.split(';');
+    const parts = (c.coordinates||'').split(';');
     if (parts.length < 2) return;
     const lng = parseFloat(parts[0]), lat = parseFloat(parts[1]);
-    if (isNaN(lat) || isNaN(lng)) return;
-    bounds.push([lat, lng]);
+    if (isNaN(lat)||isNaN(lng)) return;
+    bounds.push([lat,lng]);
 
-    const priceText = c.price_from
-      ? `£${Number(c.price_from).toLocaleString()}/mo`
-      : (c.name.length > 14 ? c.name.substring(0,14)+'…' : c.name);
-
+    const priceText = c.price_from ? `£${Number(c.price_from).toLocaleString()}/mo` : (c.name.substring(0,14)||'');
     const icon = L.divIcon({
       className: 'price-pin-icon',
-      html: `<span class="price-pin-label">${priceText}</span>`,
-      iconSize: null,
-      iconAnchor: null
+      html: `<span class="price-pin-label" id="pin-label-${c.id}">${priceText}</span>`,
+      iconSize: null, iconAnchor: null
     });
 
     const imgHtml = (c.image_urls && c.image_urls.length)
-      ? `<img src="${c.image_urls[0]}" style="width:100%;height:90px;object-fit:cover;display:block">`
+      ? `<img src="${c.image_urls[0]}" style="width:100%;height:88px;object-fit:cover;display:block">`
       : '';
-    const popup = L.popup({maxWidth:210, minWidth:200, closeButton:false})
-      .setContent(`<div style="width:200px;font-family:'Plus Jakarta Sans',sans-serif;overflow:hidden;border-radius:12px">
-        ${imgHtml}
-        <div style="padding:10px 12px">
-          <div style="font-weight:700;font-size:13px;color:#1A1A2E;line-height:1.3;margin-bottom:4px">${c.name}</div>
-          ${c.price_from ? `<div style="font-size:14px;font-weight:700;color:#1E22AA">£${Number(c.price_from).toLocaleString()}<span style="font-size:11px;font-weight:600;color:#6B7280">/month</span></div>` : ''}
-          ${c.address ? `<div style="font-size:11px;color:#6B7280;margin-top:4px">${c.address}</div>` : ''}
-        </div>
-      </div>`);
+    const popupHtml = `<div style="width:200px;font-family:'Plus Jakarta Sans',sans-serif;position:relative">
+      <button onclick="closeActivePopup()" style="position:absolute;top:6px;right:6px;z-index:2;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.45);border:none;color:#fff;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;line-height:1">×</button>
+      ${imgHtml}
+      <div style="padding:10px 12px 12px">
+        <div style="font-weight:700;font-size:13px;color:#1A1A2E;line-height:1.3;margin-bottom:4px">${c.name}</div>
+        ${c.price_from ? `<div style="font-size:13px;font-weight:700;color:#1E22AA">£${Number(c.price_from).toLocaleString()}<span style="font-size:11px;color:#6B7280">/mo</span></div>` : ''}
+        ${c.address ? `<div style="font-size:11px;color:#6B7280;margin-top:3px">${c.address}</div>` : ''}
+        <button onclick="popupBook('${c.id}')" id="popup-book-${c.id}" style="margin-top:8px;width:100%;padding:7px 10px;border-radius:8px;border:none;background:#1E22AA;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif">📅 Book a Viewing</button>
+      </div>
+    </div>`;
 
-    const marker = L.marker([lat, lng], {icon}).addTo(_compareMap).bindPopup(popup);
+    const marker = L.marker([lat,lng], {icon}).addTo(_compareMap)
+      .bindPopup(popupHtml, {maxWidth:220, closeButton:false});
 
     marker.on('click', () => {
       post('/track', {token:TOKEN, event_type:'click', centre_id:String(c.id), centre_name:c.name});
-      // Highlight card
-      document.querySelectorAll('.space-card').forEach(el => el.classList.remove('map-highlight'));
+      document.querySelectorAll('.space-card').forEach(el=>el.classList.remove('map-highlight'));
       const card = document.querySelector(`[data-centre-id="${c.id}"]`);
       if (card) {
         card.classList.add('map-highlight');
         if (window.innerWidth > 640) card.scrollIntoView({behavior:'smooth', block:'nearest'});
-        setTimeout(() => card.classList.remove('map-highlight'), 2500);
+        setTimeout(()=>card.classList.remove('map-highlight'), 2500);
       }
-      // Highlight pin
       if (_activePinEl) _activePinEl.classList.remove('pin-active');
-      const pinEl = marker.getElement()?.querySelector('.price-pin-label');
-      if (pinEl) { pinEl.classList.add('pin-active'); _activePinEl = pinEl; }
+      _activePinEl = document.getElementById('pin-label-' + c.id);
+      if (_activePinEl) _activePinEl.classList.add('pin-active');
+    });
+    marker.on('popupclose', () => {
+      const pinEl = document.getElementById('pin-label-' + c.id);
+      if (pinEl) pinEl.classList.remove('pin-active');
+      if (_activePinEl === pinEl) _activePinEl = null;
     });
 
     _mapMarkers[String(c.id)] = marker;
   });
-
   if (bounds.length) _compareMap.fitBounds(bounds, {padding:[50,50], maxZoom:14});
 })();
 
+function closeActivePopup() {
+  if (_compareMap) _compareMap.closePopup();
+  if (_activePinEl) { _activePinEl.classList.remove('pin-active'); _activePinEl = null; }
+}
+function popupBook(id) {
+  const c = _cd[id] || {};
+  if (window.innerWidth <= 640) {
+    toggleSchedule(id, c.name||'', c.img||'', c.price||null);
+    // Update popup button
+    const pb = document.getElementById('popup-book-' + id);
+    if (pb) { pb.textContent = _schedule.has(String(id)) ? '✓ Added' : '📅 Book a Viewing'; pb.style.background = _schedule.has(String(id)) ? '#059669' : '#1E22AA'; }
+  } else {
+    closeActivePopup();
+    openBooking(id, c.name||'', null);
+  }
+}
+
 function highlightOnMap(centreId) {
-  if (window.innerWidth <= 640) return; // on phone, map is in overlay
+  if (window.innerWidth <= 640) return;
   const marker = _mapMarkers[String(centreId)];
   if (!marker || !_compareMap) return;
   _compareMap.setView(marker.getLatLng(), 15, {animate:true});
   marker.openPopup();
   if (_activePinEl) _activePinEl.classList.remove('pin-active');
-  const pinEl = marker.getElement()?.querySelector('.price-pin-label');
-  if (pinEl) { pinEl.classList.add('pin-active'); _activePinEl = pinEl; }
-}
-
-// ── Photo carousel ──
-function switchPhoto(centreId, url, idx, ev) {
-  ev.stopPropagation();
-  const img = document.getElementById('main-img-' + centreId);
-  if (img) img.src = url;
-  document.getElementById('photo-area-' + centreId)
-    .querySelectorAll('.photo-thumb')
-    .forEach((t,i) => t.classList.toggle('active', i===idx));
+  _activePinEl = document.getElementById('pin-label-' + centreId);
+  if (_activePinEl) _activePinEl.classList.add('pin-active');
 }
 
 // ── Lightbox ──
-function openLightbox(src, ev) {
-  ev.stopPropagation();
-  document.getElementById('lightbox-img').src = src;
-  document.getElementById('lightbox').classList.add('open');
-}
+function openLightbox(src, ev) { ev.stopPropagation(); document.getElementById('lightbox-img').src=src; document.getElementById('lightbox').classList.add('open'); }
 function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { closeLightbox(); closeBooking(); closeSchedulePanel(); closeMapOverlay(); }
-});
 
-// ── Share page ──
-function sharePage() {
-  const url = window.location.href;
-  if (navigator.share) {
-    navigator.share({title:'Workspace recommendations – myHQ', url}).catch(()=>{});
-  } else {
-    navigator.clipboard.writeText(url).then(() => {
-      const btn = document.getElementById('phone-share-btn');
-      const orig = btn.innerHTML;
-      btn.textContent = '✓ Copied!';
-      setTimeout(() => btn.innerHTML = orig, 2000);
-    });
+// ── Agent popup ──
+function toggleAgentPopup() {
+  const popup = document.getElementById('agent-popup');
+  popup.classList.toggle('open');
+  if (popup.classList.contains('open')) {
+    setTimeout(() => document.addEventListener('click', _closeAgentOnOutside, {once:true}), 50);
   }
 }
+function _closeAgentOnOutside(e) {
+  const popup = document.getElementById('agent-popup');
+  if (!popup.contains(e.target)) popup.classList.remove('open');
+}
+
+// ── Keyboard shortcuts ──
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeLightbox(); closeBooking(); closeSchedulePanel(); closeActivePopup(); document.getElementById('agent-popup').classList.remove('open'); }
+});
+
+// ── Close agent popup on outside click (desktop) ──
+document.addEventListener('click', e => {
+  const popup = document.getElementById('agent-popup');
+  const pill = document.querySelector('.agent-pill-header');
+  const mini = document.querySelector('.agent-mini');
+  if (popup.classList.contains('open') && !popup.contains(e.target) && e.target !== pill && !pill?.contains(e.target) && e.target !== mini && !mini?.contains(e.target)) {
+    popup.classList.remove('open');
+  }
+});
 
 // ── Keep Railway warm ──
 setInterval(() => fetch('/health').catch(()=>{}), 240000);
