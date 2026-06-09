@@ -51,10 +51,10 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 }
 .agent-pill-header span { font-size: 13px; font-weight: 600; color: #4B4F6A; }
 
-/* Agent popup */
+/* Agent popup — position:fixed in root stacking context, always above map */
 .agent-popup {
   display: none; position: fixed; top: 68px; right: 16px; z-index: 9500;
-  background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+  background: #fff; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.18);
   border: 1px solid #E8E9F3; padding: 20px; width: 240px;
 }
 .agent-popup.open { display: block; }
@@ -141,6 +141,11 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 .photo-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #E8E9F3, #D0D3F0); color: #8B90B0; font-size: 40px; }
 .dismiss-btn { position: absolute; top: 8px; right: 8px; z-index: 10; width: 28px; height: 28px; border-radius: 50%; background: rgba(0,0,0,0.45); border: none; color: #fff; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
 .dismiss-btn:hover { background: rgba(0,0,0,0.7); }
+.restore-btn { position: absolute; top: 8px; right: 8px; z-index: 10; display: none; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 20px; background: #1E22AA; border: none; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: background 0.15s; }
+.restore-btn:hover { background: #181c96; }
+/* In removed tab: flip visibility of dismiss ↔ restore buttons */
+.cards-grid.removed-view .dismiss-btn { display: none !important; }
+.cards-grid.removed-view .restore-btn { display: flex !important; }
 
 /* Card body */
 .card-body { padding: 16px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
@@ -396,19 +401,20 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
       <span>Contact Arjun</span>
     </button>
   </div>
-  <!-- Agent popup (both) -->
-  <div class="agent-popup" id="agent-popup">
-    <img src="/static/images/agent-arjun.jpg" class="agent-popup-photo" alt="Arjun">
-    <div class="agent-popup-name">Arjun</div>
-    <div class="agent-popup-role">Talk to an expert</div>
-    <a href="tel:+447863754009" class="agent-popup-phone">📞 +44 7863 754009</a>
-  </div>
 </header>
+
+<!-- Agent popup — OUTSIDE header so it isn't trapped in header's stacking context -->
+<div class="agent-popup" id="agent-popup">
+  <img src="/static/images/agent-arjun.jpg" class="agent-popup-photo" alt="Arjun">
+  <div class="agent-popup-name">Arjun</div>
+  <div class="agent-popup-role">Talk to an expert</div>
+  <a href="tel:+447863754009" class="agent-popup-phone">📞 +44 7863 754009</a>
+</div>
 
 <!-- Phone-only: Spaces / Map tabs -->
 <div class="phone-view-tabs" id="phone-view-tabs">
   <button class="pvt-btn active" id="pvt-spaces" onclick="switchPhoneView('spaces')">
-    🏢 Spaces <span class="pvt-count" id="pvt-spaces-count">{{ centres|length }}</span>
+    🏢 Shortlist <span class="pvt-count" id="pvt-spaces-count">{{ centres|length }}</span>
   </button>
   <button class="pvt-btn" id="pvt-map" onclick="switchPhoneView('map')">
     🗺 Map
@@ -430,7 +436,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
   <!-- Dismissed/active tabs -->
   <div class="tabs-row" id="tabs-row">
     <button class="tab-btn active" id="tab-active" onclick="showTab('active')">
-      Spaces <span class="tab-count" id="tab-active-count">{{ centres|length }}</span>
+      Shortlist <span class="tab-count" id="tab-active-count">{{ centres|length }}</span>
     </button>
     <button class="tab-btn" id="tab-dismissed" onclick="showTab('dismissed')">
       Removed <span class="tab-count" id="tab-dismissed-count">0</span>
@@ -448,6 +454,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
       <!-- Photo area -->
       <div class="photo-area" id="photo-area-{{ c.id }}" style="position:relative">
         <button class="dismiss-btn" onclick="dismissCard('{{ c.id }}', event)" title="Remove">✕</button>
+        <button class="restore-btn" onclick="restoreCard('{{ c.id }}', event)">↩ Bring back</button>
         {% if c.image_urls %}
           <img class="photo-main" id="main-img-{{ c.id }}"
                src="{{ c.image_urls[0] }}"
@@ -680,11 +687,22 @@ function _updateTabs() {
 function showTab(tab) {
   document.getElementById('tab-active').classList.toggle('active', tab==='active');
   document.getElementById('tab-dismissed').classList.toggle('active', tab==='dismissed');
+  const grid = document.getElementById('cards-grid');
+  grid.classList.toggle('removed-view', tab==='dismissed');
   document.querySelectorAll('.space-card').forEach(card => {
     const id = card.dataset.centreId;
     card.style.opacity = '';
     card.style.display = (tab==='active') ? (_dismissed.has(id)?'none':'') : (_dismissed.has(id)?'':'none');
   });
+}
+function restoreCard(centreId, ev) {
+  ev.stopPropagation();
+  _dismissed.delete(String(centreId));
+  const card = document.querySelector(`[data-centre-id="${centreId}"]`);
+  if (card) { card.style.opacity = '0'; card.style.display = ''; requestAnimationFrame(()=>{ card.style.transition='opacity 0.2s'; card.style.opacity='1'; }); }
+  _updateTabs();
+  // Switch back to Shortlist tab after restore
+  showTab('active');
 }
 
 // ── Tube line indicators ──
