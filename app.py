@@ -725,9 +725,11 @@ def proposal_new():
                 ).fetchone()
                 if row:
                     preselected_ids.append(row['id'])
+    map_space_type = request.args.get('space_type', '').strip()
     return render_template('builder.html', step=1, proposal=None,
                            preselected_ids=preselected_ids,
-                           map_workspaces=map_workspaces)
+                           map_workspaces=map_workspaces,
+                           map_space_type=map_space_type)
 
 @app.route('/proposals/<int:pid>')
 def proposal_builder(pid):

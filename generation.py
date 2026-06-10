@@ -2172,20 +2172,19 @@ def render_pptx(slides, out_path):
                         from PIL import Image as _PILImg
                         import io as _io2
                         _im = _PILImg.open(str(path))
-                        # Normalise palette/odd modes to PNG-safe RGB or RGBA
-                        if _im.mode == 'P':
-                            _im = _im.convert('RGBA')
-                        use_path = str(path)
-                        # If image was changed, write to a temp buffer and use that
-                        if _im.mode not in ('RGB', 'RGBA', 'L'):
-                            _im = _im.convert('RGB')
-                        if _im.mode == 'RGBA':
-                            # Keep for PPTX (transparency is OK), but re-save to fix palette artefacts
-                            _buf = _io2.BytesIO()
-                            _im.save(_buf, 'PNG')
-                            _buf.seek(0)
-                            iw, ih = _im.size
+                        # Normalise to RGB (JPEG for PPTX — smaller file, no transparency needed for photos)
+                        if _im.mode in ('P', 'RGBA', 'LA'):
+                            _bg = _PILImg.new('RGB', _im.size, (255, 255, 255))
+                            _bg.paste(_im.convert('RGBA'), mask=_im.convert('RGBA').split()[3])
+                            _im = _bg
                         else:
+                            _im = _im.convert('RGB')
+                        # Resize to max 1200px on longest side — keeps quality but cuts file size 3-5x
+                        _MAX = 1200
+                        iw, ih = _im.size
+                        if max(iw, ih) > _MAX:
+                            scale_d = _MAX / max(iw, ih)
+                            _im = _im.resize((int(iw * scale_d), int(ih * scale_d)), _PILImg.LANCZOS)
                             iw, ih = _im.size
                         tw, th = cmd['w'], cmd['h']
                         # Cover-crop fractions
@@ -2194,10 +2193,10 @@ def render_pptx(slides, out_path):
                         sh_px = ih * scale
                         cx = max(0.0, (sw_px - tw) / (2 * sw_px))
                         cy = max(0.0, (sh_px - th) / (2 * sh_px))
-                        if _im.mode == 'RGBA':
-                            pic = sl.shapes.add_picture(_buf, x, y, w, h)
-                        else:
-                            pic = sl.shapes.add_picture(use_path, x, y, w, h)
+                        _buf = _io2.BytesIO()
+                        _im.save(_buf, 'JPEG', quality=72, optimize=True)
+                        _buf.seek(0)
+                        pic = sl.shapes.add_picture(_buf, x, y, w, h)
                         pic.crop_left   = cx
                         pic.crop_right  = cx
                         pic.crop_top    = cy
@@ -2346,6 +2345,10 @@ def render_pdf(slides, out_path):
                             # Preserve transparency — draw as PNG with mask='auto'
                             _rgba = _raw.convert('RGBA')
                             iw, ih = _rgba.size
+                            if max(iw, ih) > 1200:
+                                _sf = 1200 / max(iw, ih)
+                                _rgba = _rgba.resize((int(iw * _sf), int(ih * _sf)), _PILImg.LANCZOS)
+                                iw, ih = _rgba.size
                             target_ratio = sw / sh if sh > 0 else 1.0
                             src_ratio    = iw / ih if ih > 0 else 1.0
                             # Only cover-crop if ratio mismatch > 5% to avoid cutting badges
@@ -2358,7 +2361,7 @@ def render_pdf(slides, out_path):
                                 y0    = (ih - new_h) // 2
                                 _rgba = _rgba.crop((0, y0, iw, y0 + new_h))
                             buf = _io.BytesIO()
-                            _rgba.save(buf, 'PNG')
+                            _rgba.save(buf, 'PNG', optimize=True)
                             buf.seek(0)
                             ir = ImageReader(buf)
                             c.drawImage(ir, sx, pdf_y, sw, sh,
@@ -2374,6 +2377,12 @@ def render_pdf(slides, out_path):
                         else:
                             _im = _raw.convert('RGB')
                         iw, ih = _im.size
+                        # Resize to max 1200px — quality sufficient for PDF screen/print
+                        _MAX_PDF = 1200
+                        if max(iw, ih) > _MAX_PDF:
+                            _sf = _MAX_PDF / max(iw, ih)
+                            _im = _im.resize((int(iw * _sf), int(ih * _sf)), _PILImg.LANCZOS)
+                            iw, ih = _im.size
                         # Cover-crop to target aspect ratio
                         target_ratio = sw / sh if sh > 0 else 1.0
                         src_ratio    = iw / ih if ih > 0 else 1.0
@@ -2386,7 +2395,7 @@ def render_pdf(slides, out_path):
                             y0    = (ih - new_h) // 2
                             _im   = _im.crop((0, y0, iw, y0 + new_h))
                         buf = _io.BytesIO()
-                        _im.save(buf, 'JPEG', quality=90)
+                        _im.save(buf, 'JPEG', quality=72, optimize=True)
                         buf.seek(0)
                         ir = ImageReader(buf)
                         c.drawImage(ir, sx, pdf_y, sw, sh,

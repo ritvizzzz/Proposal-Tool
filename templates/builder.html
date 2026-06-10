@@ -73,7 +73,7 @@
           <label>Space Type</label>
           <select class="input" id="p_space_type">
             {% for t in ['Coworking','Private Office','Dedicated Desk','Hot Desk','Managed Office','Virtual Office'] %}
-            <option value="{{ t }}" {% if proposal and proposal.space_type == t %}selected{% endif %}>{{ t }}</option>
+            <option value="{{ t }}" {% if (proposal and proposal.space_type == t) or (not proposal and map_space_type == t) %}selected{% endif %}>{{ t }}</option>
             {% endfor %}
           </select>
         </div>
