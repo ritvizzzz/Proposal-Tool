@@ -1036,6 +1036,7 @@ def compare_direct():
     ids_param    = request.args.get('ids', '').strip()
     names_param  = request.args.get('names', '').strip()
     client_param = request.args.get('client', '').strip()
+    price_mode   = request.args.get('price_mode', '').strip()  # 'coworking' → show daily prices
     if not ids_param:
         return 'No space IDs provided', 400
 
@@ -1110,7 +1111,9 @@ def compare_direct():
         _push_sse({'token': token, 'event_type': 'open', 'centre_name': ''})
 
     threading.Thread(target=_log_open, daemon=True).start()
-    return render_template('compare.html', link=link, centres=centres, token=token, canonical_url=url_for('compare_page', token=token, _external=True))
+    return render_template('compare.html', link=link, centres=centres, token=token,
+                           price_mode=price_mode,
+                           canonical_url=url_for('compare_page', token=token, _external=True))
 
 
 @app.route('/compare/<token>')
@@ -1139,7 +1142,8 @@ def compare_page(token):
         _push_sse({'token': token, 'event_type': 'open', 'centre_name': ''})
 
     threading.Thread(target=_log_open, daemon=True).start()
-    return render_template('compare.html', link=link, centres=centres, token=token)
+    price_mode = request.args.get('price_mode', '').strip()
+    return render_template('compare.html', link=link, centres=centres, token=token, price_mode=price_mode)
 
 
 @app.route('/health')
