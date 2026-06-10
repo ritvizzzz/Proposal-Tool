@@ -108,6 +108,13 @@ def init_db():
         cols = [r[1] for r in conn.execute("PRAGMA table_info(proposals)").fetchall()]
         if 'pdf_filename' not in cols:
             conn.execute("ALTER TABLE proposals ADD COLUMN pdf_filename TEXT")
+    # migrate: add hotdesk_price (per day coworking price) if missing
+    with get_db() as conn:
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(centres)").fetchall()]
+        if 'hotdesk_price' not in cols:
+            conn.execute("ALTER TABLE centres ADD COLUMN hotdesk_price INTEGER")
+        if 'has_coworking' not in cols:
+            conn.execute("ALTER TABLE centres ADD COLUMN has_coworking INTEGER DEFAULT 0")
     # migrate: add new columns to share_links if missing
     with get_db() as conn:
         for col_def in ['client_email TEXT', 'client_phone TEXT', 'canonical_ids TEXT']:
@@ -537,6 +544,7 @@ def api_centre_search():
     with get_db() as conn:
         rows = conn.execute(
             '''SELECT c.id, c.name, c.address, c.city, c.space_type, c.price_from, c.price_unit,
+               c.hotdesk_price,
                (SELECT filename FROM centre_images WHERE centre_id=c.id AND is_primary=1 LIMIT 1) as primary_image
                FROM centres c
                WHERE c.name LIKE ? OR c.address LIKE ?
@@ -780,6 +788,9 @@ def proposal_generate(pid):
                         else os.path.join(CENTRE_IMAGES, str(cid), r['filename'])
                         for r in imgs
                     ]
+                    # Flag for coworking proposals: use hotdesk daily price in slides
+                    if (p.get('space_type') or '').lower() == 'coworking':
+                        centre_data['use_hotdesk'] = True
                     db_centres.append(centre_data)
 
     # Convert base64 images in manual centres to temp files; pass URL images directly

@@ -405,16 +405,21 @@ function searchCentres(q) {
     const centres = await res.json();
     centres.forEach(c => _centreCache[c.id] = c);
     const el = document.getElementById('searchResults');
-    el.innerHTML = centres.map(c => `
+    const _isCoworking = document.getElementById('p_space_type').value === 'Coworking';
+    el.innerHTML = centres.map(c => {
+      const priceTag = _isCoworking && c.hotdesk_price
+        ? `<div class="price-tag" style="color:#059669">☕ £${c.hotdesk_price}/day</div>`
+        : (c.price_from ? `<div class="price-tag">£${c.price_from.toLocaleString()}/${c.price_unit==='MONTHLY'?'mo':'day'}</div>` : '');
+      return `
       <div class="search-item" data-cid="${c.id}">
         <div>
           <strong>${c.name}</strong>
           <span class="text-muted"> · ${c.city||''} · ${c.space_type||''}</span>
         </div>
         <div class="text-muted small">${c.address||''}</div>
-        ${c.price_from ? `<div class="price-tag">£${c.price_from.toLocaleString()}/${c.price_unit==='MONTHLY'?'mo':'day'}</div>` : ''}
-      </div>
-    `).join('') || '<p class="text-muted p-sm">No results</p>';
+        ${priceTag}
+      </div>`;
+    }).join('') || '<p class="text-muted p-sm">No results</p>';
     // Attach click handlers after render
     el.querySelectorAll('.search-item[data-cid]').forEach(item => {
       item.addEventListener('click', () => addCentreFromDB(Number(item.dataset.cid)));

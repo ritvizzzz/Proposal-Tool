@@ -498,11 +498,21 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
         {% endif %}
         {% endif %}
 
-        {% if c.price_from %}
+        {% if c.price_from or c.hotdesk_price %}
         <div class="card-price-row">
-          <div class="card-meta">
-            <span class="meta-label">From</span>
-            <span class="meta-value price">£{{ c.price_from }}<span class="price-suffix">/month</span></span>
+          <div class="card-meta" style="display:flex;flex-direction:column;gap:3px">
+            {% if c.price_from %}
+            <div>
+              <span class="meta-label">Private Office</span>
+              <span class="meta-value price">£{{ c.price_from }}<span class="price-suffix">/month</span></span>
+            </div>
+            {% endif %}
+            {% if c.hotdesk_price %}
+            <div>
+              <span class="meta-label">☕ Coworking</span>
+              <span class="meta-value" style="font-size:14px;font-weight:700;color:#059669">£{{ c.hotdesk_price }}<span class="price-suffix">/day</span></span>
+            </div>
+            {% endif %}
           </div>
           <!-- Phone-only compact book button next to price (hidden on desktop via CSS) -->
           <button class="btn-book-compact" id="book-compact-{{ c.id }}"
@@ -641,9 +651,9 @@ const TOKEN = {{ token|tojson }};
 const pageStart = Date.now();
 
 // ── Centre data (for JS lookups, avoids onclick attribute escaping issues) ──
-const _cd = {}; // centreId → {name, img, price}
+const _cd = {}; // centreId → {name, img, price, hotdeskPrice}
 {% for c in centres %}
-_cd[{{ c.id|tojson }}] = {name:{{ c.name|tojson }}, img:{{ (c.image_urls[0] if c.image_urls else '')|tojson }}, price:{{ c.price_from|tojson }}};
+_cd[{{ c.id|tojson }}] = {name:{{ c.name|tojson }}, img:{{ (c.image_urls[0] if c.image_urls else '')|tojson }}, price:{{ c.price_from|tojson }}, hotdeskPrice:{{ c.hotdesk_price|tojson }}};
 {% endfor %}
 
 // ── Photo URL data ──
@@ -1023,7 +1033,7 @@ let _activePinEl = null;
     if (isNaN(lat)||isNaN(lng)) return;
     bounds.push([lat,lng]);
 
-    const priceText = c.price_from ? `£${Number(c.price_from).toLocaleString()}/mo` : (c.name.substring(0,14)||'');
+    const priceText = c.price_from ? `£${Number(c.price_from).toLocaleString()}/mo` : (c.hotdesk_price ? `£${c.hotdesk_price}/day` : (c.name.substring(0,14)||''));
     const icon = L.divIcon({
       className: 'price-pin-icon',
       html: `<span class="price-pin-label" id="pin-label-${c.id}">${priceText}</span>`,
@@ -1038,7 +1048,8 @@ let _activePinEl = null;
       ${imgHtml}
       <div style="padding:10px 12px 12px">
         <div style="font-weight:700;font-size:13px;color:#1A1A2E;line-height:1.3;margin-bottom:4px">${c.name}</div>
-        ${c.price_from ? `<div style="font-size:13px;font-weight:700;color:#1E22AA">£${Number(c.price_from).toLocaleString()}<span style="font-size:11px;color:#6B7280">/mo</span></div>` : ''}
+        ${c.price_from ? `<div style="font-size:12px;font-weight:700;color:#1E22AA">🏢 £${Number(c.price_from).toLocaleString()}<span style="font-size:11px;color:#6B7280">/mo</span></div>` : ''}
+        ${c.hotdesk_price ? `<div style="font-size:12px;font-weight:700;color:#059669">☕ £${c.hotdesk_price}<span style="font-size:11px;color:#6B7280">/day</span></div>` : ''}
         ${c.address ? `<div style="font-size:11px;color:#6B7280;margin-top:3px">${c.address}</div>` : ''}
         <button onclick="popupBook('${c.id}')" id="popup-book-${c.id}" style="margin-top:8px;width:100%;padding:7px 10px;border-radius:8px;border:none;background:#1E22AA;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif">📅 Book a Viewing</button>
       </div>

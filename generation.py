@@ -399,6 +399,11 @@ def amenity_pill_cmds(amenities_raw, x, y, max_w, font):
 
 
 def price_str(c):
+    # If proposal is Coworking type and centre has hotdesk pricing, show daily rate
+    if c.get('use_hotdesk') and c.get('hotdesk_price'):
+        city = (c.get('city') or '').lower()
+        symbol = '£' if 'london' in city or 'uk' in city else '₹'
+        return f'{symbol}{int(c["hotdesk_price"])}/day/seat'
     p = c.get('price_from') or c.get('price_str')
     if not p:
         return 'On request'
