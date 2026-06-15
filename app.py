@@ -1219,6 +1219,24 @@ def dashboard():
             if t not in top_map or row['cnt'] > top_map[t][1]:
                 top_map[t] = (row['centre_name'], row['cnt'])
 
+        bookings_rows = conn.execute(
+            """SELECT token, centre_name, booking_date, booking_time
+               FROM link_events
+               WHERE event_type='booking_request' AND booking_date IS NOT NULL
+                 AND booking_date != '' AND booking_date != 'tbd'
+               ORDER BY created_at ASC"""
+        ).fetchall()
+        bookings_map = {}
+        for row in bookings_rows:
+            t = row['token']
+            if t not in bookings_map:
+                bookings_map[t] = []
+            bookings_map[t].append({
+                'name': row['centre_name'] or '',
+                'date': row['booking_date'] or '',
+                'time': row['booking_time'] or ''
+            })
+
         # Minimal per-link data — panel detail loaded lazily via /api/link-detail/<token>
         detail_data = {}
         for lnk in links:
@@ -1226,6 +1244,7 @@ def dashboard():
             lnk['opens'] = opens_map.get(token, 0)
             lnk['clicks'] = clicks_map.get(token, 0)
             lnk['top_space'] = top_map[token][0] if token in top_map else None
+            lnk['bookings'] = bookings_map.get(token, [])
             try:
                 lnk['centre_names_list'] = json.loads(lnk.get('centre_names') or '[]')
             except Exception:

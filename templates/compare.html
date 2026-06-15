@@ -635,7 +635,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
       <p style="color:#6B7280;font-size:14px;line-height:1.6">Our team will reach out to arrange your viewings.</p>
     </div>
     <button id="sched-book-all-btn" class="btn-book-all" onclick="bookAllViewings()" disabled>
-      Confirm viewings
+      Confirm edits
     </button>
     <p style="text-align:center;font-size:12px;color:#9CA3AF;margin-top:14px">
       Or contact us at <strong style="color:#1E22AA">contact@myhqspaces.com</strong>
@@ -851,8 +851,8 @@ function renderScheduleList() {
   const btn = document.getElementById('sched-book-all-btn');
   const n = _schedule.size;
   subtitle.textContent = n + ' space' + (n!==1?'s':'') + ' scheduled';
-  btn.textContent = 'Confirm viewings';
-  btn.disabled = n === 0;
+  btn.textContent = 'Confirm edits';
+  btn.disabled = _editedSids.size === 0;
   empty.style.display = n === 0 ? '' : 'none';
   list.innerHTML = '';
   _schedule.forEach((c, sid) => {
@@ -887,10 +887,12 @@ function removeFromSchedule(sid) {
   renderScheduleList();
 }
 function bookAllViewings() {
-  _schedule.forEach(c => {
-    post('/track', {token:TOKEN, event_type:'booking_request', centre_id:c.id, centre_name:c.name,
+  _editedSids.forEach(sid => {
+    const c = _schedule.get(sid);
+    if (c) post('/track', {token:TOKEN, event_type:'booking_request', centre_id:c.id, centre_name:c.name,
       dwell_seconds:0, booking_date:c.date||'tbd', booking_time:c.time||'tbd'});
   });
+  _editedSids.clear();
   document.getElementById('sched-list').style.display = 'none';
   document.getElementById('sched-book-all-btn').style.display = 'none';
   document.getElementById('sched-empty').style.display = 'none';
@@ -899,6 +901,7 @@ function bookAllViewings() {
 
 // ── Edit schedule date (re-use booking modal) ──
 let _editingSchedId = null;
+const _editedSids = new Set(); // sids with pending date/time edits
 function editSchedDate(sid) {
   const c = _schedule.get(sid);
   if (!c) return;
@@ -936,7 +939,8 @@ function renderCal() {
   const M=['January','February','March','April','May','June','July','August','September','October','November','December'];
   document.getElementById('cal-month-label').textContent=`${M[_calMonth]} ${_calYear}`;
   const g=document.getElementById('cal-grid'); g.innerHTML='';
-  const today=new Date(); today.setHours(0,0,0,0);
+  const _ld = new Date().toLocaleDateString('en-CA', {timeZone:'Europe/London'});
+  const today = new Date(_ld + 'T00:00:00');
   const tmrw=new Date(today); tmrw.setDate(today.getDate()+1);
   const fd=(new Date(_calYear,_calMonth,1).getDay()+6)%7;
   const dim=new Date(_calYear,_calMonth+1,0).getDate();
@@ -970,6 +974,12 @@ function confirmBooking(date, time) {
   const sid = String(_bookingId);
   const existingData = _schedule.get(sid) || {id:_bookingId, name:_bookingName, img:(_cd[_bookingId]||{}).img||'', price:(_cd[_bookingId]||{}).price||null};
   _schedule.set(sid, {...existingData, date, time});
+  // If this was editing an existing booking, mark it as a pending edit
+  if (_editingSchedId) {
+    _editedSids.add(sid);
+    const bookBtn = document.getElementById('sched-book-all-btn');
+    if (bookBtn) bookBtn.disabled = false;
+  }
   updateScheduleCount();
   // Update book buttons
   const mainBtn = document.getElementById('book-btn-' + _bookingId);

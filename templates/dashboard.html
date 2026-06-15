@@ -67,7 +67,7 @@
         <th style="text-align:center;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Created</th>
         <th style="text-align:center;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Opens</th>
         <th style="text-align:center;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Clicks</th>
-        <th style="text-align:left;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Top Space</th>
+        <th style="text-align:left;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Viewings Booked</th>
         <th style="text-align:center;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Actions</th>
       </tr>
     </thead>
@@ -101,7 +101,18 @@
           <span style="font-size:20px;font-weight:800;color:#059669">{{ lnk.clicks }}</span>
         </td>
         <td style="padding:16px 20px;font-size:13px;color:#4B4F6A">
-          {{ lnk.top_space or '—' }}
+          {% if lnk.bookings %}
+            {% for b in lnk.bookings[:2] %}
+            <div style="margin-bottom:{% if not loop.last %}8px{% else %}0{% endif %}">
+              <div style="font-weight:600;font-size:12px;color:#1A1A2E;line-height:1.3">{{ b.name }}</div>
+              <div style="font-size:11px;color:#6B7280">{{ b.date }}</div>
+              <div class="bst-ist-time" data-bst="{{ b.time }}" style="font-size:11px;color:#1E22AA">{{ b.time }} BST</div>
+            </div>
+            {% endfor %}
+            {% if lnk.bookings|length > 2 %}<div style="font-size:11px;color:#9CA3AF;margin-top:2px">+{{ lnk.bookings|length - 2 }} more</div>{% endif %}
+          {% else %}
+            —
+          {% endif %}
         </td>
         <td style="padding:16px 20px;text-align:center" onclick="event.stopPropagation()">
           <div style="display:flex;gap:8px;justify-content:center">
@@ -692,7 +703,6 @@ async function pollUpdates() {
         const cells = row.querySelectorAll('td');
         if (cells[3]) cells[3].innerHTML = `<span style="font-size:20px;font-weight:800;color:#1E22AA">${s.opens}</span>`;
         if (cells[4]) cells[4].innerHTML = `<span style="font-size:20px;font-weight:800;color:#059669">${s.clicks}</span>`;
-        if (cells[5] && s.top) cells[5].innerHTML = `<span style="font-size:13px;color:#4B4F6A">${s.top}</span>`;
       }
 
       // Refresh open panel — invalidate events so they reload fresh
@@ -735,18 +745,18 @@ function showDetail(token) {
   const s = cached ? cached.stats : {opens:0, clicks:0};
   body.innerHTML = `
     ${lnkInfo.client_email ? `<div style="font-size:13px;color:#6B7280;margin-bottom:4px">${lnkInfo.client_email}${lnkInfo.client_phone ? ' · ' + lnkInfo.client_phone : ''}</div>` : ''}
-    <div style="font-size:12px;color:#9CA3AF;margin-bottom:16px">${(lnkInfo.centre_names_list||[]).join(', ')||'—'}</div>
-    <div style="display:flex;gap:24px;margin-bottom:20px">
+    <div style="font-size:12px;color:#9CA3AF;margin-bottom:12px">${(lnkInfo.centre_names_list||[]).join(', ')||'—'}</div>
+    <div style="display:flex;gap:24px;margin-bottom:12px">
       <div style="text-align:center"><div style="font-size:28px;font-weight:800;color:#1E22AA">${s.opens}</div><div style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.5px">Opens</div></div>
       <div style="text-align:center"><div style="font-size:28px;font-weight:800;color:#059669">${s.clicks}</div><div style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.5px">Clicks</div></div>
+    </div>
+    <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #E5E7EB">
+      <a href="/dashboard/${token}" style="display:inline-block;padding:8px 16px;background:#1E22AA;color:#fff;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none">View full analytics →</a>
     </div>
     <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280;margin-bottom:8px">Space Engagement</div>
     <div id="detail-spaces-section"><div style="color:#9CA3AF;font-size:13px">Loading…</div></div>
     <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280;margin:16px 0 8px">Recent Activity</div>
-    <div id="detail-events-section"><div style="color:#9CA3AF;font-size:13px">Loading…</div></div>
-    <div style="margin-top:20px;padding-top:16px;border-top:1px solid #E5E7EB">
-      <a href="/dashboard/${token}" style="font-size:13px;color:#1E22AA;font-weight:600">View full analytics →</a>
-    </div>`;
+    <div id="detail-events-section"><div style="color:#9CA3AF;font-size:13px">Loading…</div></div>`;
 
   // Fetch space stats + events in background
   fetch(`/api/link-detail/${token}`)
@@ -765,10 +775,34 @@ function showDetail(token) {
     });
 }
 
+function bstToIst(timeStr) {
+  const m = (timeStr||'').match(/(\d+):(\d+)\s*(AM|PM)/i);
+  if (!m) return '';
+  let h = parseInt(m[1]), min = parseInt(m[2]);
+  const ap = m[3].toUpperCase();
+  if (ap === 'PM' && h !== 12) h += 12;
+  if (ap === 'AM' && h === 12) h = 0;
+  let total = h * 60 + min + 270; // BST+4h30m=IST
+  total = total % 1440;
+  const hh = Math.floor(total / 60), mm = total % 60;
+  const a = hh >= 12 ? 'PM' : 'AM';
+  const h12 = hh === 0 ? 12 : (hh > 12 ? hh - 12 : hh);
+  return `${h12}:${String(mm).padStart(2,'0')} ${a} IST`;
+}
+
+function formatBookingWithZones(bookingStr) {
+  const parts = (bookingStr||'').trim().split(' ');
+  if (parts.length < 2) return bookingStr;
+  const date = parts[0];
+  const time = parts.slice(1).join(' ');
+  const ist = bstToIst(time);
+  return `${date} · <span style="color:#1E22AA">${time} BST</span>${ist ? ` <span style="color:#6B7280">→ ${ist}</span>` : ''}`;
+}
+
 function buildSpacesHtml(spaceStats) {
   const valid = (spaceStats || []).filter(s =>
     s.name && !/^\d+$/.test(s.name.trim()) &&
-    (s.clicks > 0 || s.interested > 0 || s.not_interested > 0 || (s.bookings && s.bookings.length))
+    (s.clicks > 0 || s.not_interested > 0 || (s.bookings && s.bookings.length))
   );
   if (!valid.length) return '<div style="color:#9CA3AF;font-size:13px">No space interactions yet.</div>';
   return valid.map(s => `
@@ -776,11 +810,10 @@ function buildSpacesHtml(spaceStats) {
       <div style="font-weight:700;color:#1A1A2E;margin-bottom:6px">${s.name}</div>
       <div style="display:flex;gap:16px;font-size:13px;flex-wrap:wrap">
         <span style="color:#1E22AA"><b>${s.clicks}</b> clicks</span>
-        <span style="color:#059669"><b>${s.interested}</b> interested</span>
         ${s.not_interested ? `<span style="color:#EF4444"><b>${s.not_interested}</b> not interested</span>` : ''}
-        ${s.bookings && s.bookings.length ? `<span style="color:#7C3AED"><b>${s.bookings.length}</b> booking req</span>` : ''}
+        ${s.bookings && s.bookings.length ? `<span style="color:#7C3AED"><b>${s.bookings.length}</b> viewing${s.bookings.length !== 1 ? 's' : ''} booked</span>` : ''}
       </div>
-      ${s.bookings && s.bookings.length ? `<div style="font-size:12px;color:#6B7280;margin-top:4px">Dates: ${s.bookings.join(', ')}</div>` : ''}
+      ${s.bookings && s.bookings.length ? `<div style="font-size:12px;color:#6B7280;margin-top:6px">${s.bookings.map(b => `<div style="margin-top:2px">📅 ${formatBookingWithZones(b)}</div>`).join('')}</div>` : ''}
     </div>`).join('');
 }
 
@@ -816,6 +849,13 @@ function closeDetail() {
   document.getElementById('detail-overlay').style.display = 'none';
   document.body.style.overflow = '';
 }
+
+// Render IST alongside BST for viewing time cells in main table
+document.querySelectorAll('.bst-ist-time').forEach(el => {
+  const bst = el.dataset.bst;
+  const ist = bstToIst(bst);
+  if (ist) el.textContent = bst + ' BST · ' + ist;
+});
 
 // Keep Railway container warm
 setInterval(() => fetch('/health').catch(() => {}), 240000);
