@@ -134,9 +134,12 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
   cursor: pointer; display: flex; flex-direction: column;
   width: 340px; max-width: 100%; flex-shrink: 0;
   outline: 3px solid transparent; outline-offset: 2px;
+  position: relative;
 }
 .space-card:hover { box-shadow: 0 4px 20px rgba(30,34,170,0.12); transform: translateY(-2px); }
 .space-card.map-highlight { outline-color: #1E22AA; }
+.rec-card { border: 2px solid #C7D2FE !important; box-shadow: 0 0 0 3px rgba(99,102,241,0.08), 0 4px 16px rgba(30,34,170,0.10) !important; }
+.rec-tag { position: absolute; top: 8px; left: 8px; z-index: 10; background: #1E22AA; color: #fff; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 6px; letter-spacing: 0.3px; pointer-events: none; }
 
 /* Photo area */
 .photo-area { position: relative; height: 180px; overflow: hidden; background: #E8E9F3; flex-shrink: 0; cursor: grab; }
@@ -257,7 +260,9 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
   .header-center { font-size: 12px; padding: 0 4px; }
   /* Hide desktop-only header elements on phone */
   .agent-pill-header { display: none; }
-  .btn-my-viewings-header { display: none; }
+  .header-center { display: none; }
+  #phone-title-bar { display: block !important; }
+  #phone-intro-block { display: block !important; }
 
   /* Phone tabs — sticky below header */
   .phone-view-tabs {
@@ -322,8 +327,13 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
   }
   .photo-area { height: 200px; }
 
-  /* Compact "Book" button next to price (phone only) */
-  .btn-book-compact {
+  /* Hide compact book button — bottom bar handles booking on phone */
+  .btn-book-compact { display: none !important; }
+  /* Hide large book button inside card actions too */
+  .card-actions .btn-book { display: none !important; }
+
+  /* Old compact book button styles (kept for reference, overridden above) */
+  ._btn-book-compact-disabled {
     display: inline-flex; align-items: center; gap: 4px;
     padding: 0 14px; height: 34px; border-radius: 8px; border: none;
     background: #1E22AA; color: #fff; font-size: 12px; font-weight: 700;
@@ -331,8 +341,6 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
     align-self: center; transition: background 0.15s;
   }
   .btn-book-compact.scheduled { background: #059669; }
-  /* Hide the large btn-book from card-actions on phone */
-  .card-actions .btn-book { display: none !important; }
 
   /* Phone bottom bar */
   .mobile-bottom-bar {
@@ -345,7 +353,10 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
     flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
     padding: 11px 14px; border-radius: 12px; border: none;
     background: #1E22AA; color: #fff; font-size: 13px; font-weight: 700;
-    cursor: pointer; font-family: inherit;
+    cursor: pointer; font-family: inherit; white-space: nowrap; overflow: hidden;
+  }
+  #phone-book-btn #phone-book-space-name {
+    overflow: hidden; text-overflow: ellipsis; max-width: 180px; display: inline-block;
   }
   .phone-count-badge {
     background: #fff; color: #1E22AA; border-radius: 10px;
@@ -419,13 +430,18 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
   <a href="tel:+447863754009" class="agent-popup-phone">📞 +44 7863 754009</a>
 </div>
 
+<!-- Phone-only title bar (below header) -->
+<div id="phone-title-bar">
+  {{ centres|length }} workspace option{{ 's' if centres|length != 1 }}{% if link.label %} for {{ link.label }}{% endif %}
+</div>
+
 <!-- Phone-only: Spaces / Map tabs -->
 <div class="phone-view-tabs" id="phone-view-tabs">
   <button class="pvt-btn" id="pvt-spaces" onclick="switchPhoneView('spaces')">
-    🏢 Shortlist <span class="pvt-count" id="pvt-spaces-count">{{ centres|length }}</span>
+    🏢 List view <span class="pvt-count" id="pvt-spaces-count">{{ centres|length }}</span>
   </button>
   <button class="pvt-btn active" id="pvt-map" onclick="switchPhoneView('map')">
-    🗺 Map
+    🗺 Map view
   </button>
 </div>
 
@@ -444,20 +460,37 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
   <!-- Dismissed/active tabs -->
   <div class="tabs-row" id="tabs-row">
     <button class="tab-btn active" id="tab-active" onclick="showTab('active')">
-      Shortlist <span class="tab-count" id="tab-active-count">{{ centres|length }}</span>
+      List view <span class="tab-count" id="tab-active-count">{{ centres|length }}</span>
     </button>
     <button class="tab-btn" id="tab-dismissed" onclick="showTab('dismissed')">
       Removed <span class="tab-count" id="tab-dismissed-count">0</span>
     </button>
   </div>
 
+  <!-- Phone: Contact Arjun + personalised message (hidden on desktop) -->
+  <div id="phone-intro-block" style="display:none;padding:0 16px 12px">
+    <div onclick="toggleAgentPopup()" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#F7F8FC;border:1.5px solid #E8E9F3;border-radius:12px;cursor:pointer;margin-bottom:{% if personalised_message %}10px{% else %}0{% endif %}">
+      <img src="/static/images/agent-arjun.png?v=2" style="width:36px;height:36px;border-radius:50%;object-fit:contain;background:#fff;border:2px solid #1E22AA;flex-shrink:0" alt="Arjun">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#1A1A2E">Arjun · myHQ Advisor</div>
+        <div style="font-size:12px;color:#6B7280">Tap to get in touch</div>
+      </div>
+    </div>
+    {% if personalised_message %}
+    <div style="background:#F0F1FA;border-left:3px solid #1E22AA;border-radius:0 8px 8px 0;padding:12px 14px;font-size:13px;color:#374151;font-style:italic;line-height:1.6">"{{ personalised_message }}"</div>
+    {% endif %}
+  </div>
+
   <!-- Cards -->
   <div class="cards-grid" id="cards-grid">
+    {% set rec_ids_str = recommended_ids | map('string') | list %}
     {% for c in centres %}
-    <div class="space-card"
+    {% set is_rec = (c.id|string in rec_ids_str) or (c.get('hubble_id', '')|string in rec_ids_str) %}
+    <div class="space-card{% if is_rec %} rec-card{% endif %}"
          data-centre-id="{{ c.id }}"
          data-centre-name="{{ c.name|e }}"
          onclick="onCardClick(this)">
+      {% if is_rec %}<div class="rec-tag">⭐ myHQ Recommendation</div>{% endif %}
 
       <!-- Photo area -->
       <div class="photo-area" id="photo-area-{{ c.id }}" style="position:relative">
@@ -567,17 +600,10 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 
 </main>
 
-<!-- Phone bottom bar -->
+<!-- Phone bottom bar — dynamic Book button -->
 <div class="mobile-bottom-bar">
-  <!-- Agent mini card -->
-  <div class="agent-mini" onclick="toggleAgentPopup()">
-    <img src="/static/images/agent-arjun.png?v=2" class="agent-mini-avatar" alt="Arjun">
-    <span>Contact<br>Arjun</span>
-  </div>
-  <!-- My viewings -->
-  <button id="phone-book-btn" onclick="openSchedulePanel()">
-    📅 My viewings
-    <span class="phone-count-badge" id="phone-mv-count"></span>
+  <button id="phone-book-btn" onclick="phoneBookCurrent()">
+    📅 Book for <span id="phone-book-space-name">this space</span>
   </button>
 </div>
 
@@ -1176,6 +1202,42 @@ if (window.location.pathname !== new URL('{{ canonical_url }}').pathname) {
   history.replaceState(null, '', '{{ canonical_url }}');
 }
 {% endif %}
+
+// ── Phone bottom bar: dynamic "Book for [space]" ────────────────────────────
+(function() {
+  function shortName(name) {
+    const short = name.replace(/^[^–\-]+[–\-]\s*/, '').trim() || name;
+    return short.length > 20 ? short.slice(0, 18) + '…' : short;
+  }
+  function updateBtn(name) {
+    const el = document.getElementById('phone-book-space-name');
+    if (el) el.textContent = shortName(name);
+  }
+  const grid = document.getElementById('cards-grid');
+  if (!grid) return;
+  const firstCard = grid.querySelector('.space-card');
+  if (firstCard) updateBtn(firstCard.dataset.centreName || '');
+  if (!window.IntersectionObserver) return;
+  const obs = new IntersectionObserver(entries => {
+    let best = null, bestRatio = 0;
+    entries.forEach(e => { if (e.intersectionRatio > bestRatio) { bestRatio = e.intersectionRatio; best = e.target; } });
+    if (best) updateBtn(best.dataset.centreName || '');
+  }, { root: grid, threshold: [0.5] });
+  grid.querySelectorAll('.space-card').forEach(c => obs.observe(c));
+})();
+
+window.phoneBookCurrent = function() {
+  const grid = document.getElementById('cards-grid');
+  if (!grid) return;
+  const cards = [...grid.querySelectorAll('.space-card:not([data-dismissed="true"])')];
+  let best = cards[0], minDist = Infinity;
+  const gridLeft = grid.getBoundingClientRect().left;
+  cards.forEach(c => {
+    const d = Math.abs(c.getBoundingClientRect().left - gridLeft);
+    if (d < minDist) { minDist = d; best = c; }
+  });
+  if (best) { const btn = best.querySelector('.btn-book'); if (btn) btn.click(); }
+};
 </script>
 </body>
 </html>

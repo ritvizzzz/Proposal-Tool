@@ -121,7 +121,7 @@ def init_db():
             conn.execute("ALTER TABLE centres ADD COLUMN min_desks INTEGER")
     # migrate: add new columns to share_links if missing
     with get_db() as conn:
-        for col_def in ['client_email TEXT', 'client_phone TEXT', 'canonical_ids TEXT']:
+        for col_def in ['client_email TEXT', 'client_phone TEXT', 'canonical_ids TEXT', 'personalised_message TEXT', 'recommended_ids TEXT']:
             col_name = col_def.split()[0]
             try:
                 conn.execute(f'ALTER TABLE share_links ADD COLUMN {col_name} TEXT')
@@ -1056,7 +1056,9 @@ def compare_direct():
     ids_param    = request.args.get('ids', '').strip()
     names_param  = request.args.get('names', '').strip()
     client_param = request.args.get('client', '').strip()
-    price_mode   = request.args.get('price_mode', '').strip()  # 'coworking' → show daily prices
+    price_mode   = request.args.get('price_mode', '').strip()
+    personalised_message = request.args.get('personalised_message', '').strip()
+    recommended_ids_param = request.args.get('recommended_ids', '').strip()
     if not ids_param:
         return 'No space IDs provided', 400
 
@@ -1095,18 +1097,26 @@ def compare_direct():
 
         if not token:
             token = _sec.token_urlsafe(8)
-            # Prefer explicit client name; fall back to space names
             if client_name:
                 label = client_name
             else:
                 label = ', '.join(centre_names[:2]) + (' + more' if len(centre_names) > 2 else '')
             conn.execute(
-                'INSERT INTO share_links (token, label, centre_ids, centre_names, canonical_ids) VALUES (?,?,?,?,?)',
-                (token, label, json.dumps(hubble_ids), json.dumps(centre_names), canonical_key)
+                'INSERT INTO share_links (token, label, centre_ids, centre_names, canonical_ids, personalised_message, recommended_ids) VALUES (?,?,?,?,?,?,?)',
+                (token, label, json.dumps(hubble_ids), json.dumps(centre_names), canonical_key,
+                 personalised_message or None, recommended_ids_param or None)
             )
-        elif client_name and (not existing_label or existing_label != client_name):
-            # Update label to the client name if admin provided one
-            conn.execute('UPDATE share_links SET label=? WHERE token=?', (client_name, token))
+        else:
+            updates = []
+            params = []
+            if client_name and (not existing_label or existing_label != client_name):
+                updates.append('label=?'); params.append(client_name)
+            if personalised_message:
+                updates.append('personalised_message=?'); params.append(personalised_message)
+            if recommended_ids_param:
+                updates.append('recommended_ids=?'); params.append(recommended_ids_param)
+            if updates:
+                conn.execute(f'UPDATE share_links SET {", ".join(updates)} WHERE token=?', params + [token])
 
         # Load data in the same connection — avoids a second round-trip
         link = conn.execute('SELECT * FROM share_links WHERE token=?', (token,)).fetchone()
@@ -1133,9 +1143,15 @@ def compare_direct():
             pass
         _push_sse({'token': token, 'event_type': 'open', 'centre_name': ''})
 
+    rec_ids = json.loads(link.get('recommended_ids') or '[]')
+    if rec_ids:
+        rec_str = [str(r) for r in rec_ids]
+        centres = sorted(centres, key=lambda c: 0 if str(c.get('id','')) in rec_str or str(c.get('hubble_id','')) in rec_str else 1)
     threading.Thread(target=_log_open, daemon=True).start()
     return render_template('compare.html', link=link, centres=centres, token=token,
                            price_mode=price_mode,
+                           personalised_message=link.get('personalised_message') or '',
+                           recommended_ids=rec_ids,
                            canonical_url=url_for('compare_page', token=token, _external=True))
 
 
@@ -1167,9 +1183,15 @@ def compare_page(token):
         # Push SSE outside DB context so it always fires even if DB write fails
         _push_sse({'token': token, 'event_type': 'open', 'centre_name': ''})
 
+    rec_ids = json.loads(link.get('recommended_ids') or '[]')
+    if rec_ids:
+        rec_str = [str(r) for r in rec_ids]
+        centres = sorted(centres, key=lambda c: 0 if str(c.get('id','')) in rec_str or str(c.get('hubble_id','')) in rec_str else 1)
     threading.Thread(target=_log_open, daemon=True).start()
     price_mode = request.args.get('price_mode', '').strip()
-    return render_template('compare.html', link=link, centres=centres, token=token, price_mode=price_mode)
+    return render_template('compare.html', link=link, centres=centres, token=token, price_mode=price_mode,
+                           personalised_message=link.get('personalised_message') or '',
+                           recommended_ids=rec_ids)
 
 
 @app.route('/health')
