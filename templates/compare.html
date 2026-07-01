@@ -74,6 +74,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 
 /* ── Main ── */
 .main { flex: 1; padding: 24px 32px 48px; max-width: 1400px; margin: 0 auto; width: 100%; }
+#intro-block { margin-bottom: 4px; }
 
 /* ── Map section (desktop: inline) ── */
 #map-section { margin-bottom: 12px; isolation: isolate; }
@@ -261,9 +262,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
   /* Hide desktop-only header elements on phone */
   .agent-pill-header { display: none; }
   .header-center { display: none; }
-  #phone-title-bar { display: block !important; text-align: center; }
   .header-right { margin-left: auto; }
-  #phone-intro-block { display: block !important; }
 
   /* Phone tabs — sticky below header */
   .phone-view-tabs {
@@ -286,6 +285,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 
   /* Main: padded for bottom bar, no horizontal padding (cards go edge-to-edge) */
   .main { padding: 12px 0 82px; overflow-x: hidden; }
+  #intro-block { padding: 8px 16px 0; margin-bottom: 0; }
 
   /* Map section: fixed below tabs, full height (phone tab view) */
   #map-section {
@@ -343,9 +343,9 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
   }
   .btn-book-compact.scheduled { background: #059669; }
 
-  /* Phone bottom bar */
+  /* Phone bottom bar — display controlled by JS (hidden by default, shown in list view) */
   .mobile-bottom-bar {
-    display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
     background: #fff; border-top: 1px solid #E8E9F3;
     padding: 8px 12px; gap: 10px; align-items: center;
     box-shadow: 0 -4px 16px rgba(0,0,0,0.07);
@@ -431,11 +431,6 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
   <a href="tel:+447863754009" class="agent-popup-phone">📞 +44 7863 754009</a>
 </div>
 
-<!-- Phone-only title bar (below header) -->
-<div id="phone-title-bar" style="display:none">
-  {{ centres|length }} workspace option{{ 's' if centres|length != 1 }}{% if link.label %} for {{ link.label }}{% endif %}
-</div>
-
 <!-- Phone-only: Spaces / Map tabs -->
 <div class="phone-view-tabs" id="phone-view-tabs">
   <button class="pvt-btn" id="pvt-spaces" onclick="switchPhoneView('spaces')">
@@ -468,19 +463,30 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
     </button>
   </div>
 
-  <!-- Phone: Contact Arjun + personalised message (hidden on desktop) -->
-  <div id="phone-intro-block" style="display:none;padding:0 16px 12px">
-    <div onclick="toggleAgentPopup()" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#F7F8FC;border:1.5px solid #E8E9F3;border-radius:12px;cursor:pointer;margin-bottom:{% if personalised_message %}10px{% else %}0{% endif %}">
-      <img src="/static/images/agent-arjun.png?v=2" style="width:36px;height:36px;border-radius:50%;object-fit:contain;background:#fff;border:2px solid #1E22AA;flex-shrink:0" alt="Arjun">
-      <div>
-        <div style="font-size:13px;font-weight:700;color:#1A1A2E">Arjun · myHQ Advisor</div>
-        <div style="font-size:12px;color:#6B7280">Tap to get in touch</div>
+  <!-- Arjun card + personalised message (desktop always visible; phone: list view only, controlled by JS) -->
+  {% if personalised_message %}
+  <div id="intro-block" style="padding:0 0 16px">
+    <div style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:#F7F8FC;border:1.5px solid #E8E9F3;border-radius:14px">
+      <img src="/static/images/agent-arjun.png?v=2" style="width:42px;height:42px;border-radius:50%;object-fit:contain;background:#fff;border:2px solid #1E22AA;flex-shrink:0" alt="Arjun">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;color:#374151;font-style:italic;line-height:1.6;margin-bottom:4px">"{{ personalised_message }}"</div>
+        <div style="font-size:11px;font-weight:700;color:#6B7280">— Arjun · myHQ Advisor</div>
       </div>
+      <button onclick="toggleAgentPopup()" style="flex-shrink:0;padding:9px 16px;background:#1E22AA;color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">Get in touch</button>
     </div>
-    {% if personalised_message %}
-    <div style="background:#F0F1FA;border-left:3px solid #1E22AA;border-radius:0 8px 8px 0;padding:12px 14px;font-size:13px;color:#374151;font-style:italic;line-height:1.6">"{{ personalised_message }}"</div>
-    {% endif %}
   </div>
+  {% else %}
+  <div id="intro-block" style="padding:0 0 16px;display:none">
+    <div style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:#F7F8FC;border:1.5px solid #E8E9F3;border-radius:14px">
+      <img src="/static/images/agent-arjun.png?v=2" style="width:42px;height:42px;border-radius:50%;object-fit:contain;background:#fff;border:2px solid #1E22AA;flex-shrink:0" alt="Arjun">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700;color:#1A1A2E">Arjun · myHQ Advisor</div>
+        <div style="font-size:12px;color:#6B7280">London workspace expert</div>
+      </div>
+      <button onclick="toggleAgentPopup()" style="flex-shrink:0;padding:9px 16px;background:#1E22AA;color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">Get in touch</button>
+    </div>
+  </div>
+  {% endif %}
 
   <!-- Cards -->
   <div class="cards-grid" id="cards-grid">
@@ -602,9 +608,9 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 </main>
 
 <!-- Phone bottom bar — dynamic Book button -->
-<div class="mobile-bottom-bar">
+<div class="mobile-bottom-bar" id="mobile-bottom-bar">
   <button id="phone-book-btn" onclick="phoneBookCurrent()">
-    📅 Book for <span id="phone-book-space-name">this space</span>
+    📅 Book a viewing for <span id="phone-book-space-name">this space</span>
   </button>
 </div>
 
@@ -1035,6 +1041,10 @@ function switchPhoneView(view) {
   document.getElementById('tabs-row').style.display = isSpaces && _dismissed.size > 0 ? 'flex' : 'none';
   const mapSec = document.getElementById('map-section');
   mapSec.classList.toggle('phone-map-active', !isSpaces);
+  const bar = document.getElementById('mobile-bottom-bar');
+  if (bar) bar.style.display = isSpaces ? 'flex' : 'none';
+  const intro = document.getElementById('intro-block');
+  if (intro) intro.style.display = isSpaces ? '' : 'none';
   if (!isSpaces && _compareMap) {
     setTimeout(() => _compareMap.invalidateSize(), 60);
   }
@@ -1193,6 +1203,10 @@ if (window.innerWidth <= 640) {
   document.getElementById('cards-grid').style.display = 'none';
   document.getElementById('map-section').classList.add('phone-map-active');
   if (document.getElementById('tabs-row')) document.getElementById('tabs-row').style.display = 'none';
+  const _bar = document.getElementById('mobile-bottom-bar');
+  if (_bar) _bar.style.display = 'none';
+  const _intro = document.getElementById('intro-block');
+  if (_intro) _intro.style.display = 'none';
   // Leaflet was initialised while the map section was hidden (display:none),
   // so it measured 0×0. Force a resize after the browser paints the container.
   setTimeout(() => { if (_compareMap) _compareMap.invalidateSize(); }, 200);
@@ -1213,6 +1227,8 @@ if (window.location.pathname !== new URL('{{ canonical_url }}').pathname) {
   function updateBtn(name) {
     const el = document.getElementById('phone-book-space-name');
     if (el) el.textContent = shortName(name);
+    const bar = document.getElementById('mobile-bottom-bar');
+    if (bar && _phoneView === 'spaces') bar.style.display = name ? 'flex' : 'none';
   }
   function findVisibleCard(grid) {
     const gridLeft = grid.getBoundingClientRect().left;
