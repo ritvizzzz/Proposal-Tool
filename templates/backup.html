@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block title %}Backup & Restore – myHQ{% endblock %}
+
+{% block content %}
+<div style="max-width:640px;margin:40px auto">
+  <h1 style="font-size:24px;font-weight:800;color:#1A1A2E;margin-bottom:6px">Backup & Restore</h1>
+  <p style="font-size:14px;color:#6B7280;margin-bottom:32px">
+    Export your share links before a Railway redeploy, then import them after. All open/click data is included.
+  </p>
+
+  <!-- Export -->
+  <div style="background:#fff;border:1.5px solid #E5E7EB;border-radius:14px;padding:28px;margin-bottom:20px">
+    <h2 style="font-size:16px;font-weight:700;color:#1A1A2E;margin-bottom:6px">Step 1 — Export (before deploy)</h2>
+    <p style="font-size:13px;color:#6B7280;margin-bottom:18px">Downloads all share links + engagement events as a JSON file. Save it somewhere safe.</p>
+    <a href="/admin/backup/export" class="btn btn-primary" style="display:inline-block;text-decoration:none;padding:10px 22px;font-size:14px;font-weight:600">
+      ⬇ Download backup
+    </a>
+  </div>
+
+  <!-- Import -->
+  <div style="background:#fff;border:1.5px solid #E5E7EB;border-radius:14px;padding:28px">
+    <h2 style="font-size:16px;font-weight:700;color:#1A1A2E;margin-bottom:6px">Step 2 — Import (after deploy)</h2>
+    <p style="font-size:13px;color:#6B7280;margin-bottom:18px">Upload the JSON file you downloaded. Existing links are skipped (no duplicates).</p>
+    <form id="import-form">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <input type="file" id="backup-file" accept=".json" required
+          style="flex:1;min-width:200px;padding:9px 12px;border:1.5px solid #D1D5DB;border-radius:8px;font-size:13px;background:#F9FAFB">
+        <button type="submit" class="btn btn-primary" style="padding:10px 22px;font-size:14px;font-weight:600;white-space:nowrap">
+          ⬆ Restore backup
+        </button>
+      </div>
+    </form>
+    <div id="import-result" style="display:none;margin-top:16px;padding:14px 18px;border-radius:10px;font-size:13px;font-weight:600"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('import-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const file = document.getElementById('backup-file').files[0];
+  if (!file) return;
+  const fd = new FormData();
+  fd.append('backup', file);
+  const btn = e.target.querySelector('button[type=submit]');
+  btn.disabled = true;
+  btn.textContent = 'Restoring…';
+  try {
+    const res = await fetch('/admin/backup/import', { method: 'POST', body: fd });
+    const data = await res.json();
+    const el = document.getElementById('import-result');
+    el.style.display = 'block';
+    if (data.ok) {
+      el.style.background = '#f0fdf4';
+      el.style.border = '1.5px solid #059669';
+      el.style.color = '#065f46';
+      el.textContent = `✓ Restored ${data.imported_links} share links and ${data.imported_events} events.`;
+    } else {
+      el.style.background = '#fef2f2';
+      el.style.border = '1.5px solid #dc2626';
+      el.style.color = '#991b1b';
+      el.textContent = 'Error: ' + (data.error || 'Unknown error');
+    }
+  } catch(err) {
+    const el = document.getElementById('import-result');
+    el.style.display = 'block';
+    el.style.background = '#fef2f2';
+    el.style.border = '1.5px solid #dc2626';
+    el.style.color = '#991b1b';
+    el.textContent = 'Network error — try again.';
+  }
+  btn.disabled = false;
+  btn.textContent = '⬆ Restore backup';
+});
+</script>
+{% endblock %}

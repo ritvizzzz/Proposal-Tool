@@ -7,7 +7,9 @@ import openpyxl
 app = Flask(__name__)
 app.secret_key = 'myhq-proposal-tool-secret'
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, 'proposals.db')
+# Use /data volume on Railway (persistent), fall back to local for dev
+_DATA_DIR = '/data' if os.path.isdir('/data') else BASE_DIR
+DB_PATH = os.path.join(_DATA_DIR, 'proposals.db')
 UPLOADS = os.path.join(BASE_DIR, 'uploads')
 CENTRE_IMAGES = os.path.join(UPLOADS, 'centres')
 PROPOSAL_FILES = os.path.join(UPLOADS, 'proposals')
@@ -115,6 +117,8 @@ def init_db():
             conn.execute("ALTER TABLE centres ADD COLUMN hotdesk_price INTEGER")
         if 'has_coworking' not in cols:
             conn.execute("ALTER TABLE centres ADD COLUMN has_coworking INTEGER DEFAULT 0")
+        if 'min_desks' not in cols:
+            conn.execute("ALTER TABLE centres ADD COLUMN min_desks INTEGER")
     # migrate: add new columns to share_links if missing
     with get_db() as conn:
         for col_def in ['client_email TEXT', 'client_phone TEXT', 'canonical_ids TEXT']:
@@ -979,6 +983,22 @@ def share_link_create():
 
 _BAD_BRANDS = {'the','a','an','our','new','old','my','one','at','of','in','by'}
 
+_ip_country_cache = {}  # ip → 'IN' / 'GB' / etc., cached in-process
+
+def _is_india_ip(ip):
+    """Returns True if the IP geolocates to India. Cached per IP, non-blocking."""
+    if not ip or ip in ('127.0.0.1', '::1') or ip.startswith('192.168.') or ip.startswith('10.'):
+        return False
+    if ip in _ip_country_cache:
+        return _ip_country_cache[ip] == 'IN'
+    try:
+        r = requests.get(f'http://ip-api.com/json/{ip}?fields=countryCode', timeout=2)
+        country = r.json().get('countryCode', '')
+    except Exception:
+        country = ''
+    _ip_country_cache[ip] = country
+    return country == 'IN'
+
 def _load_centres_for_compare(conn, hubble_ids):
     """Fetch centre data + images for a list of hubble_ids (batched)."""
     if not hubble_ids:
@@ -1011,7 +1031,7 @@ def _load_centres_for_compare(conn, hubble_ids):
         if not c:
             continue
         cid = c['id']
-        raw_imgs = imgs_by_centre.get(cid, [])[:4] if cids else []
+        raw_imgs = imgs_by_centre.get(cid, []) if cids else []
         c['image_urls'] = [
             fn if fn.startswith('http') else f'/centre-image/{cid}/{fn}'
             for fn in raw_imgs
@@ -1096,10 +1116,13 @@ def compare_direct():
         hubble_ids = json.loads(link['centre_ids'])
         centres = _load_centres_for_compare(conn, hubble_ids)
 
-    ip_hash = hashlib.md5((request.remote_addr or '').encode()).hexdigest()[:8]
+    raw_ip = request.remote_addr or ''
+    ip_hash = hashlib.md5(raw_ip.encode()).hexdigest()[:8]
     ua = request.headers.get('User-Agent', '')
 
     def _log_open():
+        if _is_india_ip(raw_ip):
+            return
         try:
             with get_db() as c:
                 c.execute(
@@ -1126,10 +1149,13 @@ def compare_page(token):
         hubble_ids = json.loads(link['centre_ids'])
         centres = _load_centres_for_compare(conn, hubble_ids)
 
-    ip_hash = hashlib.md5((request.remote_addr or '').encode()).hexdigest()[:8]
+    raw_ip  = request.remote_addr or ''
+    ip_hash = hashlib.md5(raw_ip.encode()).hexdigest()[:8]
     ua      = request.headers.get('User-Agent', '')
 
     def _log_open():
+        if _is_india_ip(raw_ip):
+            return
         try:
             with get_db() as c:
                 c.execute(
@@ -1160,6 +1186,8 @@ def track_event():
     if not token or not event_type:
         return jsonify({'ok': False, 'error': 'token and event_type required'}), 400
     ip = request.remote_addr or ''
+    if _is_india_ip(ip):
+        return jsonify({'ok': True})
     ip_hash = hashlib.md5(ip.encode()).hexdigest()[:8]
     ua = request.headers.get('User-Agent', '')
     payload = {
@@ -1521,6 +1549,69 @@ def dashboard_analytics():
         avg_spaces=round(avg_spaces or 0, 1),
         avg_clicks_per_link=round(avg_clicks_per_link or 0, 1),
     )
+
+
+# ── Backup / Restore (share links) ──────────────────────────────────────────
+@app.route('/admin/backup')
+def admin_backup_page():
+    return render_template('backup.html')
+
+@app.route('/admin/backup/export')
+def admin_backup_export():
+    with get_db() as conn:
+        conn.row_factory = sqlite3.Row
+        links = [dict(r) for r in conn.execute('SELECT * FROM share_links ORDER BY created_at').fetchall()]
+        events = [dict(r) for r in conn.execute('SELECT * FROM link_events ORDER BY created_at').fetchall()]
+    payload = json.dumps({'share_links': links, 'link_events': events}, default=str, indent=2)
+    return send_file(
+        io.BytesIO(payload.encode()),
+        mimetype='application/json',
+        as_attachment=True,
+        download_name='share_links_backup.json'
+    )
+
+@app.route('/admin/backup/import', methods=['POST'])
+def admin_backup_import():
+    f = request.files.get('backup')
+    if not f:
+        return jsonify({'error': 'No file uploaded'}), 400
+    try:
+        data = json.loads(f.read().decode())
+    except Exception:
+        return jsonify({'error': 'Invalid JSON file'}), 400
+    links = data.get('share_links', [])
+    events = data.get('link_events', [])
+    imported_links = imported_events = 0
+    with get_db() as conn:
+        for lnk in links:
+            try:
+                conn.execute('''
+                    INSERT OR IGNORE INTO share_links
+                        (token, label, centre_ids, centre_names, canonical_ids,
+                         created_at, created_by, client_email, client_phone)
+                    VALUES (?,?,?,?,?,?,?,?,?)
+                ''', (lnk.get('token'), lnk.get('label'), lnk.get('centre_ids'),
+                      lnk.get('centre_names'), lnk.get('canonical_ids'),
+                      lnk.get('created_at'), lnk.get('created_by'),
+                      lnk.get('client_email'), lnk.get('client_phone')))
+                imported_links += 1
+            except Exception:
+                pass
+        for ev in events:
+            try:
+                conn.execute('''
+                    INSERT OR IGNORE INTO link_events
+                        (token, event_type, centre_id, centre_name, dwell_seconds,
+                         ip_hash, user_agent, booking_date, booking_time, created_at)
+                    VALUES (?,?,?,?,?,?,?,?,?,?)
+                ''', (ev.get('token'), ev.get('event_type'), ev.get('centre_id'),
+                      ev.get('centre_name'), ev.get('dwell_seconds'), ev.get('ip_hash'),
+                      ev.get('user_agent'), ev.get('booking_date'), ev.get('booking_time'),
+                      ev.get('created_at')))
+                imported_events += 1
+            except Exception:
+                pass
+    return jsonify({'ok': True, 'imported_links': imported_links, 'imported_events': imported_events})
 
 
 if __name__ == '__main__':
