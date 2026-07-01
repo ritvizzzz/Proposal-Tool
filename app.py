@@ -1126,7 +1126,7 @@ def compare_direct():
         hubble_ids = json.loads(link['centre_ids'])
         centres = _load_centres_for_compare(conn, hubble_ids)
 
-    raw_ip = request.remote_addr or ''
+    raw_ip = (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
     ip_hash = hashlib.md5(raw_ip.encode()).hexdigest()[:8]
     ua = request.headers.get('User-Agent', '')
 
@@ -1165,7 +1165,7 @@ def compare_page(token):
         hubble_ids = json.loads(link['centre_ids'])
         centres = _load_centres_for_compare(conn, hubble_ids)
 
-    raw_ip  = request.remote_addr or ''
+    raw_ip  = (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
     ip_hash = hashlib.md5(raw_ip.encode()).hexdigest()[:8]
     ua      = request.headers.get('User-Agent', '')
 
@@ -1207,7 +1207,7 @@ def track_event():
     event_type = data.get('event_type', '')
     if not token or not event_type:
         return jsonify({'ok': False, 'error': 'token and event_type required'}), 400
-    ip = request.remote_addr or ''
+    ip = (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
     if _is_india_ip(ip):
         return jsonify({'ok': True})
     ip_hash = hashlib.md5(ip.encode()).hexdigest()[:8]

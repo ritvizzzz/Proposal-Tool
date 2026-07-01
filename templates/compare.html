@@ -261,7 +261,8 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
   /* Hide desktop-only header elements on phone */
   .agent-pill-header { display: none; }
   .header-center { display: none; }
-  #phone-title-bar { display: block !important; }
+  #phone-title-bar { display: block !important; text-align: center; }
+  .header-right { margin-left: auto; }
   #phone-intro-block { display: block !important; }
 
   /* Phone tabs — sticky below header */
@@ -431,7 +432,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 </div>
 
 <!-- Phone-only title bar (below header) -->
-<div id="phone-title-bar">
+<div id="phone-title-bar" style="display:none">
   {{ centres|length }} workspace option{{ 's' if centres|length != 1 }}{% if link.label %} for {{ link.label }}{% endif %}
 </div>
 
@@ -1161,7 +1162,7 @@ function toggleAgentPopup() {
   const popup = document.getElementById('agent-popup');
   popup.classList.toggle('open');
   if (popup.classList.contains('open')) {
-    setTimeout(() => document.addEventListener('click', _closeAgentOnOutside, {once:true}), 50);
+    setTimeout(() => document.addEventListener('click', _closeAgentOnOutside, {once:true}), 400);
   }
 }
 function _closeAgentOnOutside(e) {
@@ -1213,25 +1214,33 @@ if (window.location.pathname !== new URL('{{ canonical_url }}').pathname) {
     const el = document.getElementById('phone-book-space-name');
     if (el) el.textContent = shortName(name);
   }
+  function findVisibleCard(grid) {
+    const gridLeft = grid.getBoundingClientRect().left;
+    const cards = grid.querySelectorAll('.space-card');
+    let best = null, minDist = Infinity;
+    cards.forEach(c => {
+      if (c.offsetParent === null) return;
+      const d = Math.abs(c.getBoundingClientRect().left - gridLeft);
+      if (d < minDist) { minDist = d; best = c; }
+    });
+    return best;
+  }
   const grid = document.getElementById('cards-grid');
   if (!grid) return;
   const firstCard = grid.querySelector('.space-card');
   if (firstCard) updateBtn(firstCard.dataset.centreName || '');
-  if (!window.IntersectionObserver) return;
-  const obs = new IntersectionObserver(entries => {
-    let best = null, bestRatio = 0;
-    entries.forEach(e => { if (e.intersectionRatio > bestRatio) { bestRatio = e.intersectionRatio; best = e.target; } });
+  grid.addEventListener('scroll', function() {
+    const best = findVisibleCard(grid);
     if (best) updateBtn(best.dataset.centreName || '');
-  }, { root: grid, threshold: [0.5] });
-  grid.querySelectorAll('.space-card').forEach(c => obs.observe(c));
+  }, { passive: true });
 })();
 
 window.phoneBookCurrent = function() {
   const grid = document.getElementById('cards-grid');
   if (!grid) return;
-  const cards = [...grid.querySelectorAll('.space-card:not([data-dismissed="true"])')];
-  let best = cards[0], minDist = Infinity;
   const gridLeft = grid.getBoundingClientRect().left;
+  const cards = [...grid.querySelectorAll('.space-card')].filter(c => c.offsetParent !== null);
+  let best = cards[0], minDist = Infinity;
   cards.forEach(c => {
     const d = Math.abs(c.getBoundingClientRect().left - gridLeft);
     if (d < minDist) { minDist = d; best = c; }
