@@ -442,24 +442,28 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
   <!-- Arjun card + personalised message (desktop: above map; phone: list view only, controlled by JS) -->
   {% if personalised_message %}
   <div id="intro-block" style="padding:0 0 16px">
-    <div style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:#F7F8FC;border:1.5px solid #E8E9F3;border-radius:14px">
-      <img src="/static/images/agent-arjun.png?v=2" style="width:42px;height:42px;border-radius:50%;object-fit:contain;background:#fff;border:2px solid #1E22AA;flex-shrink:0" alt="Arjun">
+    <div style="display:flex;gap:12px;padding:14px 16px;background:#F7F8FC;border:1.5px solid #E8E9F3;border-radius:14px;align-items:flex-start">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:7px;flex-shrink:0">
+        <img src="/static/images/agent-arjun.png?v=2" style="width:44px;height:44px;border-radius:50%;object-fit:contain;background:#fff;border:2px solid #1E22AA" alt="Arjun">
+        <button onclick="toggleAgentPopup()" style="padding:5px 10px;background:#1E22AA;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">Get in touch</button>
+      </div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;color:#374151;font-style:italic;line-height:1.6;margin-bottom:4px">"{{ personalised_message }}"</div>
+        <div style="font-size:13px;color:#374151;font-style:italic;line-height:1.6;margin-bottom:4px;word-break:break-word;overflow-wrap:anywhere">"{{ personalised_message }}"</div>
         <div style="font-size:11px;font-weight:700;color:#6B7280">— Arjun · myHQ Advisor</div>
       </div>
-      <button onclick="toggleAgentPopup()" style="flex-shrink:0;padding:9px 16px;background:#1E22AA;color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">Get in touch</button>
     </div>
   </div>
   {% else %}
   <div id="intro-block" style="padding:0 0 16px;display:none">
-    <div style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:#F7F8FC;border:1.5px solid #E8E9F3;border-radius:14px">
-      <img src="/static/images/agent-arjun.png?v=2" style="width:42px;height:42px;border-radius:50%;object-fit:contain;background:#fff;border:2px solid #1E22AA;flex-shrink:0" alt="Arjun">
+    <div style="display:flex;gap:12px;padding:14px 16px;background:#F7F8FC;border:1.5px solid #E8E9F3;border-radius:14px;align-items:flex-start">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:7px;flex-shrink:0">
+        <img src="/static/images/agent-arjun.png?v=2" style="width:44px;height:44px;border-radius:50%;object-fit:contain;background:#fff;border:2px solid #1E22AA" alt="Arjun">
+        <button onclick="toggleAgentPopup()" style="padding:5px 10px;background:#1E22AA;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">Get in touch</button>
+      </div>
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:700;color:#1A1A2E">Arjun · myHQ Advisor</div>
         <div style="font-size:12px;color:#6B7280">London workspace expert</div>
       </div>
-      <button onclick="toggleAgentPopup()" style="flex-shrink:0;padding:9px 16px;background:#1E22AA;color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">Get in touch</button>
     </div>
   </div>
   {% endif %}
@@ -1189,12 +1193,13 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { closeLightbox(); closeBooking(); closeSchedulePanel(); closeActivePopup(); document.getElementById('agent-popup').classList.remove('open'); }
 });
 
-// ── Close agent popup on outside click (desktop) ──
+// ── Close agent popup on outside click ──
 document.addEventListener('click', e => {
   const popup = document.getElementById('agent-popup');
-  const pill = document.querySelector('.agent-pill-header');
+  // Don't close if click came from a toggle-trigger button
+  if (e.target.closest('[onclick*="toggleAgentPopup"]')) return;
   const mini = document.querySelector('.agent-mini');
-  if (popup.classList.contains('open') && !popup.contains(e.target) && e.target !== pill && !pill?.contains(e.target) && e.target !== mini && !mini?.contains(e.target)) {
+  if (popup.classList.contains('open') && !popup.contains(e.target) && e.target !== mini && !mini?.contains(e.target)) {
     popup.classList.remove('open');
   }
 });
