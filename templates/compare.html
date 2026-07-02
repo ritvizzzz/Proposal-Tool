@@ -202,8 +202,9 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 }
 .btn-map-card:hover { background: #EEEFFE; color: #1E22AA; border-color: #C7D2FE; text-decoration: none; }
 
-/* ── Mobile bottom bar (PHONE ONLY) ── */
+/* ── Mobile bottom bar (PHONE ONLY — never show on desktop) ── */
 .mobile-bottom-bar { display: none; }
+@media (min-width: 641px) { .mobile-bottom-bar { display: none !important; } }
 
 /* Phone agent mini card (PHONE ONLY) */
 .agent-mini { display: none; }
@@ -330,8 +331,8 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 
   /* Hide compact book button — bottom bar handles booking on phone */
   .btn-book-compact { display: none !important; }
-  /* Hide large book button inside card actions too */
-  .card-actions .btn-book { display: none !important; }
+  /* Hide large book button inside card actions in snap-bar mode (JS adds/removes body class) */
+  body.phone-snap-mode .card-actions .btn-book { display: none; }
 
   /* Old compact book button styles (kept for reference, overridden above) */
   ._btn-book-compact-disabled {
@@ -415,11 +416,6 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
     <button class="btn-my-viewings-header" onclick="openSchedulePanel()">
       📅 My viewings <span class="mv-count" id="hdr-mv-count"></span>
     </button>
-    <!-- Agent pill (desktop) -->
-    <button class="agent-pill-header" onclick="toggleAgentPopup()">
-      <img src="/static/images/agent-arjun.png?v=2" class="agent-avatar-sm" alt="Arjun">
-      <span>Contact Arjun</span>
-    </button>
   </div>
 </header>
 
@@ -443,27 +439,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 
 <main class="main">
 
-  <!-- Map (desktop: inline; phone: controlled by tabs) -->
-  <div id="map-section">
-    <div id="compare-map"></div>
-  </div>
-
-  <!-- Desktop map toggle -->
-  <div class="map-toggle-row">
-    <button id="map-toggle-btn" onclick="toggleDesktopMap()">🗺 Hide map</button>
-  </div>
-
-  <!-- Dismissed/active tabs -->
-  <div class="tabs-row" id="tabs-row">
-    <button class="tab-btn active" id="tab-active" onclick="showTab('active')">
-      List view <span class="tab-count" id="tab-active-count">{{ centres|length }}</span>
-    </button>
-    <button class="tab-btn" id="tab-dismissed" onclick="showTab('dismissed')">
-      Removed <span class="tab-count" id="tab-dismissed-count">0</span>
-    </button>
-  </div>
-
-  <!-- Arjun card + personalised message (desktop always visible; phone: list view only, controlled by JS) -->
+  <!-- Arjun card + personalised message (desktop: above map; phone: list view only, controlled by JS) -->
   {% if personalised_message %}
   <div id="intro-block" style="padding:0 0 16px">
     <div style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:#F7F8FC;border:1.5px solid #E8E9F3;border-radius:14px">
@@ -488,6 +464,26 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
   </div>
   {% endif %}
 
+  <!-- Map (desktop: inline; phone: controlled by tabs) -->
+  <div id="map-section">
+    <div id="compare-map"></div>
+  </div>
+
+  <!-- Desktop map toggle -->
+  <div class="map-toggle-row">
+    <button id="map-toggle-btn" onclick="toggleDesktopMap()">🗺 Hide map</button>
+  </div>
+
+  <!-- Dismissed/active tabs -->
+  <div class="tabs-row" id="tabs-row">
+    <button class="tab-btn active" id="tab-active" onclick="showTab('active')">
+      List view <span class="tab-count" id="tab-active-count">{{ centres|length }}</span>
+    </button>
+    <button class="tab-btn" id="tab-dismissed" onclick="showTab('dismissed')">
+      Removed <span class="tab-count" id="tab-dismissed-count">0</span>
+    </button>
+  </div>
+
   <!-- Cards -->
   <div class="cards-grid" id="cards-grid">
     {% set rec_ids_str = recommended_ids | map('string') | list %}
@@ -497,7 +493,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
          data-centre-id="{{ c.id }}"
          data-centre-name="{{ c.name|e }}"
          onclick="onCardClick(this)">
-      {% if is_rec %}<div class="rec-tag">⭐ myHQ Recommendation</div>{% endif %}
+      {% if is_rec %}<div class="rec-tag">⭐ Recommended</div>{% endif %}
 
       <!-- Photo area -->
       <div class="photo-area" id="photo-area-{{ c.id }}" style="position:relative">
@@ -1041,10 +1037,18 @@ function switchPhoneView(view) {
   document.getElementById('tabs-row').style.display = isSpaces && _dismissed.size > 0 ? 'flex' : 'none';
   const mapSec = document.getElementById('map-section');
   mapSec.classList.toggle('phone-map-active', !isSpaces);
-  const bar = document.getElementById('mobile-bottom-bar');
-  if (bar) bar.style.display = isSpaces ? 'flex' : 'none';
   const intro = document.getElementById('intro-block');
   if (intro) intro.style.display = isSpaces ? '' : 'none';
+  if (isSpaces) {
+    // Scroll to top so snap-mode activates and bottom bar shows immediately
+    window.scrollTo({ top: 0 });
+    setTimeout(() => { if (window._phoneBarRefresh) window._phoneBarRefresh(); }, 50);
+  } else {
+    // Map view: ensure bar is hidden
+    const bar = document.getElementById('mobile-bottom-bar');
+    if (bar) bar.style.display = 'none';
+    document.body.classList.remove('phone-snap-mode');
+  }
   if (!isSpaces && _compareMap) {
     setTimeout(() => _compareMap.invalidateSize(), 60);
   }
@@ -1203,10 +1207,12 @@ if (window.innerWidth <= 640) {
   document.getElementById('cards-grid').style.display = 'none';
   document.getElementById('map-section').classList.add('phone-map-active');
   if (document.getElementById('tabs-row')) document.getElementById('tabs-row').style.display = 'none';
+  // Start in map view: hide bar, hide intro, no snap-mode
   const _bar = document.getElementById('mobile-bottom-bar');
   if (_bar) _bar.style.display = 'none';
   const _intro = document.getElementById('intro-block');
   if (_intro) _intro.style.display = 'none';
+  document.body.classList.remove('phone-snap-mode');
   // Leaflet was initialised while the map section was hidden (display:none),
   // so it measured 0×0. Force a resize after the browser paints the container.
   setTimeout(() => { if (_compareMap) _compareMap.invalidateSize(); }, 200);
@@ -1218,37 +1224,72 @@ if (window.location.pathname !== new URL('{{ canonical_url }}').pathname) {
 }
 {% endif %}
 
-// ── Phone bottom bar: dynamic "Book for [space]" ────────────────────────────
+// ── Phone bottom bar: dynamic "Book a viewing for [space]" ──────────────────
 (function() {
+  if (window.innerWidth > 640) return; // desktop: no bottom bar logic
+
   function shortName(name) {
     const short = name.replace(/^[^–\-]+[–\-]\s*/, '').trim() || name;
-    return short.length > 20 ? short.slice(0, 18) + '…' : short;
+    return short.length > 22 ? short.slice(0, 20) + '…' : short;
   }
-  function updateBtn(name) {
-    const el = document.getElementById('phone-book-space-name');
-    if (el) el.textContent = shortName(name);
+
+  function setSnapMode(on) {
     const bar = document.getElementById('mobile-bottom-bar');
-    if (bar && _phoneView === 'spaces') bar.style.display = name ? 'flex' : 'none';
+    if (_phoneView !== 'spaces') { if (bar) bar.style.display = 'none'; return; }
+    if (on) {
+      document.body.classList.add('phone-snap-mode');
+      if (bar) bar.style.display = 'flex';
+    } else {
+      document.body.classList.remove('phone-snap-mode');
+      if (bar) bar.style.display = 'none';
+    }
   }
-  function findVisibleCard(grid) {
+
+  function updateBtnName() {
+    const grid = document.getElementById('cards-grid');
+    if (!grid) return;
     const gridLeft = grid.getBoundingClientRect().left;
-    const cards = grid.querySelectorAll('.space-card');
+    const cards = [...grid.querySelectorAll('.space-card')].filter(c => c.offsetParent !== null);
     let best = null, minDist = Infinity;
     cards.forEach(c => {
-      if (c.offsetParent === null) return;
       const d = Math.abs(c.getBoundingClientRect().left - gridLeft);
       if (d < minDist) { minDist = d; best = c; }
     });
-    return best;
+    const el = document.getElementById('phone-book-space-name');
+    if (el && best) el.textContent = shortName(best.dataset.centreName || '');
   }
+
+  // Expose so switchPhoneView can trigger a refresh
+  window._phoneBarRefresh = function() {
+    const grid = document.getElementById('cards-grid');
+    if (!grid) return;
+    checkScrollPosition();
+    updateBtnName();
+  };
+
+  function checkScrollPosition() {
+    if (_phoneView !== 'spaces') { setSnapMode(false); return; }
+    const grid = document.getElementById('cards-grid');
+    if (!grid) { setSnapMode(false); return; }
+    // If page has scrolled more than 80px, cards are partially out of view —
+    // hide the bar so the in-card book button is reachable
+    const scrolled = window.scrollY > 80;
+    setSnapMode(!scrolled);
+  }
+
+  // Initialise name from first card
   const grid = document.getElementById('cards-grid');
-  if (!grid) return;
-  const firstCard = grid.querySelector('.space-card');
-  if (firstCard) updateBtn(firstCard.dataset.centreName || '');
-  grid.addEventListener('scroll', function() {
-    const best = findVisibleCard(grid);
-    if (best) updateBtn(best.dataset.centreName || '');
-  }, { passive: true });
+  if (grid) {
+    const firstCard = grid.querySelector('.space-card');
+    const el = document.getElementById('phone-book-space-name');
+    if (firstCard && el) el.textContent = shortName(firstCard.dataset.centreName || '');
+
+    // Update name on horizontal card scroll
+    grid.addEventListener('scroll', updateBtnName, { passive: true });
+  }
+
+  // Show/hide bar based on vertical page scroll
+  window.addEventListener('scroll', checkScrollPosition, { passive: true });
 })();
 
 window.phoneBookCurrent = function() {
