@@ -7,3 +7,4 @@ uploads/templates/
 *.pptx
 *.pdf
 *.db
+backups/auto_backup_*.json

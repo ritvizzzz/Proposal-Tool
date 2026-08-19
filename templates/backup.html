@@ -33,6 +33,16 @@
     </form>
     <div id="import-result" style="display:none;margin-top:16px;padding:14px 18px;border-radius:10px;font-size:13px;font-weight:600"></div>
   </div>
+
+  <!-- Automatic daily backups -->
+  <div style="background:#fff;border:1.5px solid #E5E7EB;border-radius:14px;padding:28px;margin-top:20px">
+    <h2 style="font-size:16px;font-weight:700;color:#1A1A2E;margin-bottom:6px">Automatic daily snapshots</h2>
+    <p style="font-size:13px;color:#6B7280;margin-bottom:14px">
+      The tool also takes a full backup of itself automatically once a day, and keeps the last 14 days.
+      This is on top of the manual backup above — a safety net in case of accidental deletes, not something you need to do yourself.
+    </p>
+    <ul id="auto-backup-list" style="list-style:none;margin:0;padding:0;font-size:13px"></ul>
+  </div>
 </div>
 {% endblock %}
 
@@ -75,6 +85,21 @@ document.getElementById('import-form').addEventListener('submit', async function
   }
   btn.disabled = false;
   btn.textContent = '⬆ Restore backup';
+});
+
+fetch('/admin/backup/auto').then(r => r.json()).then(data => {
+  const list = document.getElementById('auto-backup-list');
+  if (!data.backups || !data.backups.length) {
+    list.innerHTML = '<li style="color:#9CA3AF">No automatic snapshots yet — the first one is taken shortly after each deploy/restart.</li>';
+    return;
+  }
+  list.innerHTML = data.backups.map(f => {
+    const label = f.replace('auto_backup_', '').replace('.json', '');
+    return `<li style="padding:8px 0;border-top:1px solid #F3F4F6;display:flex;justify-content:space-between;align-items:center">
+      <span style="color:#374151">${label}</span>
+      <a href="/admin/backup/auto/${f}" style="color:#0891B2;font-weight:600;text-decoration:none">⬇ Download</a>
+    </li>`;
+  }).join('');
 });
 </script>
 {% endblock %}

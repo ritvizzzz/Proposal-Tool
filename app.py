@@ -2021,17 +2021,20 @@ def dashboard_analytics():
 def admin_backup_page():
     return render_template('backup.html')
 
+def _build_backup_payload(conn):
+    conn.row_factory = sqlite3.Row
+    return {
+        'centres': [dict(r) for r in conn.execute('SELECT * FROM centres ORDER BY id').fetchall()],
+        'centre_images': [dict(r) for r in conn.execute('SELECT * FROM centre_images ORDER BY id').fetchall()],
+        'proposals': [dict(r) for r in conn.execute('SELECT * FROM proposals ORDER BY id').fetchall()],
+        'share_links': [dict(r) for r in conn.execute('SELECT * FROM share_links ORDER BY created_at').fetchall()],
+        'link_events': [dict(r) for r in conn.execute('SELECT * FROM link_events ORDER BY created_at').fetchall()],
+    }
+
 @app.route('/admin/backup/export')
 def admin_backup_export():
     with get_db() as conn:
-        conn.row_factory = sqlite3.Row
-        payload = {
-            'centres': [dict(r) for r in conn.execute('SELECT * FROM centres ORDER BY id').fetchall()],
-            'centre_images': [dict(r) for r in conn.execute('SELECT * FROM centre_images ORDER BY id').fetchall()],
-            'proposals': [dict(r) for r in conn.execute('SELECT * FROM proposals ORDER BY id').fetchall()],
-            'share_links': [dict(r) for r in conn.execute('SELECT * FROM share_links ORDER BY created_at').fetchall()],
-            'link_events': [dict(r) for r in conn.execute('SELECT * FROM link_events ORDER BY created_at').fetchall()],
-        }
+        payload = _build_backup_payload(conn)
     body = json.dumps(payload, default=str, indent=2)
     return send_file(
         io.BytesIO(body.encode()),
@@ -2039,6 +2042,55 @@ def admin_backup_export():
         as_attachment=True,
         download_name=f'proposal_tool_backup_{datetime.now(_dt_timezone.utc).strftime("%Y%m%d")}.json'
     )
+
+_AUTO_BACKUP_DIR = os.path.join(_DATA_DIR, 'backups')
+_AUTO_BACKUP_KEEP_DAYS = 14
+_AUTO_BACKUP_INTERVAL_SECONDS = 24 * 60 * 60
+
+def _run_scheduled_backup():
+    os.makedirs(_AUTO_BACKUP_DIR, exist_ok=True)
+    with get_db() as conn:
+        payload = _build_backup_payload(conn)
+    stamp = datetime.now(_dt_timezone.utc).strftime('%Y-%m-%d')
+    path = os.path.join(_AUTO_BACKUP_DIR, f'auto_backup_{stamp}.json')
+    with open(path, 'w', encoding='utf-8') as fh:
+        json.dump(payload, fh, default=str)
+    cutoff = time.time() - _AUTO_BACKUP_KEEP_DAYS * 86400
+    for fname in os.listdir(_AUTO_BACKUP_DIR):
+        fpath = os.path.join(_AUTO_BACKUP_DIR, fname)
+        if fname.startswith('auto_backup_') and os.path.isfile(fpath) and os.path.getmtime(fpath) < cutoff:
+            os.remove(fpath)
+    print(f'[auto-backup] wrote {path} '
+          f'({len(payload["centres"])} centres, {len(payload["share_links"])} share_links)')
+
+def _auto_backup_loop():
+    while True:
+        try:
+            _run_scheduled_backup()
+        except Exception as e:
+            print(f'[auto-backup] failed: {e}')
+        time.sleep(_AUTO_BACKUP_INTERVAL_SECONDS)
+
+threading.Thread(target=_auto_backup_loop, daemon=True).start()
+
+@app.route('/admin/backup/auto')
+def admin_backup_auto_list():
+    os.makedirs(_AUTO_BACKUP_DIR, exist_ok=True)
+    files = sorted(
+        (f for f in os.listdir(_AUTO_BACKUP_DIR) if f.startswith('auto_backup_') and f.endswith('.json')),
+        reverse=True
+    )
+    return jsonify({'backups': files})
+
+@app.route('/admin/backup/auto/<path:filename>')
+def admin_backup_auto_download(filename):
+    filename = secure_filename(filename)
+    if not filename.startswith('auto_backup_') or not filename.endswith('.json'):
+        return jsonify({'error': 'Not found'}), 404
+    fpath = os.path.join(_AUTO_BACKUP_DIR, filename)
+    if not os.path.isfile(fpath):
+        return jsonify({'error': 'Not found'}), 404
+    return send_file(fpath, mimetype='application/json', as_attachment=True, download_name=filename)
 
 @app.route('/admin/backup/import', methods=['POST'])
 def admin_backup_import():
