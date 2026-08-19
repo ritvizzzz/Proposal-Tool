@@ -121,6 +121,11 @@ def init_db():
             conn.execute("ALTER TABLE centres ADD COLUMN has_coworking INTEGER DEFAULT 0")
         if 'min_desks' not in cols:
             conn.execute("ALTER TABLE centres ADD COLUMN min_desks INTEGER")
+        if 'hubble_id' not in cols:
+            # Previously only added by the standalone import_hubble.py script — but
+            # app.py code (matching, indexing, backup restore) depends on this column
+            # existing on ANY database, so it belongs in the main schema migration too.
+            conn.execute("ALTER TABLE centres ADD COLUMN hubble_id TEXT")
     # migrate: add new columns to share_links if missing
     with get_db() as conn:
         for col_def in ['client_email TEXT', 'client_phone TEXT', 'canonical_ids TEXT', 'personalised_message TEXT', 'recommended_ids TEXT']:
@@ -2020,14 +2025,19 @@ def admin_backup_page():
 def admin_backup_export():
     with get_db() as conn:
         conn.row_factory = sqlite3.Row
-        links = [dict(r) for r in conn.execute('SELECT * FROM share_links ORDER BY created_at').fetchall()]
-        events = [dict(r) for r in conn.execute('SELECT * FROM link_events ORDER BY created_at').fetchall()]
-    payload = json.dumps({'share_links': links, 'link_events': events}, default=str, indent=2)
+        payload = {
+            'centres': [dict(r) for r in conn.execute('SELECT * FROM centres ORDER BY id').fetchall()],
+            'centre_images': [dict(r) for r in conn.execute('SELECT * FROM centre_images ORDER BY id').fetchall()],
+            'proposals': [dict(r) for r in conn.execute('SELECT * FROM proposals ORDER BY id').fetchall()],
+            'share_links': [dict(r) for r in conn.execute('SELECT * FROM share_links ORDER BY created_at').fetchall()],
+            'link_events': [dict(r) for r in conn.execute('SELECT * FROM link_events ORDER BY created_at').fetchall()],
+        }
+    body = json.dumps(payload, default=str, indent=2)
     return send_file(
-        io.BytesIO(payload.encode()),
+        io.BytesIO(body.encode()),
         mimetype='application/json',
         as_attachment=True,
-        download_name='share_links_backup.json'
+        download_name=f'proposal_tool_backup_{datetime.now(_dt_timezone.utc).strftime("%Y%m%d")}.json'
     )
 
 @app.route('/admin/backup/import', methods=['POST'])
@@ -2039,39 +2049,49 @@ def admin_backup_import():
         data = json.loads(f.read().decode())
     except Exception:
         return jsonify({'error': 'Invalid JSON file'}), 400
-    links = data.get('share_links', [])
-    events = data.get('link_events', [])
-    imported_links = imported_events = 0
+
+    counts = {}
     with get_db() as conn:
-        for lnk in links:
-            try:
-                conn.execute('''
-                    INSERT OR IGNORE INTO share_links
-                        (token, label, centre_ids, centre_names, canonical_ids,
-                         created_at, created_by, client_email, client_phone)
-                    VALUES (?,?,?,?,?,?,?,?,?)
-                ''', (lnk.get('token'), lnk.get('label'), lnk.get('centre_ids'),
-                      lnk.get('centre_names'), lnk.get('canonical_ids'),
-                      lnk.get('created_at'), lnk.get('created_by'),
-                      lnk.get('client_email'), lnk.get('client_phone')))
-                imported_links += 1
-            except Exception:
-                pass
-        for ev in events:
-            try:
-                conn.execute('''
-                    INSERT OR IGNORE INTO link_events
-                        (token, event_type, centre_id, centre_name, dwell_seconds,
-                         ip_hash, user_agent, booking_date, booking_time, created_at)
-                    VALUES (?,?,?,?,?,?,?,?,?,?)
-                ''', (ev.get('token'), ev.get('event_type'), ev.get('centre_id'),
-                      ev.get('centre_name'), ev.get('dwell_seconds'), ev.get('ip_hash'),
-                      ev.get('user_agent'), ev.get('booking_date'), ev.get('booking_time'),
-                      ev.get('created_at')))
-                imported_events += 1
-            except Exception:
-                pass
-    return jsonify({'ok': True, 'imported_links': imported_links, 'imported_events': imported_events})
+        # id is inserted explicitly (not auto-assigned) for every table below so
+        # relationships stay intact — e.g. centre_images.centre_id must keep
+        # pointing at the same centre it did before the backup was taken.
+        counts['centres'] = _restore_rows(conn, data.get('centres', []), 'centres', [
+            'id','name','address','city','about','space_type','brand','price_from','price_unit',
+            'seat_type','open_hours','amenities','transport','website','map_url','coordinates',
+            'why_recommend','source','created_at','hubble_id','hotdesk_price','has_coworking','min_desks',
+        ])
+        counts['centre_images'] = _restore_rows(conn, data.get('centre_images', []), 'centre_images', [
+            'id','centre_id','filename','label','is_primary','sort_order',
+        ])
+        counts['proposals'] = _restore_rows(conn, data.get('proposals', []), 'proposals', [
+            'id','title','template','client_name','client_company','client_email','client_location',
+            'team_size','space_type','area_required','budget','duration','selected_centres',
+            'manual_centres','status','pptx_filename','pdf_filename','created_at',
+        ])
+        counts['share_links'] = _restore_rows(conn, data.get('share_links', []), 'share_links', [
+            'id','token','label','centre_ids','centre_names','created_at','created_by','client_email',
+            'client_phone','canonical_ids','personalised_message','recommended_ids','is_test',
+        ])
+        counts['link_events'] = _restore_rows(conn, data.get('link_events', []), 'link_events', [
+            'id','token','event_type','centre_id','centre_name','dwell_seconds','ip_hash',
+            'user_agent','booking_date','booking_time','created_at',
+        ])
+    return jsonify({'ok': True, **{f'imported_{k}': v for k, v in counts.items()}})
+
+def _restore_rows(conn, rows, table, columns):
+    placeholders = ','.join('?' * len(columns))
+    col_list = ','.join(columns)
+    n = 0
+    for row in rows:
+        try:
+            conn.execute(
+                f'INSERT OR IGNORE INTO {table} ({col_list}) VALUES ({placeholders})',
+                [row.get(c) for c in columns]
+            )
+            n += 1
+        except Exception:
+            pass
+    return n
 
 
 if __name__ == '__main__':

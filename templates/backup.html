@@ -5,13 +5,14 @@
 <div style="max-width:640px;margin:40px auto">
   <h1 style="font-size:24px;font-weight:800;color:#1A1A2E;margin-bottom:6px">Backup & Restore</h1>
   <p style="font-size:14px;color:#6B7280;margin-bottom:32px">
-    Export your share links before a Railway redeploy, then import them after. All open/click data is included.
+    Export everything — centres, photos list, proposals, and share links + engagement data — as one file.
+    Do this before a Railway redeploy, or just regularly as a safety net.
   </p>
 
   <!-- Export -->
   <div style="background:#fff;border:1.5px solid #E5E7EB;border-radius:14px;padding:28px;margin-bottom:20px">
-    <h2 style="font-size:16px;font-weight:700;color:#1A1A2E;margin-bottom:6px">Step 1 — Export (before deploy)</h2>
-    <p style="font-size:13px;color:#6B7280;margin-bottom:18px">Downloads all share links + engagement events as a JSON file. Save it somewhere safe.</p>
+    <h2 style="font-size:16px;font-weight:700;color:#1A1A2E;margin-bottom:6px">Step 1 — Export (before deploy, or anytime)</h2>
+    <p style="font-size:13px;color:#6B7280;margin-bottom:18px">Downloads centres, proposals, share links, and all engagement events as one JSON file. Save it somewhere safe.</p>
     <a href="/admin/backup/export" class="btn btn-primary" style="display:inline-block;text-decoration:none;padding:10px 22px;font-size:14px;font-weight:600">
       ⬇ Download backup
     </a>
@@ -20,7 +21,7 @@
   <!-- Import -->
   <div style="background:#fff;border:1.5px solid #E5E7EB;border-radius:14px;padding:28px">
     <h2 style="font-size:16px;font-weight:700;color:#1A1A2E;margin-bottom:6px">Step 2 — Import (after deploy)</h2>
-    <p style="font-size:13px;color:#6B7280;margin-bottom:18px">Upload the JSON file you downloaded. Existing links are skipped (no duplicates).</p>
+    <p style="font-size:13px;color:#6B7280;margin-bottom:18px">Upload the JSON file you downloaded. Existing rows (matched by ID) are skipped — safe to run more than once.</p>
     <form id="import-form">
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <input type="file" id="backup-file" accept=".json" required
@@ -55,7 +56,9 @@ document.getElementById('import-form').addEventListener('submit', async function
       el.style.background = '#f0fdf4';
       el.style.border = '1.5px solid #059669';
       el.style.color = '#065f46';
-      el.textContent = `✓ Restored ${data.imported_links} share links and ${data.imported_events} events.`;
+      el.textContent = `✓ Restored ${data.imported_centres} centres, ${data.imported_centre_images} photos, `
+        + `${data.imported_proposals} proposals, ${data.imported_share_links} share links, `
+        + `${data.imported_link_events} events.`;
     } else {
       el.style.background = '#fef2f2';
       el.style.border = '1.5px solid #dc2626';
