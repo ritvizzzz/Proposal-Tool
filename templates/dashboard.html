@@ -77,7 +77,10 @@
           style="border-bottom:1px solid #F3F4F6;cursor:pointer;transition:background 0.15s"
           onmouseover="this.style.background='#F8F9FF'" onmouseout="this.style.background=''">
         <td style="padding:16px 20px">
-          <div style="font-weight:700;color:#1A1A2E">{{ lnk.label or '(no label)' }}</div>
+          <div style="font-weight:700;color:#1A1A2E">
+            {{ lnk.label or '(no label)' }}
+            {% if lnk.is_test %}<span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.4px;background:#F3F4F6;color:#6B7280;padding:2px 6px;border-radius:5px;margin-left:6px">Test</span>{% endif %}
+          </div>
           <div style="font-size:12px;color:#9CA3AF;margin-top:2px;font-family:monospace">{{ lnk.token }}</div>
           {% if lnk.client_email %}
           <div style="font-size:11px;color:#6B7280;margin-top:2px">✉ {{ lnk.client_email }}{% if lnk.client_phone %} · 📱 {{ lnk.client_phone }}{% endif %}</div>
@@ -122,10 +125,14 @@
                     style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;background:#F0F1FA;border:none;color:#1E22AA;cursor:pointer">
               Copy Link
             </button>
-            <a href="/compare/{{ lnk.token }}" target="_blank"
+            <a href="/compare/{{ lnk.token }}?preview=1" target="_blank"
                style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;background:#1E22AA;color:#fff;text-decoration:none">
               Preview
             </a>
+            <button onclick="toggleTest('{{ lnk.token }}', this, {{ 'true' if lnk.is_test else 'false' }})"
+              style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;background:#F3F4F6;border:none;color:#6B7280;cursor:pointer">
+              {{ 'Unmark Test' if lnk.is_test else 'Mark as Test' }}
+            </button>
             <button onclick="deleteLink('{{ lnk.token }}', this)"
               style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;background:#FEE2E2;border:none;color:#DC2626;cursor:pointer">
               Delete
@@ -525,6 +532,27 @@ function copyGenerated() {
   navigator.clipboard.writeText(url).then(() => showToast('Copied!'));
 }
 
+async function toggleTest(token, btn, currentlyTest) {
+  btn.disabled = true;
+  try {
+    const r = await fetch(`/api/share-link/${token}/mark-test`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ is_test: !currentlyTest })
+    });
+    if ((await r.json()).ok) {
+      showToast(currentlyTest ? 'Unmarked as test — now counted in analytics' : 'Marked as test — excluded from analytics');
+      location.reload();
+    } else {
+      showToast('Failed to update', 'error');
+      btn.disabled = false;
+    }
+  } catch (e) {
+    showToast('Failed to update', 'error');
+    btn.disabled = false;
+  }
+}
+
 async function deleteLink(token, btn) {
   if (!confirm('Delete this link and all its analytics? This cannot be undone.')) return;
   btn.textContent = '…';
@@ -650,7 +678,7 @@ async function quickRegister() {
             <div style="display:flex;gap:8px;justify-content:center">
               <button class="btn-copy" data-url="${__baseUrl}/compare/${data.token}" onclick="copyLink(this)"
                 style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;background:#F0F1FA;border:none;color:#1E22AA;cursor:pointer">Copy Link</button>
-              <a href="/compare/${data.token}" target="_blank"
+              <a href="/compare/${data.token}?preview=1" target="_blank"
                 style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;background:#1E22AA;color:#fff;text-decoration:none">Preview</a>
             </div>
           </td>`;

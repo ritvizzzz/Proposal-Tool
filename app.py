@@ -1,4 +1,6 @@
 import os, sqlite3, json, shutil, base64, io, re, secrets, hashlib, urllib.parse, threading, queue, time
+from datetime import datetime, timezone as _dt_timezone
+from zoneinfo import ZoneInfo
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
 from werkzeug.utils import secure_filename
 from PIL import Image
@@ -142,6 +144,32 @@ def init_db():
         if 'booking_date' not in cols:
             conn.execute('ALTER TABLE link_events ADD COLUMN booking_date TEXT')
             conn.execute('ALTER TABLE link_events ADD COLUMN booking_time TEXT')
+    # migrate: add is_test flag to share_links — lets test/dev links be excluded from analytics
+    with get_db() as conn:
+        cols = [r[1] for r in conn.execute('PRAGMA table_info(share_links)').fetchall()]
+        if 'is_test' not in cols:
+            conn.execute('ALTER TABLE share_links ADD COLUMN is_test INTEGER DEFAULT 0')
+    # migrate: 'open' and 'dwell' events were sometimes logged twice for one real
+    # visit (browser/beacon quirk) — clean up existing duplicates, then enforce
+    # one-per-second-per-visitor at the DB level so it can't happen again.
+    with get_db() as conn:
+        conn.execute("""
+            DELETE FROM link_events
+            WHERE event_type IN ('open','dwell')
+            AND id NOT IN (
+                SELECT MIN(id) FROM link_events
+                WHERE event_type IN ('open','dwell')
+                GROUP BY token, ip_hash, event_type, created_at
+            )
+        """)
+        conn.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_dedup_open
+            ON link_events(token, ip_hash, created_at) WHERE event_type='open'
+        """)
+        conn.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_dedup_dwell
+            ON link_events(token, ip_hash, created_at) WHERE event_type='dwell'
+        """)
 
 # SSE event broadcast for real-time dashboard
 _sse_queues = []
@@ -186,6 +214,11 @@ def centre_image_dir(centre_id):
 
 # ── Excel import ────────────────────────────────────────────────────────────
 
+def _row_get(row, idx):
+    """Safe positional read — Excel drops trailing blank cells, so rows are
+    often shorter than the header implies."""
+    return row[idx] if row and idx is not None and idx < len(row) else None
+
 def import_excel(filepath):
     wb = openpyxl.load_workbook(filepath, read_only=True, data_only=True)
     ws = wb['workspace']
@@ -202,12 +235,12 @@ def import_excel(filepath):
             if ph is None:
                 ph = {v: i for i, v in enumerate(row) if v}
                 continue
-            wid = row[ph.get('workspace_identifier', 0)]
+            wid = _row_get(row, ph.get('workspace_identifier', 0))
             if not wid:
                 continue
-            amt = row[ph.get('amount', ph.get('pricePerSeat', 6))]
-            unit = row[ph.get('paymentCycle', ph.get('unit', 3))]  # paymentCycle = MONTHLY/DAILY
-            stype = row[ph.get('seatType', ph.get('type', 4))]
+            amt = _row_get(row, ph.get('amount', ph.get('pricePerSeat', 6)))
+            unit = _row_get(row, ph.get('paymentCycle', ph.get('unit', 3)))  # paymentCycle = MONTHLY/DAILY
+            stype = _row_get(row, ph.get('seatType', ph.get('type', 4)))
             if wid not in pricing and amt:
                 pricing[wid] = {'amount': amt, 'unit': unit or 'MONTHLY', 'seat_type': stype}
 
@@ -221,36 +254,59 @@ def import_excel(filepath):
             if ah is None:
                 ah = {v: i for i, v in enumerate(row) if v}
                 continue
-            wid = row[ah.get('workspace_identifier', 0)]
-            slug = row[ah.get('amenity_slug', 1)]
+            wid = _row_get(row, ah.get('workspace_identifier', 0))
+            slug = _row_get(row, ah.get('amenity_slug', 1))
             if wid and slug:
                 amenities_map.setdefault(wid, [])
                 if slug not in amenities_map[wid]:
                     amenities_map[wid].append(slug)
 
     added = 0
+    updated = 0
     skipped = 0
+    ambiguous = []
     with get_db() as conn:
+        # Match existing centres by address first (names in operator uploads are
+        # often just the brand, e.g. "WeWork", so name alone can't disambiguate).
+        centres = conn.execute('SELECT id, name, address FROM centres').fetchall()
+        addr_index = {}
+        for c in centres:
+            if c['address']:
+                addr_index.setdefault(_norm_address(c['address']), []).append(c)
+        name_index = {}
+        for c in centres:
+            name_index.setdefault(_norm_text(c['name']), []).append(c)
+
         for row in ws.iter_rows(values_only=True):
-            if row[0] == 'workspace_identifier' or row[0] is None:
+            first = _row_get(row, 0)
+            if first == 'workspace_identifier' or first is None:
                 continue
-            wid = row[h.get('workspace_identifier', 0)]
-            name = row[h.get('name', 1)]
-            if not name:
-                continue
-            existing = conn.execute('SELECT id FROM centres WHERE name=?', (name,)).fetchone()
-            if existing:
+            wid = _row_get(row, h.get('workspace_identifier', 0))
+            name = _row_get(row, h.get('name', 1))
+            addr = _row_get(row, h.get('address', 4))
+            if not name and not addr:
                 skipped += 1
                 continue
-            addr = row[h.get('address', 4)]
-            city = row[h.get('city_slug', 5)]
-            about = row[h.get('about', 8)]
-            stype = row[h.get('spaceType', 9)]
-            brand = row[h.get('workspaceBrand_slug', 11)]
-            transport_raw = row[h.get('directions_connectivityDetails', 12)]
-            bus = row[h.get('directions_nearestBus', 14)]
-            coords = row[h.get('loc_coordinates', 6)]
-            mapurl = row[h.get('mapurl', 7)]
+
+            match = None
+            if addr:
+                match, is_ambiguous = _find_address_match(addr, centres, addr_index)
+                if is_ambiguous:
+                    ambiguous.append({'name': name, 'address': addr})
+                    continue
+            if not match and name:
+                candidates = name_index.get(_norm_text(name), [])
+                if len(candidates) == 1:
+                    match = candidates[0]
+
+            city = _row_get(row, h.get('city_slug', 5))
+            about = _row_get(row, h.get('about', 8))
+            stype = _row_get(row, h.get('spaceType', 9))
+            brand = _row_get(row, h.get('workspaceBrand_slug', 11))
+            transport_raw = _row_get(row, h.get('directions_connectivityDetails', 12))
+            bus = _row_get(row, h.get('directions_nearestBus', 14))
+            coords = _row_get(row, h.get('loc_coordinates', 6))
+            mapurl = _row_get(row, h.get('mapurl', 7))
 
             transport_lines = []
             if transport_raw:
@@ -264,16 +320,156 @@ def import_excel(filepath):
             transport = ', '.join(transport_lines) if transport_lines else ''
 
             price_info = pricing.get(wid, {})
-            conn.execute('''INSERT INTO centres
-                (name,address,city,about,space_type,brand,price_from,price_unit,seat_type,amenities,transport,map_url,coordinates,source)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
-                (name, addr, city, about, stype, brand,
-                 price_info.get('amount'), price_info.get('unit','MONTHLY'),
-                 price_info.get('seat_type'),
-                 json.dumps(amenities_map.get(wid, [])),
-                 transport, mapurl, coords, 'excel'))
-            added += 1
-    return added, skipped
+            amenities_json = json.dumps(amenities_map.get(wid, []))
+
+            if match:
+                # Deliberately leave `name` untouched — the fuller name already in the
+                # DB (e.g. "WeWork - 10 York Road") is better than the generic upload name.
+                conn.execute('''UPDATE centres SET
+                    address=?, city=?, about=?, space_type=?, brand=?, price_from=?,
+                    price_unit=?, seat_type=?, amenities=?, transport=?, map_url=?, coordinates=?
+                    WHERE id=?''',
+                    (addr, city, about, stype, brand,
+                     price_info.get('amount'), price_info.get('unit', 'MONTHLY'),
+                     price_info.get('seat_type'), amenities_json, transport, mapurl, coords,
+                     match['id']))
+                updated += 1
+            else:
+                conn.execute('''INSERT INTO centres
+                    (name,address,city,about,space_type,brand,price_from,price_unit,seat_type,amenities,transport,map_url,coordinates,source)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                    (name, addr, city, about, stype, brand,
+                     price_info.get('amount'), price_info.get('unit','MONTHLY'),
+                     price_info.get('seat_type'), amenities_json,
+                     transport, mapurl, coords, 'excel'))
+                added += 1
+    wb.close()
+    return added, updated, skipped, ambiguous
+
+# ── Address/name matching helpers (used by import_excel to detect existing centres) ──
+
+def _norm_text(s):
+    return re.sub(r'\s+', ' ', (s or '').strip().lower())
+
+def _norm_address(s):
+    # Strip ALL punctuation (including commas) — operator files often punctuate
+    # the same address differently (e.g. "125 Kingsway London, WC2B" vs
+    # "125 Kingsway, London WC2B"), so comma position must not affect matching.
+    s = re.sub(r'[^\w\s]', '', _norm_text(s))
+    return re.sub(r'\s+', ' ', s).strip()
+
+def _find_address_match(addr, centres, addr_index, min_jaccard=0.6, tie_margin=0.15):
+    """Find the centre whose address matches `addr`. Exact match (after
+    normalization) wins outright. Otherwise falls back to word-overlap
+    (Jaccard) similarity, since operators often insert extra words into an
+    address ("Waterloo", "138 Holborn", "London") that breaks plain substring
+    matching. Returns (matched_centre_or_None, is_ambiguous)."""
+    norm_addr = _norm_address(addr)
+    exact = addr_index.get(norm_addr, [])
+    if len(exact) == 1:
+        return exact[0], False
+    if len(exact) > 1:
+        return None, True
+
+    addr_tokens = set(norm_addr.split())
+    if not addr_tokens:
+        return None, False
+    scored = []
+    for c in centres:
+        if not c['address']:
+            continue
+        c_tokens = set(_norm_address(c['address']).split())
+        if not c_tokens:
+            continue
+        union = addr_tokens | c_tokens
+        jaccard = len(addr_tokens & c_tokens) / len(union) if union else 0
+        if jaccard >= min_jaccard:
+            scored.append((jaccard, c))
+    if not scored:
+        return None, False
+    scored.sort(key=lambda x: -x[0])
+    if len(scored) == 1 or scored[0][0] - scored[1][0] > tie_margin:
+        return scored[0][1], False
+    return None, True  # top two candidates too close to call — don't guess
+
+# ── Photo import from Drive folder links ─────────────────────────────────────
+# Operator workbooks (e.g. WeWork's) reference a public Google Drive folder per
+# centre via image_folder_url instead of direct image files. This downloads
+# each folder's images and attaches them to the matching centre.
+
+def _download_drive_folder_images(folder_url, dest_dir, name_prefix):
+    import gdown, tempfile
+    tmp_dir = tempfile.mkdtemp(prefix='drive_dl_')
+    saved = []
+    try:
+        files = gdown.download_folder(url=folder_url, output=tmp_dir, quiet=True, use_cookies=False) or []
+        for fp in files:
+            try:
+                with open(fp, 'rb') as fh:
+                    raw = fh.read()
+                saved.append(save_image_bytes(raw, dest_dir, name_prefix))
+            except Exception:
+                continue
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+    return saved
+
+def import_photos_from_excel(filepath, overwrite=False):
+    wb = openpyxl.load_workbook(filepath, read_only=True, data_only=True)
+    ws = wb['workspace']
+    rows = list(ws.iter_rows(values_only=True))
+    wb.close()  # release the file handle now — read_only workbooks keep it open otherwise
+    headers = rows[0]
+    h = {v: i for i, v in enumerate(headers) if v}
+
+    processed, skipped_has_images, no_folder_url, errors = [], [], [], []
+    with get_db() as conn:
+        centres = conn.execute('SELECT id, name, address FROM centres').fetchall()
+        addr_index = {}
+        for c in centres:
+            if c['address']:
+                addr_index.setdefault(_norm_address(c['address']), []).append(c)
+
+        for row in rows[1:]:
+            first = _row_get(row, 0)
+            if first == 'workspace_identifier' or first is None:
+                continue
+            name = _row_get(row, h.get('name', 1))
+            addr = _row_get(row, h.get('address', 4))
+            folder_url = _row_get(row, h.get('image_folder_url')) or _row_get(row, h.get('ext_image_folder_url'))
+            if not addr or not folder_url:
+                no_folder_url.append({'name': name, 'address': addr})
+                continue
+
+            centre, is_ambiguous = _find_address_match(addr, centres, addr_index)
+            if not centre:
+                errors.append({'name': name, 'address': addr,
+                               'reason': 'ambiguous match' if is_ambiguous else 'no matching centre'})
+                continue
+            cid = centre['id']
+
+            existing = conn.execute('SELECT COUNT(*) FROM centre_images WHERE centre_id=?', (cid,)).fetchone()[0]
+            if existing and not overwrite:
+                skipped_has_images.append({'id': cid, 'name': centre['name']})
+                continue
+
+            try:
+                saved = _download_drive_folder_images(folder_url, centre_image_dir(cid), f'centre_{cid}_drive')
+            except Exception as e:
+                errors.append({'name': centre['name'], 'reason': str(e)})
+                continue
+            if not saved:
+                errors.append({'name': centre['name'], 'reason': 'no images found in folder'})
+                continue
+
+            for i, fname in enumerate(saved):
+                is_primary = 1 if (existing == 0 and i == 0) else 0
+                conn.execute('INSERT INTO centre_images (centre_id, filename, is_primary, sort_order) VALUES (?,?,?,?)',
+                             (cid, fname, is_primary, existing + i))
+            processed.append({'id': cid, 'name': centre['name'], 'added': len(saved)})
+
+    return {'processed': processed, 'skipped_has_images': skipped_has_images,
+            'no_folder_url': no_folder_url, 'errors': errors}
 
 # ── Routes: Centres ─────────────────────────────────────────────────────────
 
@@ -294,8 +490,12 @@ def centres_list():
         query = 'SELECT c.*, (SELECT filename FROM centre_images WHERE centre_id=c.id AND is_primary=1 LIMIT 1) as primary_image FROM centres c WHERE 1=1'
         params = []
         if q:
-            query += ' AND (c.name LIKE ? OR c.address LIKE ?)'
-            params += [f'%{q}%', f'%{q}%']
+            # Match each word separately (against name OR address) rather than the
+            # whole phrase as one substring, so "wework moor place" finds a centre
+            # whose brand is in the name and the rest of the words are in the address.
+            for token in q.split():
+                query += ' AND (c.name LIKE ? OR c.address LIKE ?)'
+                params += [f'%{token}%', f'%{token}%']
         if city:
             query += ' AND c.city=?'
             params.append(city)
@@ -530,13 +730,35 @@ def import_excel_route():
     tmp = os.path.join(UPLOADS, 'tmp_import.xlsx')
     f.save(tmp)
     try:
-        added, skipped = import_excel(tmp)
+        added, updated, skipped, ambiguous = import_excel(tmp)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
-        if os.path.exists(tmp):
-            os.remove(tmp)
-    return jsonify({'ok': True, 'added': added, 'skipped': skipped})
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except OSError:
+            pass  # a transient lock on the temp file must not hide a successful import
+    return jsonify({'ok': True, 'added': added, 'updated': updated, 'skipped': skipped, 'ambiguous': ambiguous})
+
+@app.route('/centres/import-photos-from-excel', methods=['POST'])
+def import_photos_from_excel_route():
+    f = request.files.get('file')
+    if not f:
+        return jsonify({'error': 'No file'}), 400
+    tmp = os.path.join(UPLOADS, 'tmp_photos_import.xlsx')
+    f.save(tmp)
+    try:
+        result = import_photos_from_excel(tmp)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except OSError:
+            pass  # a transient lock on the temp file must not hide a successful import
+    return jsonify({'ok': True, **result})
 
 @app.route('/centres/add-page')
 def centres_add_page():
@@ -1135,8 +1357,11 @@ def compare_direct():
             return
         try:
             with get_db() as c:
+                # OR IGNORE + the partial unique index (see init_db) atomically drops a
+                # same-second duplicate — a plain check-then-insert isn't safe here since
+                # two near-simultaneous requests can both pass the check before either commits.
                 c.execute(
-                    'INSERT INTO link_events (token, event_type, ip_hash, user_agent) VALUES (?,?,?,?)',
+                    'INSERT OR IGNORE INTO link_events (token, event_type, ip_hash, user_agent) VALUES (?,?,?,?)',
                     (token, 'open', ip_hash, ua)
                 )
         except Exception:
@@ -1151,7 +1376,7 @@ def compare_direct():
     return render_template('compare.html', link=link, centres=centres, token=token,
                            price_mode=price_mode,
                            personalised_message=link.get('personalised_message') or '',
-                           recommended_ids=rec_ids,
+                           recommended_ids=rec_ids, is_preview=False,
                            canonical_url=url_for('compare_page', token=token, _external=True))
 
 
@@ -1174,8 +1399,11 @@ def compare_page(token):
             return
         try:
             with get_db() as c:
+                # OR IGNORE + the partial unique index (see init_db) atomically drops a
+                # same-second duplicate — a plain check-then-insert isn't safe here since
+                # two near-simultaneous requests can both pass the check before either commits.
                 c.execute(
-                    'INSERT INTO link_events (token, event_type, ip_hash, user_agent) VALUES (?,?,?,?)',
+                    'INSERT OR IGNORE INTO link_events (token, event_type, ip_hash, user_agent) VALUES (?,?,?,?)',
                     (token, 'open', ip_hash, ua)
                 )
         except Exception:
@@ -1187,11 +1415,13 @@ def compare_page(token):
     if rec_ids:
         rec_str = [str(r) for r in rec_ids]
         centres = sorted(centres, key=lambda c: 0 if str(c.get('id','')) in rec_str or str(c.get('hubble_id','')) in rec_str else 1)
-    threading.Thread(target=_log_open, daemon=True).start()
+    is_preview = request.args.get('preview') == '1'
+    if not is_preview:
+        threading.Thread(target=_log_open, daemon=True).start()
     price_mode = request.args.get('price_mode', '').strip()
     return render_template('compare.html', link=link, centres=centres, token=token, price_mode=price_mode,
                            personalised_message=link.get('personalised_message') or '',
-                           recommended_ids=rec_ids)
+                           recommended_ids=rec_ids, is_preview=is_preview)
 
 
 @app.route('/health')
@@ -1221,8 +1451,10 @@ def track_event():
     def _do_track():
         try:
             with get_db() as conn:
+                # OR IGNORE + the partial unique index (see init_db) atomically drops a
+                # same-second duplicate 'dwell' beacon — doesn't affect other event types.
                 conn.execute(
-                    '''INSERT INTO link_events
+                    '''INSERT OR IGNORE INTO link_events
                        (token, event_type, centre_id, centre_name, dwell_seconds, ip_hash, user_agent, booking_date, booking_time)
                        VALUES (?,?,?,?,?,?,?,?,?)''',
                     (payload['token'], payload['event_type'], payload['centre_id'],
@@ -1333,6 +1565,17 @@ def share_link_delete(token):
     return jsonify({'ok': True})
 
 
+@app.route('/api/share-link/<token>/mark-test', methods=['POST'])
+def share_link_mark_test(token):
+    """Flag/unflag a link as test data — excluded from analytics rollups but
+    still visible (and deletable) in the dashboard list."""
+    data = request.json or {}
+    is_test = 1 if data.get('is_test') else 0
+    with get_db() as conn:
+        conn.execute('UPDATE share_links SET is_test=? WHERE token=?', (is_test, token))
+    return jsonify({'ok': True, 'is_test': bool(is_test)})
+
+
 @app.route('/api/poll-updates')
 def api_poll_updates():
     """Lightweight stats poll — replaces SSE so gunicorn threads stay free."""
@@ -1375,6 +1618,19 @@ def api_link_events(token):
     events = [dict(r) for r in rows
               if not (r['centre_name'] and r['centre_name'].isdigit())]
     return jsonify({'events': events})
+
+
+@app.route('/api/visitor-detail')
+def api_visitor_detail():
+    token = request.args.get('token', '')
+    ip_hash = request.args.get('ip_hash', '')
+    if not token or not ip_hash:
+        return jsonify({'error': 'token and ip_hash required'}), 400
+    with get_db() as conn:
+        detail = _get_visitor_detail(conn, token, ip_hash)
+    if not detail:
+        return jsonify({'error': 'not found'}), 404
+    return jsonify(detail)
 
 
 @app.route('/api/link-detail/<token>')
@@ -1480,19 +1736,182 @@ def dashboard_detail(token):
                            centres=centres, base_url=_base_url(), token=token)
 
 
+_LONDON_TZ = ZoneInfo('Europe/London')
+
+def _parse_utc(ts_str):
+    """link_events.created_at is SQLite's CURRENT_TIMESTAMP — naive but actually UTC.
+    Attach tzinfo explicitly so conversion to London time (and any other local
+    time) accounts for BST/GMT correctly instead of being off by an hour half the year."""
+    return datetime.strptime(ts_str, '%Y-%m-%d %H:%M:%S').replace(tzinfo=_dt_timezone.utc)
+
+def _relative_time(dt_utc):
+    secs = (datetime.now(_dt_timezone.utc) - dt_utc).total_seconds()
+    if secs < 3600:
+        return f'{max(1, int(secs // 60))} min ago'
+    if secs < 86400:
+        h = int(secs // 3600)
+        return f'{h} hour{"s" if h != 1 else ""} ago'
+    d = int(secs // 86400)
+    return f'{d} day{"s" if d != 1 else ""} ago'
+
+# Links flagged is_test are excluded from every analytics rollup below —
+# they stay visible/manageable in the dashboard list, just not counted.
+_REAL_LINKS_SQL = "SELECT token FROM share_links WHERE is_test=0 OR is_test IS NULL"
+
+HOT_LEAD_OPENS = 3  # opening the same link this many times or more is a strong buying signal
+
+def _get_repeat_openers(conn, limit=10):
+    """Clients who've opened the same link 2+ times and haven't booked yet —
+    still comparing, not gone cold. 'hot' (opens >= HOT_LEAD_OPENS) always
+    sorts first regardless of recency — that many repeat visits is the signal
+    itself, not just a recent one. Within a tier, most recent activity first."""
+    rows = conn.execute(f"""
+        SELECT token, ip_hash, COUNT(*) as opens, MAX(created_at) as last_open
+        FROM link_events WHERE event_type='open' AND ip_hash IS NOT NULL
+        AND token IN ({_REAL_LINKS_SQL})
+        GROUP BY token, ip_hash HAVING COUNT(*) >= 2
+        ORDER BY last_open DESC LIMIT ?
+    """, (limit * 3,)).fetchall()  # over-fetch — some get dropped below if already booked
+
+    results = []
+    for r in rows:
+        token, ip_hash = r['token'], r['ip_hash']
+        has_booking = conn.execute(
+            "SELECT 1 FROM link_events WHERE token=? AND ip_hash=? AND event_type='booking_request' LIMIT 1",
+            (token, ip_hash)
+        ).fetchone()
+        if has_booking:
+            continue  # already moved forward — not a "still deciding" case
+        link = conn.execute('SELECT label FROM share_links WHERE token=?', (token,)).fetchone()
+        # Distinct spaces clicked, not raw click events — re-clicking the same
+        # space (e.g. to look again) must not inflate the count.
+        clicks = conn.execute(
+            """SELECT COUNT(DISTINCT COALESCE(centre_id, centre_name))
+               FROM link_events WHERE token=? AND ip_hash=? AND event_type='click'""",
+            (token, ip_hash)
+        ).fetchone()[0]
+        last_open_dt = _parse_utc(r['last_open'])
+        hours_since = (datetime.now(_dt_timezone.utc) - last_open_dt).total_seconds() / 3600
+        if r['opens'] >= HOT_LEAD_OPENS:
+            action = 'hot'
+        elif hours_since <= 24:
+            action = 'call'
+        else:
+            action = 'watch'
+        results.append({
+            'label': (link['label'] if link else None) or 'Unlabelled link',
+            'token': token,
+            'ip_hash': ip_hash,
+            'opens': r['opens'],
+            'last_open_dt': last_open_dt,
+            'last_open_rel': _relative_time(last_open_dt),
+            'clicks': clicks,
+            'action': action,
+        })
+
+    tier_rank = {'hot': 0, 'call': 1, 'watch': 2}
+    results.sort(key=lambda o: (tier_rank[o['action']], -o['last_open_dt'].timestamp()))
+    for o in results:
+        del o['last_open_dt']  # was only needed for sorting, not JSON/template-safe
+    return results[:limit]
+
+def _get_visitor_detail(conn, token, ip_hash):
+    """Full activity for one visitor on one link: last open, distinct spaces
+    clicked (not raw click count), total time spent (deduped, outliers capped
+    the same way the analytics-page average is), and interest/booking signals."""
+    link = conn.execute('SELECT label FROM share_links WHERE token=?', (token,)).fetchone()
+    events = conn.execute(
+        """SELECT event_type, centre_id, centre_name, dwell_seconds, created_at
+           FROM link_events WHERE token=? AND ip_hash=? ORDER BY created_at ASC""",
+        (token, ip_hash)
+    ).fetchall()
+    if not events:
+        return None
+
+    opens = [e for e in events if e['event_type'] == 'open']
+    clicked = {}     # key -> centre_name, de-duplicated
+    interested = {}
+    not_interested = {}
+    total_dwell = 0
+    bookings = []
+
+    for e in events:
+        key = e['centre_id'] or e['centre_name']
+        if e['event_type'] == 'click' and key:
+            clicked[key] = e['centre_name'] or key
+        elif e['event_type'] == 'interested' and key:
+            interested[key] = e['centre_name'] or key
+        elif e['event_type'] == 'not_interested' and key:
+            not_interested[key] = e['centre_name'] or key
+        elif e['event_type'] == 'dwell' and e['dwell_seconds']:
+            total_dwell += min(e['dwell_seconds'], 1800)  # same 30-min cap as the analytics average
+        elif e['event_type'] == 'booking_request':
+            bookings.append(e['centre_name'])
+
+    last_open_dt = _parse_utc(opens[-1]['created_at']) if opens else _parse_utc(events[-1]['created_at'])
+    first_open_dt = _parse_utc(opens[0]['created_at']) if opens else _parse_utc(events[0]['created_at'])
+
+    return {
+        'label': (link['label'] if link else None) or 'Unlabelled link',
+        'opens': len(opens),
+        'first_open_rel': _relative_time(first_open_dt),
+        'last_open_rel': _relative_time(last_open_dt),
+        'total_dwell_seconds': total_dwell,
+        'spaces_clicked': list(clicked.values()),
+        'spaces_interested': list(interested.values()),
+        'spaces_not_interested': list(not_interested.values()),
+        'bookings': bookings,
+    }
+
+def _get_peak_open_hours(conn):
+    """Hour-of-day distribution of link opens, in London local time (not the
+    raw UTC storage) — otherwise the 'peak hour' would be wrong by 0-1h
+    depending on the time of year (BST vs GMT).
+
+    Counts each link's FIRST open only — a client re-opening the same link
+    later (to keep comparing) shouldn't get counted again here, since this
+    chart answers "when do clients first look at what I sent," not "when is
+    anyone ever looking.\""""
+    rows = conn.execute(f"""
+        SELECT MIN(created_at) as created_at FROM link_events
+        WHERE event_type='open' AND token IN ({_REAL_LINKS_SQL})
+        GROUP BY token
+    """).fetchall()
+    hour_counts = [0] * 24
+    for r in rows:
+        try:
+            local_hour = _parse_utc(r['created_at']).astimezone(_LONDON_TZ).hour
+        except ValueError:
+            continue
+        hour_counts[local_hour] += 1
+
+    peak_window = None
+    if sum(hour_counts) >= 5:  # not enough data to draw a conclusion below this
+        threshold = max(hour_counts) * 0.7
+        peak_hours = [h for h, c in enumerate(hour_counts) if c >= threshold and c > 0]
+        if peak_hours:
+            def _fmt(h):
+                suffix = 'am' if h < 12 else 'pm'
+                hh = h % 12 or 12
+                return f'{hh}{suffix}'
+            peak_window = f'{_fmt(min(peak_hours))}–{_fmt(max(peak_hours) + 1)}'
+    return hour_counts, peak_window
+
+
 @app.route('/dashboard/analytics')
 def dashboard_analytics():
     from collections import Counter
     with get_db() as conn:
         # Top centres by click count
-        top_centres = conn.execute("""
+        top_centres = conn.execute(f"""
             SELECT centre_name, COUNT(*) as clicks
             FROM link_events WHERE event_type='click' AND centre_name IS NOT NULL
+            AND token IN ({_REAL_LINKS_SQL})
             GROUP BY centre_name ORDER BY clicks DESC LIMIT 10
         """).fetchall()
 
         # Top brands — extract brand prefix (before first ' - ' or ' – ') via SQL, aggregate in Python
-        brand_raw_rows = conn.execute("""
+        brand_raw_rows = conn.execute(f"""
             SELECT TRIM(SUBSTR(centre_name, 1,
                 CASE WHEN INSTR(centre_name,' - ')>0 THEN INSTR(centre_name,' - ')-1
                      WHEN INSTR(centre_name,' – ')>0 THEN INSTR(centre_name,' – ')-1
@@ -1500,43 +1919,58 @@ def dashboard_analytics():
             )) as brand, COUNT(*) as cnt
             FROM link_events
             WHERE event_type='click' AND centre_name IS NOT NULL
+            AND token IN ({_REAL_LINKS_SQL})
             GROUP BY brand
         """).fetchall()
 
         # Avg dwell time (in seconds)
-        avg_dwell = conn.execute("""
+        # Cap at 30 min — a browser tab left open in the background racks up a huge
+        # dwell_seconds value that isn't real reading time, and one such session can
+        # drag the whole average up to something implausible (we saw 126 min average
+        # driven by a single 8.5-hour "open tab" outlier).
+        avg_dwell = conn.execute(f"""
             SELECT AVG(dwell_seconds) FROM link_events
-            WHERE event_type='dwell' AND dwell_seconds IS NOT NULL AND dwell_seconds > 5
+            WHERE event_type='dwell' AND dwell_seconds IS NOT NULL
+            AND dwell_seconds > 5 AND dwell_seconds <= 1800
+            AND token IN ({_REAL_LINKS_SQL})
         """).fetchone()[0]
 
         # Total opens, clicks, unique links — single query
-        totals = conn.execute("""
+        totals = conn.execute(f"""
             SELECT
                 SUM(CASE WHEN event_type='open' THEN 1 ELSE 0 END) as opens,
                 SUM(CASE WHEN event_type='click' THEN 1 ELSE 0 END) as clicks,
-                (SELECT COUNT(DISTINCT token) FROM share_links) as unique_links
+                (SELECT COUNT(DISTINCT token) FROM share_links WHERE is_test=0 OR is_test IS NULL) as unique_links
             FROM link_events
+            WHERE token IN ({_REAL_LINKS_SQL})
         """).fetchone()
         total_opens = totals[0] or 0
         total_clicks = totals[1] or 0
         unique_links = totals[2] or 0
 
         # Booking time preferences
-        time_prefs = conn.execute("""
+        time_prefs = conn.execute(f"""
             SELECT booking_time, COUNT(*) as cnt FROM link_events
             WHERE event_type='booking_request' AND booking_time IS NOT NULL
+            AND token IN ({_REAL_LINKS_SQL})
             GROUP BY booking_time ORDER BY cnt DESC LIMIT 8
         """).fetchall()
 
         # Avg spaces per link and avg clicks per link
         avg_spaces = conn.execute("""
-            SELECT AVG(json_array_length(centre_ids)) FROM share_links WHERE centre_ids IS NOT NULL
+            SELECT AVG(json_array_length(centre_ids)) FROM share_links
+            WHERE centre_ids IS NOT NULL AND (is_test=0 OR is_test IS NULL)
         """).fetchone()[0]
-        avg_clicks_per_link = conn.execute("""
+        avg_clicks_per_link = conn.execute(f"""
             SELECT AVG(c) FROM (
-                SELECT COUNT(*) as c FROM link_events WHERE event_type='click' GROUP BY token
+                SELECT COUNT(*) as c FROM link_events
+                WHERE event_type='click' AND token IN ({_REAL_LINKS_SQL})
+                GROUP BY token
             )
         """).fetchone()[0]
+
+        repeat_openers = _get_repeat_openers(conn)
+        hour_counts, peak_window = _get_peak_open_hours(conn)
 
     # Normalise brand names
     brand_counts = Counter()
@@ -1570,6 +2004,10 @@ def dashboard_analytics():
         time_prefs=[dict(r) for r in time_prefs],
         avg_spaces=round(avg_spaces or 0, 1),
         avg_clicks_per_link=round(avg_clicks_per_link or 0, 1),
+        repeat_openers=repeat_openers,
+        hour_counts=hour_counts,
+        peak_window=peak_window,
+        HOT_LEAD_OPENS=HOT_LEAD_OPENS,
     )
 
 

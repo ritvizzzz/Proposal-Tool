@@ -9,6 +9,8 @@
   <div class="header-actions">
     <button class="btn btn-outline" onclick="document.getElementById('excelInput').click()">Import Excel</button>
     <input type="file" id="excelInput" accept=".xlsx" style="display:none">
+    <button class="btn btn-outline" onclick="document.getElementById('photosInput').click()">Import Photos (Drive Links)</button>
+    <input type="file" id="photosInput" accept=".xlsx" style="display:none">
     <button class="btn btn-primary" onclick="openAddModal()">+ Add Centre</button>
   </div>
 </div>
@@ -195,8 +197,33 @@ document.getElementById('excelInput').addEventListener('change', async e => {
   const res = await fetch('/centres/import-excel', { method: 'POST', body: fd });
   const data = await res.json();
   if (data.ok) {
-    showToast(`Imported ${data.added} centres (${data.skipped} skipped)`);
-    setTimeout(() => location.reload(), 1200);
+    let msg = `Added ${data.added}, updated ${data.updated} centres`;
+    if (data.ambiguous.length) msg += ` (${data.ambiguous.length} ambiguous matches skipped — see console)`;
+    if (data.ambiguous.length) console.log('Ambiguous rows (matched more than one existing centre):', data.ambiguous);
+    showToast(msg);
+    setTimeout(() => location.reload(), 1500);
+  } else {
+    showToast('Import error: ' + data.error, 'error');
+  }
+});
+
+// Photo import from the same workbook's Drive-folder links — fills in centres
+// that have no images yet; skips ones that already have photos.
+document.getElementById('photosInput').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const fd = new FormData();
+  fd.append('file', file);
+  showToast('Downloading photos from Drive links… this can take a minute');
+  const res = await fetch('/centres/import-photos-from-excel', { method: 'POST', body: fd });
+  const data = await res.json();
+  if (data.ok) {
+    let msg = `Added photos to ${data.processed.length} centres`;
+    if (data.skipped_has_images.length) msg += `, skipped ${data.skipped_has_images.length} (already had photos)`;
+    if (data.errors.length) msg += `, ${data.errors.length} errors (see console)`;
+    if (data.errors.length) console.log('Photo import errors:', data.errors);
+    showToast(msg);
+    setTimeout(() => location.reload(), 1500);
   } else {
     showToast('Import error: ' + data.error, 'error');
   }

@@ -401,6 +401,12 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 </head>
 <body>
 
+{% if is_preview %}
+<div style="position:sticky;top:0;z-index:10000;background:#1E22AA;color:#fff;text-align:center;font-size:12.5px;font-weight:700;padding:6px 12px;letter-spacing:0.02em">
+  👁 Preview mode — nothing you click here is being tracked or counted as client engagement
+</div>
+{% endif %}
+
 <!-- ── Header ── -->
 <header class="header" style="position:sticky">
   <a href="https://myhqspaces.com" class="header-logo" target="_blank" rel="noopener">
@@ -690,6 +696,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 <script>
 const TOKEN = {{ token|tojson }};
 const PRICE_MODE = {{ (price_mode or '')|tojson }}; // 'coworking' → show daily price only
+const IS_PREVIEW = {{ is_preview|tojson }}; // staff clicking "Preview"/"Client View" — never counts as real engagement
 const pageStart = Date.now();
 
 // ── Centre data (for JS lookups, avoids onclick attribute escaping issues) ──
@@ -707,6 +714,7 @@ const _photoIdx = {};
 
 // ── Tracking ──
 function post(url, data, useBeacon) {
+  if (IS_PREVIEW) return; // staff previewing the link — don't let clicks/dwell/etc count as client engagement
   const body = JSON.stringify(data);
   if (useBeacon && navigator.sendBeacon) {
     navigator.sendBeacon(url, new Blob([body], {type:'application/json'}));
@@ -714,7 +722,12 @@ function post(url, data, useBeacon) {
     fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body, keepalive:true}).catch(()=>{});
   }
 }
+// beforeunload is known to fire more than once in some browsers (e.g. on a
+// cancelled navigation) — guard so the dwell beacon can only ever be sent once.
+let _dwellSent = false;
 window.addEventListener('beforeunload', () => {
+  if (_dwellSent) return;
+  _dwellSent = true;
   post('/track', {token:TOKEN, event_type:'dwell', dwell_seconds:Math.round((Date.now()-pageStart)/1000)}, true);
 });
 

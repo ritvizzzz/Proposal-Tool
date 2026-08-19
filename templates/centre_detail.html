@@ -129,7 +129,7 @@
     <!-- Google Maps photo fetch -->
     <div style="margin-top:12px;padding-top:12px;border-top:1px solid #f1f5f9">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <input type="password" id="gm-api-key" placeholder="Google Maps API key (optional)" class="input" style="flex:1;min-width:160px;font-size:13px" autocomplete="off">
+        <input type="password" id="gm-api-key" placeholder="Google Maps API key (leave blank to use server default)" class="input" style="flex:1;min-width:160px;font-size:13px" autocomplete="off">
         <button class="btn btn-outline" id="fetch-photos-btn" onclick="fetchGooglePhotos()" style="white-space:nowrap;font-size:13px">Auto-fetch from Maps</button>
       </div>
       <div id="fetch-photos-status" style="margin-top:6px;font-size:12px;color:#6b7280;display:none"></div>
@@ -296,9 +296,8 @@ async function deleteImage(imgId) {
 async function fetchGooglePhotos() {
   const keyInput = document.getElementById('gm-api-key');
   const apiKey = keyInput.value.trim();
-  if (!apiKey) { showToast('Enter a Google Maps API key', 'error'); return; }
-  // Save to localStorage for convenience
-  localStorage.setItem('gm_api_key', apiKey);
+  // Blank is fine — the server falls back to its own configured API key.
+  if (apiKey) localStorage.setItem('gm_api_key', apiKey);
 
   const btn = document.getElementById('fetch-photos-btn');
   const status = document.getElementById('fetch-photos-status');
