@@ -58,8 +58,8 @@
 </div>
 {% else %}
 
-<div id="links-table-wrap" style="background:#fff;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);overflow:hidden">
-  <table style="width:100%;border-collapse:collapse">
+<div id="links-table-wrap" style="background:#fff;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);overflow-x:auto">
+  <table style="width:100%;min-width:1080px;border-collapse:collapse">
     <thead>
       <tr style="background:#F8F9FF;border-bottom:2px solid #E8E9F3">
         <th style="text-align:left;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Label / Client</th>
@@ -320,33 +320,35 @@
     border-bottom: 1px solid #F3F4F6 !important;
   }
 
-  /* Spaces, Created, Top Space — hide */
+  /* Spaces, Created, Most Clicked Space, Viewings Booked — hide */
   #links-table-wrap td:nth-child(2),
   #links-table-wrap td:nth-child(3),
-  #links-table-wrap td:nth-child(6) { display: none !important; }
+  #links-table-wrap td:nth-child(7),
+  #links-table-wrap td:nth-child(8) { display: none !important; }
 
-  /* Opens + Clicks — side by side in a row */
+  /* Opens + Clicks + Unique Clicks — side by side in a row */
   #links-table-wrap td:nth-child(4),
-  #links-table-wrap td:nth-child(5) {
+  #links-table-wrap td:nth-child(5),
+  #links-table-wrap td:nth-child(6) {
     display: inline-block !important;
-    width: 50% !important;
+    width: 33.33% !important;
     padding: 4px 0 !important;
     vertical-align: middle;
   }
 
   /* Actions row — full width, top border */
-  #links-table-wrap td:nth-child(7) {
+  #links-table-wrap td:nth-child(9) {
     padding-top: 10px !important;
     margin-top: 6px;
     border-top: 1px solid #F3F4F6 !important;
   }
-  #links-table-wrap td:nth-child(7) > div {
+  #links-table-wrap td:nth-child(9) > div {
     justify-content: flex-start !important;
     flex-wrap: wrap;
     gap: 6px !important;
   }
-  #links-table-wrap td:nth-child(7) button,
-  #links-table-wrap td:nth-child(7) a {
+  #links-table-wrap td:nth-child(9) button,
+  #links-table-wrap td:nth-child(9) a {
     flex: 1 !important;
     text-align: center !important;
     padding: 8px 6px !important;
