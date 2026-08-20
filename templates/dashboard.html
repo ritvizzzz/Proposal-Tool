@@ -59,18 +59,18 @@
 {% else %}
 
 <div id="links-table-wrap" style="background:#fff;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);overflow-x:auto">
-  <table style="width:100%;min-width:1080px;border-collapse:collapse">
+  <table style="width:100%;border-collapse:collapse">
     <thead>
       <tr style="background:#F8F9FF;border-bottom:2px solid #E8E9F3">
-        <th style="text-align:left;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Label / Client</th>
-        <th style="text-align:left;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Spaces</th>
-        <th style="text-align:center;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Created</th>
-        <th style="text-align:center;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Opens</th>
-        <th style="text-align:center;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Clicks</th>
-        <th style="text-align:center;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Unique Clicks</th>
-        <th style="text-align:left;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Most Clicked Space</th>
-        <th style="text-align:left;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Viewings Booked</th>
-        <th style="text-align:center;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280;position:sticky;right:0;background:#F8F9FF;box-shadow:-4px 0 6px -4px rgba(0,0,0,0.15)">Actions</th>
+        <th style="text-align:left;padding:12px 10px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6B7280">Label / Client</th>
+        <th style="text-align:left;padding:12px 10px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6B7280">Spaces</th>
+        <th style="text-align:center;padding:12px 8px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6B7280">Created</th>
+        <th style="text-align:center;padding:12px 6px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6B7280">Opens</th>
+        <th style="text-align:center;padding:12px 6px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6B7280">Clicks</th>
+        <th style="text-align:center;padding:12px 6px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6B7280">Unique</th>
+        <th style="text-align:left;padding:12px 8px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6B7280">Top Space</th>
+        <th style="text-align:left;padding:12px 8px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6B7280">Bookings</th>
+        <th style="text-align:center;padding:12px 8px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6B7280;position:sticky;right:0;background:#F8F9FF;box-shadow:-4px 0 6px -4px rgba(0,0,0,0.15)">Actions</th>
       </tr>
     </thead>
     <tbody>
@@ -78,71 +78,71 @@
       <tr class="link-row" data-token="{{ lnk.token }}" onclick="showDetail('{{ lnk.token }}')"
           style="border-bottom:1px solid #F3F4F6;cursor:pointer;transition:background 0.15s"
           onmouseover="this.style.background='#F8F9FF'" onmouseout="this.style.background=''">
-        <td style="padding:16px 20px">
-          <div style="font-weight:700;color:#1A1A2E">
+        <td style="padding:10px 10px">
+          <div style="font-weight:700;color:#1A1A2E;font-size:13.5px">
             {{ lnk.label or '(no label)' }}
             {% if lnk.is_test %}<span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.4px;background:#F3F4F6;color:#6B7280;padding:2px 6px;border-radius:5px;margin-left:6px">Test</span>{% endif %}
           </div>
-          <div style="font-size:12px;color:#9CA3AF;margin-top:2px;font-family:monospace">{{ lnk.token }}</div>
+          <div style="font-size:11px;color:#9CA3AF;margin-top:2px;font-family:monospace">{{ lnk.token }}</div>
           {% if lnk.client_email %}
-          <div style="font-size:11px;color:#6B7280;margin-top:2px">✉ {{ lnk.client_email }}{% if lnk.client_phone %} · 📱 {{ lnk.client_phone }}{% endif %}</div>
+          <div style="font-size:10.5px;color:#6B7280;margin-top:2px">✉ {{ lnk.client_email }}{% if lnk.client_phone %} · 📱 {{ lnk.client_phone }}{% endif %}</div>
           {% elif lnk.client_phone %}
-          <div style="font-size:11px;color:#6B7280;margin-top:2px">📱 {{ lnk.client_phone }}</div>
+          <div style="font-size:10.5px;color:#6B7280;margin-top:2px">📱 {{ lnk.client_phone }}</div>
           {% endif %}
         </td>
-        <td style="padding:16px 20px;font-size:13px;color:#4B4F6A;max-width:220px">
+        <td style="padding:10px 10px;font-size:12.5px;color:#4B4F6A;max-width:150px">
           <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
             {{ lnk.centre_names_list|join(', ') }}
           </div>
-          <div style="font-size:11px;color:#9CA3AF;margin-top:2px">{{ lnk.centre_names_list|length }} space{{ 's' if lnk.centre_names_list|length != 1 }}</div>
+          <div style="font-size:10.5px;color:#9CA3AF;margin-top:2px">{{ lnk.centre_names_list|length }} space{{ 's' if lnk.centre_names_list|length != 1 }}</div>
         </td>
-        <td style="padding:16px 20px;text-align:center;font-size:13px;color:#6B7280">
+        <td style="padding:10px 8px;text-align:center;font-size:12.5px;color:#6B7280;white-space:nowrap">
           {{ lnk.created_at[:10] if lnk.created_at else '—' }}
         </td>
-        <td style="padding:16px 20px;text-align:center">
-          <span style="font-size:20px;font-weight:800;color:#1E22AA">{{ lnk.opens }}</span>
+        <td style="padding:10px 6px;text-align:center">
+          <span style="font-size:17px;font-weight:800;color:#1E22AA">{{ lnk.opens }}</span>
         </td>
-        <td style="padding:16px 20px;text-align:center">
-          <span style="font-size:20px;font-weight:800;color:#059669">{{ lnk.clicks }}</span>
+        <td style="padding:10px 6px;text-align:center">
+          <span style="font-size:17px;font-weight:800;color:#059669">{{ lnk.clicks }}</span>
         </td>
-        <td style="padding:16px 20px;text-align:center">
-          <span style="font-size:20px;font-weight:800;color:#0891B2">{{ lnk.unique_clicks }}</span>
+        <td style="padding:10px 6px;text-align:center">
+          <span style="font-size:17px;font-weight:800;color:#0891B2">{{ lnk.unique_clicks }}</span>
         </td>
-        <td style="padding:16px 20px;font-size:13px;color:#4B4F6A;max-width:180px">
+        <td style="padding:10px 8px;font-size:12.5px;color:#4B4F6A;max-width:120px">
           <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ lnk.top_space or '—' }}</div>
         </td>
-        <td style="padding:16px 20px;font-size:13px;color:#4B4F6A">
+        <td style="padding:10px 8px;font-size:12px;color:#4B4F6A;max-width:120px">
           {% if lnk.bookings %}
-            {% for b in lnk.bookings[:2] %}
-            <div style="margin-bottom:{% if not loop.last %}8px{% else %}0{% endif %}">
-              <div style="font-weight:600;font-size:12px;color:#1A1A2E;line-height:1.3">{{ b.name }}</div>
-              <div style="font-size:11px;color:#6B7280">{{ b.date }}</div>
-              <div class="bst-ist-time" data-bst="{{ b.time }}" style="font-size:11px;color:#1E22AA">{{ b.time }} BST</div>
+            {% for b in lnk.bookings[:1] %}
+            <div>
+              <div style="font-weight:600;font-size:11.5px;color:#1A1A2E;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ b.name }}</div>
+              <div style="font-size:10.5px;color:#6B7280">{{ b.date }}</div>
+              <div class="bst-ist-time" data-bst="{{ b.time }}" style="font-size:10.5px;color:#1E22AA">{{ b.time }} BST</div>
             </div>
             {% endfor %}
-            {% if lnk.bookings|length > 2 %}<div style="font-size:11px;color:#9CA3AF;margin-top:2px">+{{ lnk.bookings|length - 2 }} more</div>{% endif %}
+            {% if lnk.bookings|length > 1 %}<div style="font-size:10.5px;color:#9CA3AF;margin-top:2px">+{{ lnk.bookings|length - 1 }} more</div>{% endif %}
           {% else %}
             —
           {% endif %}
         </td>
-        <td style="padding:16px 20px;text-align:center;position:sticky;right:0;background:#fff;box-shadow:-4px 0 6px -4px rgba(0,0,0,0.15)" onclick="event.stopPropagation()">
-          <div style="display:flex;gap:8px;justify-content:center">
+        <td style="padding:10px 8px;text-align:center;position:sticky;right:0;background:#fff;box-shadow:-4px 0 6px -4px rgba(0,0,0,0.15)" onclick="event.stopPropagation()">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;width:132px">
             <button class="btn-copy"
                     data-url="{{ base_url }}/compare/{{ lnk.token }}"
                     onclick="copyLink(this)"
-                    style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;background:#F0F1FA;border:none;color:#1E22AA;cursor:pointer">
+                    style="font-size:11px;font-weight:600;padding:5px 4px;border-radius:6px;background:#F0F1FA;border:none;color:#1E22AA;cursor:pointer;white-space:nowrap">
               Copy Link
             </button>
             <a href="/compare/{{ lnk.token }}?preview=1" target="_blank"
-               style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;background:#1E22AA;color:#fff;text-decoration:none">
+               style="font-size:11px;font-weight:600;padding:5px 4px;border-radius:6px;background:#1E22AA;color:#fff;text-decoration:none;text-align:center">
               Preview
             </a>
             <button onclick="toggleTest('{{ lnk.token }}', this, {{ 'true' if lnk.is_test else 'false' }})"
-              style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;background:#F3F4F6;border:none;color:#6B7280;cursor:pointer">
-              {{ 'Unmark Test' if lnk.is_test else 'Mark as Test' }}
+              style="font-size:11px;font-weight:600;padding:5px 4px;border-radius:6px;background:#F3F4F6;border:none;color:#6B7280;cursor:pointer;white-space:nowrap">
+              {{ 'Unmark' if lnk.is_test else 'Mark Test' }}
             </button>
             <button onclick="deleteLink('{{ lnk.token }}', this)"
-              style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;background:#FEE2E2;border:none;color:#DC2626;cursor:pointer">
+              style="font-size:11px;font-weight:600;padding:5px 4px;border-radius:6px;background:#FEE2E2;border:none;color:#DC2626;cursor:pointer">
               Delete
             </button>
           </div>
@@ -675,27 +675,27 @@ async function quickRegister() {
         const spacesText = namesList.slice(0,2).join(', ') + (namesList.length > 2 ? '…' : '');
         const today = new Date().toISOString().slice(0,10);
         tr.innerHTML = `
-          <td style="padding:16px 20px">
-            <div style="font-weight:700;color:#1A1A2E">${data.label || label || 'Map link'}</div>
-            <div style="font-size:12px;color:#9CA3AF;margin-top:2px;font-family:monospace">${data.token}</div>
+          <td style="padding:10px 10px">
+            <div style="font-weight:700;color:#1A1A2E;font-size:13.5px">${data.label || label || 'Map link'}</div>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:2px;font-family:monospace">${data.token}</div>
             ${contactHtml}
           </td>
-          <td style="padding:16px 20px;font-size:13px;color:#4B4F6A;max-width:220px">
+          <td style="padding:10px 10px;font-size:12.5px;color:#4B4F6A;max-width:150px">
             <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${spacesText}</div>
-            <div style="font-size:11px;color:#9CA3AF;margin-top:2px">${namesList.length} space${namesList.length !== 1 ? 's' : ''}</div>
+            <div style="font-size:10.5px;color:#9CA3AF;margin-top:2px">${namesList.length} space${namesList.length !== 1 ? 's' : ''}</div>
           </td>
-          <td style="padding:16px 20px;text-align:center;font-size:13px;color:#6B7280">${today}</td>
-          <td style="padding:16px 20px;text-align:center"><span style="font-size:20px;font-weight:800;color:#1E22AA">0</span></td>
-          <td style="padding:16px 20px;text-align:center"><span style="font-size:20px;font-weight:800;color:#059669">0</span></td>
-          <td style="padding:16px 20px;text-align:center"><span style="font-size:20px;font-weight:800;color:#0891B2">0</span></td>
-          <td style="padding:16px 20px;font-size:13px;color:#4B4F6A">—</td>
-          <td style="padding:16px 20px;font-size:13px;color:#4B4F6A">—</td>
-          <td style="padding:16px 20px;text-align:center;position:sticky;right:0;background:#fff;box-shadow:-4px 0 6px -4px rgba(0,0,0,0.15)" onclick="event.stopPropagation()">
-            <div style="display:flex;gap:8px;justify-content:center">
+          <td style="padding:10px 8px;text-align:center;font-size:12.5px;color:#6B7280;white-space:nowrap">${today}</td>
+          <td style="padding:10px 6px;text-align:center"><span style="font-size:17px;font-weight:800;color:#1E22AA">0</span></td>
+          <td style="padding:10px 6px;text-align:center"><span style="font-size:17px;font-weight:800;color:#059669">0</span></td>
+          <td style="padding:10px 6px;text-align:center"><span style="font-size:17px;font-weight:800;color:#0891B2">0</span></td>
+          <td style="padding:10px 8px;font-size:12.5px;color:#4B4F6A">—</td>
+          <td style="padding:10px 8px;font-size:12px;color:#4B4F6A">—</td>
+          <td style="padding:10px 8px;text-align:center;position:sticky;right:0;background:#fff;box-shadow:-4px 0 6px -4px rgba(0,0,0,0.15)" onclick="event.stopPropagation()">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;width:132px">
               <button class="btn-copy" data-url="${__baseUrl}/compare/${data.token}" onclick="copyLink(this)"
-                style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;background:#F0F1FA;border:none;color:#1E22AA;cursor:pointer">Copy Link</button>
+                style="font-size:11px;font-weight:600;padding:5px 4px;border-radius:6px;background:#F0F1FA;border:none;color:#1E22AA;cursor:pointer;white-space:nowrap">Copy Link</button>
               <a href="/compare/${data.token}?preview=1" target="_blank"
-                style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;background:#1E22AA;color:#fff;text-decoration:none">Preview</a>
+                style="font-size:11px;font-weight:600;padding:5px 4px;border-radius:6px;background:#1E22AA;color:#fff;text-decoration:none;text-align:center">Preview</a>
             </div>
           </td>`;
         tbody.prepend(tr);
@@ -758,9 +758,9 @@ async function pollUpdates() {
       const row = document.querySelector(`tr.link-row[data-token="${token}"]`);
       if (row) {
         const cells = row.querySelectorAll('td');
-        if (cells[3]) cells[3].innerHTML = `<span style="font-size:20px;font-weight:800;color:#1E22AA">${s.opens}</span>`;
-        if (cells[4]) cells[4].innerHTML = `<span style="font-size:20px;font-weight:800;color:#059669">${s.clicks}</span>`;
-        if (cells[5]) cells[5].innerHTML = `<span style="font-size:20px;font-weight:800;color:#0891B2">${s.unique_clicks}</span>`;
+        if (cells[3]) cells[3].innerHTML = `<span style="font-size:17px;font-weight:800;color:#1E22AA">${s.opens}</span>`;
+        if (cells[4]) cells[4].innerHTML = `<span style="font-size:17px;font-weight:800;color:#059669">${s.clicks}</span>`;
+        if (cells[5]) cells[5].innerHTML = `<span style="font-size:17px;font-weight:800;color:#0891B2">${s.unique_clicks}</span>`;
         if (cells[6]) cells[6].innerHTML = `<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.top || '—'}</div>`;
       }
 
