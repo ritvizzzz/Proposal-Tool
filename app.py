@@ -1866,13 +1866,14 @@ def _get_repeat_openers(conn, limit=10):
         last_open_dt = open_dts[-1]
         hours_since = (datetime.now(_dt_timezone.utc) - last_open_dt).total_seconds() / 3600
 
-        action, hot_reason = 'watch', None
+        action, hot_reason, hot_tier_hours = 'watch', None, None
         for hours, min_opens in HOT_LEAD_TIERS:
             cutoff = first_open_dt + timedelta(hours=hours)
             count_within = sum(1 for dt in open_dts if dt <= cutoff)
             if count_within >= min_opens:
                 action = 'hot'
                 hot_reason = f'{count_within} opens within {hours}h'
+                hot_tier_hours = hours
                 break
         if action != 'hot':
             action = 'call' if hours_since <= 24 else 'watch'
@@ -1887,6 +1888,7 @@ def _get_repeat_openers(conn, limit=10):
             'clicks': clicks,
             'action': action,
             'hot_reason': hot_reason,
+            'hot_tier_hours': hot_tier_hours,
         })
 
     tier_rank = {'hot': 0, 'call': 1, 'watch': 2}
@@ -2053,6 +2055,17 @@ def dashboard_analytics():
         repeat_openers = _get_repeat_openers(conn)
         hour_counts, peak_window = _get_peak_open_hours(conn)
 
+    # Group hot leads by which velocity tier they tripped, fastest first, so
+    # "2+ in 24h" / "3+ in 48h" / "4+ in 72h" can each be shown as their own table.
+    hot_by_tier = [
+        {
+            'hours': hours,
+            'min_opens': min_opens,
+            'leads': [o for o in repeat_openers if o.get('hot_tier_hours') == hours],
+        }
+        for hours, min_opens in HOT_LEAD_TIERS
+    ]
+
     # Normalise brand names
     brand_counts = Counter()
     for brand_raw, cnt in brand_raw_rows:
@@ -2086,6 +2099,7 @@ def dashboard_analytics():
         avg_spaces=round(avg_spaces or 0, 1),
         avg_clicks_per_link=round(avg_clicks_per_link or 0, 1),
         repeat_openers=repeat_openers,
+        hot_by_tier=hot_by_tier,
         hour_counts=hour_counts,
         peak_window=peak_window,
         HOT_LEAD_TIERS=HOT_LEAD_TIERS,

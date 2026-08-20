@@ -14,18 +14,51 @@
 
 {% set hot_leads = repeat_openers | selectattr('action', 'equalto', 'hot') | list %}
 {% if hot_leads %}
-<div style="display:flex;align-items:center;gap:10px;background:#FEF2F2;border:1.5px solid #FCA5A5;border-radius:12px;padding:14px 18px;margin-bottom:22px">
+<div style="display:flex;align-items:center;gap:10px;background:#FEF2F2;border:1.5px solid #FCA5A5;border-radius:12px;padding:14px 18px;margin-bottom:16px">
   <span style="font-size:20px">🔥</span>
-  <div>
-    <div style="font-weight:800;color:#991B1B;font-size:14px">
-      {{ hot_leads|length }} client{{ 's' if hot_leads|length != 1 }} actively re-checking their proposal — worth a call today
-    </div>
-    <div style="font-size:12.5px;color:#B91C1C;margin-top:2px">
-      {{ hot_leads | map(attribute='label') | join(', ') }} — re-opening fast enough to flag as hot ({{ hot_leads | map(attribute='hot_reason') | join('; ') }}). See "Still Deciding" below.
-    </div>
+  <div style="font-weight:800;color:#991B1B;font-size:14px">
+    {{ hot_leads|length }} client{{ 's' if hot_leads|length != 1 }} actively re-checking their proposal — worth a call today
   </div>
 </div>
 {% endif %}
+
+<!-- Hot Leads by velocity tier — one table per "N+ opens within Xh" category -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:22px">
+  {% for tier in hot_by_tier %}
+  <div style="background:#fff;border-radius:14px;padding:18px 20px;box-shadow:0 1px 3px rgba(0,0,0,0.07);border-top:3px solid #DC2626">
+    <h3 style="font-size:13.5px;font-weight:800;color:#991B1B;margin-bottom:2px">🔥 {{ tier.min_opens }}+ opens within {{ tier.hours }}h</h3>
+    <p style="font-size:11.5px;color:#9CA3AF;margin-bottom:12px">{{ tier.leads|length }} client{{ 's' if tier.leads|length != 1 }} in this category</p>
+    {% if tier.leads %}
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+      <thead>
+        <tr style="border-bottom:1.5px solid #F3F4F6">
+          <th style="text-align:left;padding:6px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#9CA3AF">Client</th>
+          <th style="text-align:center;padding:6px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#9CA3AF">Opens</th>
+          <th style="text-align:center;padding:6px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#9CA3AF">Unique Clicks</th>
+          <th style="text-align:right;padding:6px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#9CA3AF">Last Open</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in tier.leads %}
+        <tr class="opener-row" data-token="{{ o.token }}" data-ip="{{ o.ip_hash }}"
+            style="cursor:pointer;border-bottom:1px solid #FEF2F2" onmouseover="this.style.background='#FEF2F2'" onmouseout="this.style.background=''">
+          <td style="padding:8px 4px;font-weight:700;color:#1A1A2E">{{ o.label }}</td>
+          <td style="padding:8px 4px;text-align:center;color:#1A1A2E">{{ o.opens }}</td>
+          <td style="padding:8px 4px;text-align:center;color:#1A1A2E">{{ o.clicks }}</td>
+          <td style="padding:8px 4px;text-align:right;color:#6B7280;white-space:nowrap">{{ o.last_open_rel }}</td>
+        </tr>
+        <tr class="opener-detail-row" style="display:none">
+          <td colspan="4" class="opener-detail" style="padding:12px 4px;font-size:12.5px;color:#4B4F6A;background:#FFFBFB;border-bottom:1px solid #FEF2F2"></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color:#D1D5DB;font-size:12.5px">None yet</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
 
 <!-- Stat Cards -->
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:32px">
@@ -275,11 +308,21 @@ function _escapeHtml(s) {
 }
 document.querySelectorAll('.opener-row').forEach(row => {
   row.addEventListener('click', async () => {
-    const detailEl = row.querySelector('.opener-detail');
-    const isOpen = detailEl.style.display !== 'none';
-    if (isOpen) { detailEl.style.display = 'none'; return; }
-    if (detailEl.dataset.loaded) { detailEl.style.display = 'block'; return; }
-    detailEl.style.display = 'block';
+    // Card-style rows hold .opener-detail inside themselves; the tabular
+    // hot-lead rows put it in a sibling <tr> instead (a <tr> can't contain
+    // a free-floating <div>) — toggle whichever container applies.
+    let detailEl = row.querySelector('.opener-detail');
+    let toggleTarget = detailEl;
+    if (!detailEl && row.nextElementSibling && row.nextElementSibling.classList.contains('opener-detail-row')) {
+      toggleTarget = row.nextElementSibling;
+      detailEl = toggleTarget.querySelector('.opener-detail');
+    }
+    if (!detailEl) return;
+    const visibleDisplay = toggleTarget.tagName === 'TR' ? 'table-row' : 'block';
+    const isOpen = toggleTarget.style.display !== 'none';
+    if (isOpen) { toggleTarget.style.display = 'none'; return; }
+    if (detailEl.dataset.loaded) { toggleTarget.style.display = visibleDisplay; return; }
+    toggleTarget.style.display = visibleDisplay;
     detailEl.innerHTML = 'Loading…';
     try {
       const res = await fetch(`/api/visitor-detail?token=${encodeURIComponent(row.dataset.token)}&ip_hash=${encodeURIComponent(row.dataset.ip)}`);
