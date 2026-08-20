@@ -1793,6 +1793,28 @@ def _relative_time(dt_utc):
     d = int(secs // 86400)
     return f'{d} day{"s" if d != 1 else ""} ago'
 
+_IST_TZ = _dt_timezone(timedelta(hours=5, minutes=30))  # IST has no DST, unlike London
+
+def _fmt_time_ampm(dt_local):
+    return dt_local.strftime('%I:%M %p').lstrip('0')  # "09:15 AM" -> "9:15 AM"
+
+def _fmt_date_part(dt_local):
+    return f'{dt_local.strftime("%a")} {dt_local.day} {dt_local.strftime("%b")}'
+
+def _fmt_dual_tz(dt_utc):
+    """Every absolute clock-time shown to this India-based team needs to say
+    which zone it's in — shows both London's current zone (BST or GMT,
+    whichever actually applies on that date) and IST side by side, e.g.
+    'Thu 20 Aug, 10:22 AM BST · 2:52 PM IST'."""
+    london = dt_utc.astimezone(_LONDON_TZ)
+    ist = dt_utc.astimezone(_IST_TZ)
+    london_str = f'{_fmt_date_part(london)}, {_fmt_time_ampm(london)} {london.tzname()}'
+    if ist.date() == london.date():
+        ist_str = f'{_fmt_time_ampm(ist)} IST'
+    else:
+        ist_str = f'{_fmt_date_part(ist)}, {_fmt_time_ampm(ist)} IST'
+    return f'{london_str} · {ist_str}'
+
 # Links flagged is_test are excluded from every analytics rollup below —
 # they stay visible/manageable in the dashboard list, just not counted.
 _REAL_LINKS_SQL = "SELECT token FROM share_links WHERE is_test=0 OR is_test IS NULL"
@@ -1959,25 +1981,33 @@ def _get_peak_open_hours(conn):
         SELECT cutoff_at as created_at FROM ({_SECOND_OPEN_CUTOFF_SQL}) co
         WHERE co.token IN ({_REAL_LINKS_SQL})
     """).fetchall()
-    hour_counts = [0] * 24
+    hour_counts = [0] * 24       # UK local hour (BST or GMT depending on date)
+    hour_counts_ist = [0] * 24   # same events, bucketed by IST hour instead
     for r in rows:
         try:
-            local_hour = _parse_utc(r['created_at']).astimezone(_LONDON_TZ).hour
+            dt_utc = _parse_utc(r['created_at'])
         except ValueError:
             continue
-        hour_counts[local_hour] += 1
+        hour_counts[dt_utc.astimezone(_LONDON_TZ).hour] += 1
+        hour_counts_ist[dt_utc.astimezone(_IST_TZ).hour] += 1
 
-    peak_window = None
-    if sum(hour_counts) >= 5:  # not enough data to draw a conclusion below this
-        threshold = max(hour_counts) * 0.7
-        peak_hours = [h for h, c in enumerate(hour_counts) if c >= threshold and c > 0]
-        if peak_hours:
-            def _fmt(h):
-                suffix = 'am' if h < 12 else 'pm'
-                hh = h % 12 or 12
-                return f'{hh}{suffix}'
-            peak_window = f'{_fmt(min(peak_hours))}–{_fmt(max(peak_hours) + 1)}'
-    return hour_counts, peak_window
+    def _fmt_hour(h):
+        suffix = 'am' if h % 24 < 12 else 'pm'
+        hh = h % 12 or 12
+        return f'{hh}{suffix}'
+
+    def _peak_window(counts):
+        if sum(counts) < 5:  # not enough data to draw a conclusion below this
+            return None
+        threshold = max(counts) * 0.7
+        peak_hours = [h for h, c in enumerate(counts) if c >= threshold and c > 0]
+        if not peak_hours:
+            return None
+        return f'{_fmt_hour(min(peak_hours))}–{_fmt_hour(max(peak_hours) + 1)}'
+
+    peak_window = _peak_window(hour_counts)
+    peak_window_ist = _peak_window(hour_counts_ist)
+    return hour_counts, peak_window, peak_window_ist
 
 
 def _fmt_short_date(d):
@@ -2106,7 +2136,7 @@ def api_weekly_report_opens():
             continue
         events.append({
             'sort_key': dt_utc.isoformat(),
-            'when': local.strftime('%a %d %b, %I:%M %p'),
+            'when': _fmt_dual_tz(dt_utc),
             'client': r['label'] or 'Unlabelled link',
             'token': r['token'],
         })
@@ -2189,7 +2219,7 @@ def dashboard_analytics():
         """).fetchone()[0]
 
         repeat_openers = _get_repeat_openers(conn)
-        hour_counts, peak_window = _get_peak_open_hours(conn)
+        hour_counts, peak_window, peak_window_ist = _get_peak_open_hours(conn)
 
     # Group hot leads by which velocity tier they tripped, fastest first, so
     # "2+ in 24h" / "3+ in 48h" / "4+ in 72h" can each be shown as their own table.
@@ -2238,6 +2268,7 @@ def dashboard_analytics():
         hot_by_tier=hot_by_tier,
         hour_counts=hour_counts,
         peak_window=peak_window,
+        peak_window_ist=peak_window_ist,
         HOT_LEAD_TIERS=HOT_LEAD_TIERS,
     )
 

@@ -85,11 +85,11 @@
 <!-- Best Time to Send -->
 <div style="background:#fff;border-radius:14px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.07);margin-bottom:20px">
   <h2 style="font-size:15px;font-weight:800;color:#1A1A2E;margin-bottom:4px">Best Time to Send</h2>
-  <p style="font-size:12px;color:#9CA3AF;margin-bottom:18px">When clients actually open their links (London time)</p>
+  <p style="font-size:12px;color:#9CA3AF;margin-bottom:18px">When clients actually open their links — hour axis is UK clock time (BST or GMT depending on the date)</p>
   <canvas id="chartHours" style="max-height:220px"></canvas>
   {% if peak_window %}
   <div style="margin-top:14px;padding:10px 12px;border-radius:10px;background:#F8F9FF;font-size:12.5px;color:#1A1A2E">
-    <strong style="color:#1E22AA">Peak:</strong> most opens land {{ peak_window }} — send proposals in that window for the best chance of a quick open.
+    <strong style="color:#1E22AA">Peak:</strong> most opens land {{ peak_window }} UK time{% if peak_window_ist %} ({{ peak_window_ist }} IST){% endif %} — send proposals in that window for the best chance of a quick open.
   </div>
   {% else %}
   <p style="color:#9CA3AF;font-size:12px;margin-top:10px">Not enough opens yet to spot a pattern.</p>
@@ -239,7 +239,7 @@
       responsive: true,
       plugins: { legend: { display: false } },
       scales: {
-        x: { ticks: { font: { size: 10 } } },
+        x: { ticks: { font: { size: 10 } }, title: { display: true, text: 'UK time (BST/GMT)', font: { size: 10 } } },
         y: { beginAtZero: true, ticks: { precision: 0 } }
       }
     }
