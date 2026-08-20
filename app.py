@@ -2303,7 +2303,14 @@ def api_space_engagement():
     space that's ever been shared, how many distinct proposals included it
     and how many of those proposals had it clicked at least once. Sorted
     worst-first (least-clicked, most-shared) so the spaces worth questioning
-    surface immediately; best performers naturally land at the bottom."""
+    surface immediately; best performers naturally land at the bottom.
+
+    A space gets referred to by hubble_id in some places (links created from
+    the map) and by the centres table's own id in others (links created via
+    the dashboard's search picker) — same physical space, two different id
+    schemes. Resolving both through the centres table to one canonical id is
+    what makes 'shared' and 'clicked' actually line up; without it every
+    space looks 0% clicked even when the underlying link-level rate isn't."""
     with get_db() as conn:
         links = conn.execute("""
             SELECT token, centre_ids, centre_names FROM share_links
@@ -2315,6 +2322,16 @@ def api_space_engagement():
             WHERE event_type='click' AND (centre_id IS NOT NULL OR centre_name IS NOT NULL)
             AND token IN ({_REAL_LINKS_SQL})
         """).fetchall()
+        centre_rows = conn.execute('SELECT id, hubble_id, name FROM centres').fetchall()
+
+    canon_id = {}   # any raw id string (db id or hubble_id) -> canonical db id string
+    canon_name = {}  # canonical db id string -> centre name
+    for c in centre_rows:
+        did = str(c['id'])
+        canon_id[did] = did
+        canon_name[did] = c['name']
+        if c['hubble_id']:
+            canon_id[str(c['hubble_id'])] = did
 
     shared_by = {}   # space key -> set of tokens that included it
     name_by_key = {}
@@ -2325,17 +2342,23 @@ def api_space_engagement():
         except Exception:
             continue
         for idx, cid in enumerate(ids):
-            key = str(cid)
+            raw = str(cid)
+            key = canon_id.get(raw, raw)
             shared_by.setdefault(key, set()).add(l['token'])
-            if names and idx < len(names) and names[idx] and key not in name_by_key:
+            if key not in name_by_key and names and idx < len(names) and names[idx]:
                 name_by_key[key] = names[idx]
 
     clicked_by = {}  # space key -> set of tokens where it was clicked at least once
     for r in click_rows:
-        key = str(r['centre_id']) if r['centre_id'] else r['centre_name']
+        raw = str(r['centre_id']) if r['centre_id'] else None
+        key = canon_id.get(raw, raw) if raw else r['centre_name']
         clicked_by.setdefault(key, set()).add(r['token'])
         if r['centre_name'] and key not in name_by_key:
             name_by_key[key] = r['centre_name']
+
+    # Authoritative name wins where we have it — a snapshot from
+    # share_links.centre_names or an old click can be stale after a rename.
+    name_by_key.update({k: v for k, v in canon_name.items() if k in shared_by})
 
     spaces = []
     for key, tokens in shared_by.items():
