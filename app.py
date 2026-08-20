@@ -1485,13 +1485,13 @@ def dashboard():
         links = [dict(l) for l in links]
 
         counts = conn.execute(
-            """SELECT token, event_type, COUNT(*) as cnt
-               FROM link_events WHERE event_type IN ('open','click')
+            f"""SELECT token, event_type, COUNT(*) as cnt
+               FROM ({_GENUINE_EVENTS_SQL}) WHERE event_type IN ('open','click')
                GROUP BY token, event_type"""
         ).fetchall()
         top_spaces = conn.execute(
-            """SELECT token, centre_name, COUNT(*) as cnt
-               FROM link_events WHERE event_type='click' AND centre_name IS NOT NULL AND centre_name != ''
+            f"""SELECT token, centre_name, COUNT(*) as cnt
+               FROM ({_GENUINE_EVENTS_SQL}) WHERE event_type='click' AND centre_name IS NOT NULL AND centre_name != ''
                GROUP BY token, centre_name"""
         ).fetchall()
 
@@ -1507,8 +1507,8 @@ def dashboard():
                 top_map[t] = (row['centre_name'], row['cnt'])
 
         bookings_rows = conn.execute(
-            """SELECT token, centre_name, booking_date, booking_time
-               FROM link_events
+            f"""SELECT token, centre_name, booking_date, booking_time
+               FROM ({_GENUINE_EVENTS_SQL})
                WHERE event_type='booking_request' AND booking_date IS NOT NULL
                  AND booking_date != '' AND booking_date != 'tbd'
                ORDER BY created_at ASC"""
@@ -1556,9 +1556,9 @@ def dashboard():
 @app.route('/dashboard/stats/<token>')
 def dashboard_stats(token):
     with get_db() as conn:
-        opens = conn.execute("SELECT COUNT(*) FROM link_events WHERE token=? AND event_type='open'", (token,)).fetchone()[0]
-        clicks = conn.execute("SELECT COUNT(*) FROM link_events WHERE token=? AND event_type='click'", (token,)).fetchone()[0]
-        top = conn.execute("SELECT centre_name, COUNT(*) as cnt FROM link_events WHERE token=? AND event_type='click' AND centre_name IS NOT NULL GROUP BY centre_name ORDER BY cnt DESC LIMIT 1", (token,)).fetchone()
+        opens = conn.execute(f"SELECT COUNT(*) FROM ({_GENUINE_EVENTS_SQL}) WHERE token=? AND event_type='open'", (token,)).fetchone()[0]
+        clicks = conn.execute(f"SELECT COUNT(*) FROM ({_GENUINE_EVENTS_SQL}) WHERE token=? AND event_type='click'", (token,)).fetchone()[0]
+        top = conn.execute(f"SELECT centre_name, COUNT(*) as cnt FROM ({_GENUINE_EVENTS_SQL}) WHERE token=? AND event_type='click' AND centre_name IS NOT NULL GROUP BY centre_name ORDER BY cnt DESC LIMIT 1", (token,)).fetchone()
     return jsonify({'opens': opens, 'clicks': clicks, 'top_space': top[0] if top else None})
 
 
@@ -1586,13 +1586,13 @@ def api_poll_updates():
     """Lightweight stats poll — replaces SSE so gunicorn threads stay free."""
     with get_db() as conn:
         counts = conn.execute(
-            """SELECT token, event_type, COUNT(*) as cnt
-               FROM link_events WHERE event_type IN ('open','click')
+            f"""SELECT token, event_type, COUNT(*) as cnt
+               FROM ({_GENUINE_EVENTS_SQL}) WHERE event_type IN ('open','click')
                GROUP BY token, event_type"""
         ).fetchall()
         top = conn.execute(
-            """SELECT token, centre_name, COUNT(*) as cnt
-               FROM link_events WHERE event_type='click' AND centre_name IS NOT NULL AND centre_name != ''
+            f"""SELECT token, centre_name, COUNT(*) as cnt
+               FROM ({_GENUINE_EVENTS_SQL}) WHERE event_type='click' AND centre_name IS NOT NULL AND centre_name != ''
                GROUP BY token, centre_name"""
         ).fetchall()
     stats = {}
@@ -1616,7 +1616,7 @@ def api_link_events(token):
     """Lazy-loaded activity feed for the detail panel."""
     with get_db() as conn:
         rows = conn.execute(
-            """SELECT event_type, centre_name, created_at FROM link_events
+            f"""SELECT event_type, centre_name, created_at FROM ({_GENUINE_EVENTS_SQL})
                WHERE token=? ORDER BY created_at DESC LIMIT 30""",
             (token,)
         ).fetchall()
@@ -1650,7 +1650,7 @@ def api_link_detail(token):
         except Exception:
             link['centre_names_list'] = []
         events = conn.execute(
-            'SELECT event_type, centre_name, centre_id, created_at, dwell_seconds, booking_date, booking_time FROM link_events WHERE token=? ORDER BY created_at DESC LIMIT 200',
+            f'SELECT event_type, centre_name, centre_id, created_at, dwell_seconds, booking_date, booking_time FROM ({_GENUINE_EVENTS_SQL}) WHERE token=? ORDER BY created_at DESC LIMIT 200',
             (token,)
         ).fetchall()
         events = [dict(e) for e in events]
@@ -1688,13 +1688,13 @@ def dashboard_detail(token):
             return 'Link not found', 404
         link = dict(link)
         events = conn.execute(
-            'SELECT * FROM link_events WHERE token=? ORDER BY created_at DESC',
+            f'SELECT * FROM ({_GENUINE_EVENTS_SQL}) WHERE token=? ORDER BY created_at DESC',
             (token,)
         ).fetchall()
         events = [dict(e) for e in events]
         # Bar chart data: clicks per space
         click_rows = conn.execute(
-            """SELECT centre_name, COUNT(*) as cnt FROM link_events
+            f"""SELECT centre_name, COUNT(*) as cnt FROM ({_GENUINE_EVENTS_SQL})
                WHERE token=? AND event_type='click' AND centre_name IS NOT NULL
                GROUP BY centre_name ORDER BY cnt DESC""",
             (token,)
@@ -1763,6 +1763,25 @@ def _relative_time(dt_utc):
 # they stay visible/manageable in the dashboard list, just not counted.
 _REAL_LINKS_SQL = "SELECT token FROM share_links WHERE is_test=0 OR is_test IS NULL"
 
+# The creator always opens their own share link once to check it before sending
+# it on — that first open (and anything clicked/dwelled during it) is the
+# creator's own activity, not the client's, and would otherwise pollute every
+# opens/clicks/dwell number below. Per-token, the cutoff is the SECOND 'open'
+# event ever logged; everything from that point on is treated as genuine
+# client activity. A link with fewer than 2 opens has no genuine data yet.
+_SECOND_OPEN_CUTOFF_SQL = """
+    SELECT token, created_at AS cutoff_at, id AS cutoff_id FROM (
+        SELECT token, created_at, id,
+               ROW_NUMBER() OVER (PARTITION BY token ORDER BY created_at, id) AS rn
+        FROM link_events WHERE event_type='open'
+    ) WHERE rn = 2
+"""
+_GENUINE_EVENTS_SQL = f"""
+    SELECT le.* FROM link_events le
+    JOIN ({_SECOND_OPEN_CUTOFF_SQL}) co ON co.token = le.token
+    WHERE (le.created_at, le.id) >= (co.cutoff_at, co.cutoff_id)
+"""
+
 HOT_LEAD_OPENS = 3  # opening the same link this many times or more is a strong buying signal
 
 def _get_repeat_openers(conn, limit=10):
@@ -1772,7 +1791,7 @@ def _get_repeat_openers(conn, limit=10):
     itself, not just a recent one. Within a tier, most recent activity first."""
     rows = conn.execute(f"""
         SELECT token, ip_hash, COUNT(*) as opens, MAX(created_at) as last_open
-        FROM link_events WHERE event_type='open' AND ip_hash IS NOT NULL
+        FROM ({_GENUINE_EVENTS_SQL}) WHERE event_type='open' AND ip_hash IS NOT NULL
         AND token IN ({_REAL_LINKS_SQL})
         GROUP BY token, ip_hash HAVING COUNT(*) >= 2
         ORDER BY last_open DESC LIMIT ?
@@ -1782,7 +1801,7 @@ def _get_repeat_openers(conn, limit=10):
     for r in rows:
         token, ip_hash = r['token'], r['ip_hash']
         has_booking = conn.execute(
-            "SELECT 1 FROM link_events WHERE token=? AND ip_hash=? AND event_type='booking_request' LIMIT 1",
+            f"SELECT 1 FROM ({_GENUINE_EVENTS_SQL}) WHERE token=? AND ip_hash=? AND event_type='booking_request' LIMIT 1",
             (token, ip_hash)
         ).fetchone()
         if has_booking:
@@ -1791,8 +1810,8 @@ def _get_repeat_openers(conn, limit=10):
         # Distinct spaces clicked, not raw click events — re-clicking the same
         # space (e.g. to look again) must not inflate the count.
         clicks = conn.execute(
-            """SELECT COUNT(DISTINCT COALESCE(centre_id, centre_name))
-               FROM link_events WHERE token=? AND ip_hash=? AND event_type='click'""",
+            f"""SELECT COUNT(DISTINCT COALESCE(centre_id, centre_name))
+               FROM ({_GENUINE_EVENTS_SQL}) WHERE token=? AND ip_hash=? AND event_type='click'""",
             (token, ip_hash)
         ).fetchone()[0]
         last_open_dt = _parse_utc(r['last_open'])
@@ -1826,8 +1845,8 @@ def _get_visitor_detail(conn, token, ip_hash):
     the same way the analytics-page average is), and interest/booking signals."""
     link = conn.execute('SELECT label FROM share_links WHERE token=?', (token,)).fetchone()
     events = conn.execute(
-        """SELECT event_type, centre_id, centre_name, dwell_seconds, created_at
-           FROM link_events WHERE token=? AND ip_hash=? ORDER BY created_at ASC""",
+        f"""SELECT event_type, centre_id, centre_name, dwell_seconds, created_at
+           FROM ({_GENUINE_EVENTS_SQL}) WHERE token=? AND ip_hash=? ORDER BY created_at ASC""",
         (token, ip_hash)
     ).fetchall()
     if not events:
@@ -1873,14 +1892,14 @@ def _get_peak_open_hours(conn):
     raw UTC storage) — otherwise the 'peak hour' would be wrong by 0-1h
     depending on the time of year (BST vs GMT).
 
-    Counts each link's FIRST open only — a client re-opening the same link
-    later (to keep comparing) shouldn't get counted again here, since this
-    chart answers "when do clients first look at what I sent," not "when is
-    anyone ever looking.\""""
+    Counts each link's genuine first open only (the SECOND open overall —
+    the first is always the creator checking their own link before sending
+    it) — a client re-opening the same link later shouldn't get counted
+    again here, since this chart answers "when do clients first look at
+    what I sent," not "when is anyone ever looking.\""""
     rows = conn.execute(f"""
-        SELECT MIN(created_at) as created_at FROM link_events
-        WHERE event_type='open' AND token IN ({_REAL_LINKS_SQL})
-        GROUP BY token
+        SELECT cutoff_at as created_at FROM ({_SECOND_OPEN_CUTOFF_SQL}) co
+        WHERE co.token IN ({_REAL_LINKS_SQL})
     """).fetchall()
     hour_counts = [0] * 24
     for r in rows:
@@ -1910,7 +1929,7 @@ def dashboard_analytics():
         # Top centres by click count
         top_centres = conn.execute(f"""
             SELECT centre_name, COUNT(*) as clicks
-            FROM link_events WHERE event_type='click' AND centre_name IS NOT NULL
+            FROM ({_GENUINE_EVENTS_SQL}) WHERE event_type='click' AND centre_name IS NOT NULL
             AND token IN ({_REAL_LINKS_SQL})
             GROUP BY centre_name ORDER BY clicks DESC LIMIT 10
         """).fetchall()
@@ -1922,7 +1941,7 @@ def dashboard_analytics():
                      WHEN INSTR(centre_name,' – ')>0 THEN INSTR(centre_name,' – ')-1
                      ELSE LENGTH(centre_name) END
             )) as brand, COUNT(*) as cnt
-            FROM link_events
+            FROM ({_GENUINE_EVENTS_SQL})
             WHERE event_type='click' AND centre_name IS NOT NULL
             AND token IN ({_REAL_LINKS_SQL})
             GROUP BY brand
@@ -1934,7 +1953,7 @@ def dashboard_analytics():
         # drag the whole average up to something implausible (we saw 126 min average
         # driven by a single 8.5-hour "open tab" outlier).
         avg_dwell = conn.execute(f"""
-            SELECT AVG(dwell_seconds) FROM link_events
+            SELECT AVG(dwell_seconds) FROM ({_GENUINE_EVENTS_SQL})
             WHERE event_type='dwell' AND dwell_seconds IS NOT NULL
             AND dwell_seconds > 5 AND dwell_seconds <= 1800
             AND token IN ({_REAL_LINKS_SQL})
@@ -1945,8 +1964,9 @@ def dashboard_analytics():
             SELECT
                 SUM(CASE WHEN event_type='open' THEN 1 ELSE 0 END) as opens,
                 SUM(CASE WHEN event_type='click' THEN 1 ELSE 0 END) as clicks,
-                (SELECT COUNT(DISTINCT token) FROM share_links WHERE is_test=0 OR is_test IS NULL) as unique_links
-            FROM link_events
+                (SELECT COUNT(DISTINCT token) FROM ({_SECOND_OPEN_CUTOFF_SQL}) co
+                 WHERE co.token IN ({_REAL_LINKS_SQL})) as unique_links
+            FROM ({_GENUINE_EVENTS_SQL})
             WHERE token IN ({_REAL_LINKS_SQL})
         """).fetchone()
         total_opens = totals[0] or 0
@@ -1955,7 +1975,7 @@ def dashboard_analytics():
 
         # Booking time preferences
         time_prefs = conn.execute(f"""
-            SELECT booking_time, COUNT(*) as cnt FROM link_events
+            SELECT booking_time, COUNT(*) as cnt FROM ({_GENUINE_EVENTS_SQL})
             WHERE event_type='booking_request' AND booking_time IS NOT NULL
             AND token IN ({_REAL_LINKS_SQL})
             GROUP BY booking_time ORDER BY cnt DESC LIMIT 8
@@ -1968,7 +1988,7 @@ def dashboard_analytics():
         """).fetchone()[0]
         avg_clicks_per_link = conn.execute(f"""
             SELECT AVG(c) FROM (
-                SELECT COUNT(*) as c FROM link_events
+                SELECT COUNT(*) as c FROM ({_GENUINE_EVENTS_SQL})
                 WHERE event_type='click' AND token IN ({_REAL_LINKS_SQL})
                 GROUP BY token
             )
