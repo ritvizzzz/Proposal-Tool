@@ -43,9 +43,9 @@
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#6B7280;margin-bottom:6px">Unique Spaces Clicked</div>
       <div id="stat-unique_spaces_clicked" style="font-size:32px;font-weight:900;color:#0891B2">0</div>
     </div>
-    <div>
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#6B7280;margin-bottom:6px">Proposals Sent</div>
-      <div id="stat-proposals_sent" style="font-size:32px;font-weight:900;color:#D97706">0</div>
+    <div class="stat-clickable" onclick="openStatDetail('proposals_sent')" style="cursor:pointer" title="Click to see which proposals were sent">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#6B7280;margin-bottom:6px">Proposals Sent <span style="color:#9CA3AF;font-weight:500;text-transform:none;letter-spacing:0">— click for detail</span></div>
+      <div id="stat-proposals_sent" style="font-size:32px;font-weight:900;color:#D97706;text-decoration:underline;text-decoration-color:#F9E3C2;text-underline-offset:6px">0</div>
     </div>
   </div>
 </div>
@@ -158,6 +158,7 @@ const STAT_DETAIL_ENDPOINTS = {
   total_opens: { url: '/api/weekly-report/opens', title: 'Opens', columnLabel: 'Client', timeColumnLabel: 'Date & Time' },
   unique_client_opens: { url: '/api/weekly-report/unique-client-opens', title: 'Unique Client Opens', columnLabel: 'Client', timeColumnLabel: 'Latest Open' },
   total_clicks: { url: '/api/weekly-report/clicks', title: 'Clicks', columnLabel: 'Client', timeColumnLabel: 'Date & Time' },
+  proposals_sent: { url: '/api/weekly-report/proposals-sent', title: 'Proposals Sent', columnLabel: 'Client', timeColumnLabel: 'Sent' },
 };
 
 function escapeHtml(s) {

@@ -2226,6 +2226,37 @@ def api_weekly_report_clicks():
     ]})
 
 
+@app.route('/api/weekly-report/proposals-sent')
+def api_weekly_report_proposals_sent():
+    """Every share link created in one Monday-Sunday week, most recent
+    first — the drill-down behind clicking 'Proposals Sent'."""
+    week_start, err = _parse_week_start_arg()
+    if err:
+        return err
+
+    with get_db() as conn:
+        rows = conn.execute("""
+            SELECT token, label, created_at FROM share_links
+            WHERE is_test=0 OR is_test IS NULL
+        """).fetchall()
+
+    events = []
+    for r in rows:
+        try:
+            dt_utc = _parse_utc(r['created_at'])
+        except ValueError:
+            continue
+        local = dt_utc.astimezone(_LONDON_TZ)
+        if local.date() - timedelta(days=local.weekday()) != week_start:
+            continue
+        events.append({'dt_utc': dt_utc, 'client': r['label'] or 'Unlabelled link', 'token': r['token']})
+    events.sort(key=lambda e: e['dt_utc'], reverse=True)
+    return jsonify({'events': [
+        {'client': e['client'], 'when': _fmt_dual_tz(e['dt_utc']), 'token': e['token']}
+        for e in events
+    ]})
+
+
 @app.route('/dashboard/analytics')
 def dashboard_analytics():
     from collections import Counter
