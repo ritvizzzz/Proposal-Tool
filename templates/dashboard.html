@@ -622,6 +622,7 @@ async function quickRegister() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         centre_ids: ids,
+        centre_names: names,
         label: label || names.slice(0,2).join(', ') || 'Map link',
         client_email: email || null,
         client_phone: phone || null
@@ -694,7 +695,19 @@ async function quickRegister() {
       document.getElementById('quick-client-name').value = '';
       document.getElementById('quick-client-email').value = '';
       document.getElementById('quick-client-phone').value = '';
-      status.style.display = 'none';
+
+      if (data.unmatched && data.unmatched.length) {
+        // These spaces exist on the map but aren't in this tool's database yet —
+        // without this warning the link still gets created, but the client would
+        // silently see fewer spaces (or a blank proposal) with no explanation.
+        status.style.display = 'block';
+        status.style.color = '#B45309';
+        status.textContent = `⚠ Link created, but ${data.unmatched.length} space${data.unmatched.length !== 1 ? 's are' : ' is'} `
+          + `not in the Proposal Tool yet and won't show up for the client: ${data.unmatched.join(', ')}. `
+          + `Ask for these to be added, then recreate the link.`;
+      } else {
+        status.style.display = 'none';
+      }
     } else {
       status.style.color = '#ef4444';
       status.textContent = 'Error: ' + (data.error || 'Unknown');

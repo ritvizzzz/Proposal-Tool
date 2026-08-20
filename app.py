@@ -1161,14 +1161,26 @@ def share_link_create():
     sorted_ids = sorted(centre_ids)
 
     with get_db() as conn:
-        # Resolve names from DB if not provided
-        if not centre_names:
-            for cid in centre_ids:
-                row = conn.execute(
-                    'SELECT name FROM centres WHERE hubble_id=? OR id=? LIMIT 1',
-                    (cid, cid)
-                ).fetchone()
-                centre_names.append(row['name'] if row else cid)
+        # Resolve names from DB if not provided, and flag any id that doesn't match
+        # a centre here at all — e.g. a space that exists on the map but was never
+        # added to this tool's database. Without this check the link still gets
+        # created, but the client-facing page silently renders with that space
+        # missing (or empty entirely), which looks like "the proposal isn't there."
+        names_provided = bool(centre_names)
+        unmatched = []
+        for idx, cid in enumerate(centre_ids):
+            row = conn.execute(
+                'SELECT name FROM centres WHERE hubble_id=? OR id=? LIMIT 1',
+                (cid, cid)
+            ).fetchone()
+            if row:
+                if not names_provided:
+                    centre_names.append(row['name'])
+            else:
+                fallback_name = centre_names[idx] if names_provided and idx < len(centre_names) else cid
+                unmatched.append(fallback_name)
+                if not names_provided:
+                    centre_names.append(fallback_name)
 
         # Reuse existing link with same space set (avoids dashboard duplicates)
         canonical_key = '|'.join(sorted_ids)
@@ -1205,6 +1217,7 @@ def share_link_create():
         'centre_names_list': centre_names,
         'client_email': client_email,
         'client_phone': client_phone,
+        'unmatched': unmatched,
     })
 
 
