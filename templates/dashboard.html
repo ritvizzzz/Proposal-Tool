@@ -67,6 +67,7 @@
         <th style="text-align:center;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Created</th>
         <th style="text-align:center;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Opens</th>
         <th style="text-align:center;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Clicks</th>
+        <th style="text-align:center;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Unique Clicks</th>
         <th style="text-align:left;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Viewings Booked</th>
         <th style="text-align:center;padding:14px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280">Actions</th>
       </tr>
@@ -102,6 +103,9 @@
         </td>
         <td style="padding:16px 20px;text-align:center">
           <span style="font-size:20px;font-weight:800;color:#059669">{{ lnk.clicks }}</span>
+        </td>
+        <td style="padding:16px 20px;text-align:center">
+          <span style="font-size:20px;font-weight:800;color:#0891B2">{{ lnk.unique_clicks }}</span>
         </td>
         <td style="padding:16px 20px;font-size:13px;color:#4B4F6A">
           {% if lnk.bookings %}
@@ -634,7 +638,7 @@ async function quickRegister() {
 
       // Register in local detail cache so panel works immediately
       __linkDetails[data.token] = {
-        stats: {opens: 0, clicks: 0},
+        stats: {opens: 0, clicks: 0, unique_clicks: 0},
         space_stats: [],
         events: [],
         link: {
@@ -674,6 +678,7 @@ async function quickRegister() {
           <td style="padding:16px 20px;text-align:center;font-size:13px;color:#6B7280">${today}</td>
           <td style="padding:16px 20px;text-align:center"><span style="font-size:20px;font-weight:800;color:#1E22AA">0</span></td>
           <td style="padding:16px 20px;text-align:center"><span style="font-size:20px;font-weight:800;color:#059669">0</span></td>
+          <td style="padding:16px 20px;text-align:center"><span style="font-size:20px;font-weight:800;color:#0891B2">0</span></td>
           <td style="padding:16px 20px;font-size:13px;color:#4B4F6A">—</td>
           <td style="padding:16px 20px;text-align:center" onclick="event.stopPropagation()">
             <div style="display:flex;gap:8px;justify-content:center">
@@ -729,14 +734,15 @@ async function pollUpdates() {
     const r = await fetch('/api/poll-updates');
     const stats = await r.json();
     for (const [token, s] of Object.entries(stats)) {
-      const prev = __lastPollStats[token] || {opens:0,clicks:0,top:null};
-      if (s.opens === prev.opens && s.clicks === prev.clicks && s.top === prev.top) continue;
+      const prev = __lastPollStats[token] || {opens:0,clicks:0,unique_clicks:0,top:null};
+      if (s.opens === prev.opens && s.clicks === prev.clicks && s.unique_clicks === prev.unique_clicks && s.top === prev.top) continue;
       __lastPollStats[token] = s;
 
       // Update local cache
       if (!__linkDetails[token]) continue;
       __linkDetails[token].stats.opens  = s.opens;
       __linkDetails[token].stats.clicks = s.clicks;
+      __linkDetails[token].stats.unique_clicks = s.unique_clicks;
 
       // Update table cells
       const row = document.querySelector(`tr.link-row[data-token="${token}"]`);
@@ -744,6 +750,7 @@ async function pollUpdates() {
         const cells = row.querySelectorAll('td');
         if (cells[3]) cells[3].innerHTML = `<span style="font-size:20px;font-weight:800;color:#1E22AA">${s.opens}</span>`;
         if (cells[4]) cells[4].innerHTML = `<span style="font-size:20px;font-weight:800;color:#059669">${s.clicks}</span>`;
+        if (cells[5]) cells[5].innerHTML = `<span style="font-size:20px;font-weight:800;color:#0891B2">${s.unique_clicks}</span>`;
       }
 
       // Refresh open panel — invalidate events so they reload fresh
@@ -790,6 +797,7 @@ function showDetail(token) {
     <div style="display:flex;gap:24px;margin-bottom:12px">
       <div style="text-align:center"><div style="font-size:28px;font-weight:800;color:#1E22AA">${s.opens}</div><div style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.5px">Opens</div></div>
       <div style="text-align:center"><div style="font-size:28px;font-weight:800;color:#059669">${s.clicks}</div><div style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.5px">Clicks</div></div>
+      <div style="text-align:center"><div style="font-size:28px;font-weight:800;color:#0891B2">${s.unique_clicks||0}</div><div style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.5px">Unique Clicks</div></div>
     </div>
     <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #E5E7EB">
       <a href="/dashboard/${token}" style="display:inline-block;padding:8px 16px;background:#1E22AA;color:#fff;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none">View full analytics →</a>
@@ -878,10 +886,13 @@ function buildEventsHtml(events) {
 function renderDetail(d, token, title, body) {
   const opens = d.stats ? d.stats.opens : 0;
   const clicks = d.stats ? d.stats.clicks : 0;
+  const uniqueClicks = d.stats ? (d.stats.unique_clicks || 0) : 0;
   const opensEl = body ? body.querySelector('div[style*="1E22AA"] div:first-child') : null;
   const clicksEl = body ? body.querySelector('div[style*="059669"] div:first-child') : null;
+  const uniqueClicksEl = body ? body.querySelector('div[style*="0891B2"] div:first-child') : null;
   if (opensEl) opensEl.textContent = opens;
   if (clicksEl) clicksEl.textContent = clicks;
+  if (uniqueClicksEl) uniqueClicksEl.textContent = uniqueClicks;
 }
 
 function closeDetail() {

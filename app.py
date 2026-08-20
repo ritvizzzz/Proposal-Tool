@@ -1507,11 +1507,20 @@ def dashboard():
                FROM ({_GENUINE_EVENTS_SQL}) WHERE event_type='click' AND centre_name IS NOT NULL AND centre_name != ''
                GROUP BY token, centre_name"""
         ).fetchall()
+        # Distinct spaces clicked, not raw click events — re-clicking the same
+        # space (e.g. Fora 3 times) counts once, clicking Fora then WeWork counts as 2.
+        unique_clicks_rows = conn.execute(
+            f"""SELECT token, COUNT(DISTINCT COALESCE(centre_id, centre_name)) as cnt
+               FROM ({_GENUINE_EVENTS_SQL})
+               WHERE event_type='click' AND (centre_id IS NOT NULL OR centre_name IS NOT NULL)
+               GROUP BY token"""
+        ).fetchall()
 
         opens_map, clicks_map = {}, {}
         for row in counts:
             if row['event_type'] == 'open': opens_map[row['token']] = row['cnt']
             else: clicks_map[row['token']] = row['cnt']
+        unique_clicks_map = {row['token']: row['cnt'] for row in unique_clicks_rows}
 
         top_map = {}
         for row in top_spaces:
@@ -1543,6 +1552,7 @@ def dashboard():
             token = lnk['token']
             lnk['opens'] = opens_map.get(token, 0)
             lnk['clicks'] = clicks_map.get(token, 0)
+            lnk['unique_clicks'] = unique_clicks_map.get(token, 0)
             lnk['top_space'] = top_map[token][0] if token in top_map else None
             lnk['bookings'] = bookings_map.get(token, [])
             try:
@@ -1550,7 +1560,7 @@ def dashboard():
             except Exception:
                 lnk['centre_names_list'] = []
             detail_data[token] = {
-                'stats': {'opens': lnk['opens'], 'clicks': lnk['clicks']},
+                'stats': {'opens': lnk['opens'], 'clicks': lnk['clicks'], 'unique_clicks': lnk['unique_clicks']},
                 'space_stats': None,
                 'events': None,
                 'link': {
@@ -1608,12 +1618,22 @@ def api_poll_updates():
                FROM ({_GENUINE_EVENTS_SQL}) WHERE event_type='click' AND centre_name IS NOT NULL AND centre_name != ''
                GROUP BY token, centre_name"""
         ).fetchall()
+        unique_clicks = conn.execute(
+            f"""SELECT token, COUNT(DISTINCT COALESCE(centre_id, centre_name)) as cnt
+               FROM ({_GENUINE_EVENTS_SQL})
+               WHERE event_type='click' AND (centre_id IS NOT NULL OR centre_name IS NOT NULL)
+               GROUP BY token"""
+        ).fetchall()
     stats = {}
     for r in counts:
         t = r['token']
-        stats.setdefault(t, {'opens':0,'clicks':0,'top':None})
+        stats.setdefault(t, {'opens':0,'clicks':0,'unique_clicks':0,'top':None})
         if r['event_type'] == 'open': stats[t]['opens'] = r['cnt']
         else: stats[t]['clicks'] = r['cnt']
+    for r in unique_clicks:
+        t = r['token']
+        stats.setdefault(t, {'opens':0,'clicks':0,'unique_clicks':0,'top':None})
+        stats[t]['unique_clicks'] = r['cnt']
     top_map = {}
     for r in top:
         t = r['token']
@@ -1685,9 +1705,10 @@ def api_link_detail(token):
                 space_stats[cn]['bookings'].append(f"{ev['booking_date']} {ev.get('booking_time','')}")
         opens = sum(1 for e in events if e['event_type'] == 'open')
         clicks = sum(1 for e in events if e['event_type'] == 'click')
+        unique_clicks = sum(1 for v in space_stats.values() if v['clicks'] > 0)
     return jsonify({
         'link': {k: link[k] for k in ('label','token','client_email','client_phone','created_at','centre_names_list') if k in link},
-        'stats': {'opens': opens, 'clicks': clicks},
+        'stats': {'opens': opens, 'clicks': clicks, 'unique_clicks': unique_clicks},
         'space_stats': [{'name': k, **v} for k, v in space_stats.items()],
         'events': events[:50],
     })
