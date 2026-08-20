@@ -2186,6 +2186,46 @@ def api_weekly_report_unique_client_opens():
     ]})
 
 
+@app.route('/api/weekly-report/clicks')
+def api_weekly_report_clicks():
+    """Every genuine click in one Monday-Sunday week, most recent first —
+    the drill-down behind clicking 'Total Clicks' on the weekly report.
+    Unlike Total Opens, this also names which space was clicked."""
+    week_start, err = _parse_week_start_arg()
+    if err:
+        return err
+
+    with get_db() as conn:
+        rows = conn.execute(f"""
+            SELECT le.created_at, le.centre_id, le.centre_name, sl.label, le.token
+            FROM ({_GENUINE_EVENTS_SQL}) le
+            JOIN share_links sl ON sl.token = le.token
+            WHERE le.event_type='click' AND (le.centre_id IS NOT NULL OR le.centre_name IS NOT NULL)
+            AND le.token IN ({_REAL_LINKS_SQL})
+        """).fetchall()
+
+    events = []
+    for r in rows:
+        try:
+            dt_utc = _parse_utc(r['created_at'])
+        except ValueError:
+            continue
+        local = dt_utc.astimezone(_LONDON_TZ)
+        if local.date() - timedelta(days=local.weekday()) != week_start:
+            continue
+        events.append({
+            'dt_utc': dt_utc,
+            'client': r['label'] or 'Unlabelled link',
+            'space': r['centre_name'] or r['centre_id'],
+            'token': r['token'],
+        })
+    events.sort(key=lambda e: e['dt_utc'], reverse=True)
+    return jsonify({'events': [
+        {'client': e['client'], 'space': e['space'], 'when': _fmt_dual_tz(e['dt_utc']), 'token': e['token']}
+        for e in events
+    ]})
+
+
 @app.route('/dashboard/analytics')
 def dashboard_analytics():
     from collections import Counter

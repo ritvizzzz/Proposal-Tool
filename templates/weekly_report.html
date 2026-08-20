@@ -35,9 +35,9 @@
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#6B7280;margin-bottom:6px">Unique Client Opens <span style="color:#9CA3AF;font-weight:500;text-transform:none;letter-spacing:0">— click for detail</span></div>
       <div id="stat-unique_client_opens" style="font-size:32px;font-weight:900;color:#7C3AED;text-decoration:underline;text-decoration-color:#EAE5FB;text-underline-offset:6px">0</div>
     </div>
-    <div>
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#6B7280;margin-bottom:6px">Total Clicks</div>
-      <div id="stat-total_clicks" style="font-size:32px;font-weight:900;color:#059669">0</div>
+    <div class="stat-clickable" onclick="openStatDetail('total_clicks')" style="cursor:pointer" title="Click to see every click and which space it was on">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#6B7280;margin-bottom:6px">Total Clicks <span style="color:#9CA3AF;font-weight:500;text-transform:none;letter-spacing:0">— click for detail</span></div>
+      <div id="stat-total_clicks" style="font-size:32px;font-weight:900;color:#059669;text-decoration:underline;text-decoration-color:#D3F0E4;text-underline-offset:6px">0</div>
     </div>
     <div>
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#6B7280;margin-bottom:6px">Unique Spaces Clicked</div>
@@ -157,6 +157,7 @@ function toggleMetric(key, checked) {
 const STAT_DETAIL_ENDPOINTS = {
   total_opens: { url: '/api/weekly-report/opens', title: 'Opens', columnLabel: 'Client', timeColumnLabel: 'Date & Time' },
   unique_client_opens: { url: '/api/weekly-report/unique-client-opens', title: 'Unique Client Opens', columnLabel: 'Client', timeColumnLabel: 'Latest Open' },
+  total_clicks: { url: '/api/weekly-report/clicks', title: 'Clicks', columnLabel: 'Client', timeColumnLabel: 'Date & Time' },
 };
 
 function escapeHtml(s) {
@@ -186,11 +187,13 @@ async function openStatDetail(metricKey) {
       return;
     }
     const hasOpensCol = data.events[0].opens !== undefined;
+    const hasSpaceCol = data.events[0].space !== undefined;
     body.innerHTML = `
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead>
           <tr style="border-bottom:1.5px solid #F3F4F6">
             <th style="text-align:left;padding:6px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#9CA3AF">${cfg.columnLabel}</th>
+            ${hasSpaceCol ? '<th style="text-align:left;padding:6px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#9CA3AF">Space Clicked</th>' : ''}
             ${hasOpensCol ? '<th style="text-align:center;padding:6px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#9CA3AF">Opens</th>' : ''}
             <th style="text-align:right;padding:6px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#9CA3AF">${cfg.timeColumnLabel}</th>
           </tr>
@@ -199,6 +202,7 @@ async function openStatDetail(metricKey) {
           ${data.events.map(e => `
             <tr style="border-bottom:1px solid #F9FAFB">
               <td style="padding:8px 4px;font-weight:600;color:#1A1A2E">${escapeHtml(e.client)}</td>
+              ${hasSpaceCol ? `<td style="padding:8px 4px;color:#374151">${escapeHtml(e.space || '—')}</td>` : ''}
               ${hasOpensCol ? `<td style="padding:8px 4px;text-align:center;color:#1A1A2E">${e.opens}</td>` : ''}
               <td style="padding:8px 4px;text-align:right;color:#6B7280;white-space:nowrap">${escapeHtml(e.when)}</td>
             </tr>
