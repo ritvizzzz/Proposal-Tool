@@ -1,5 +1,5 @@
 import os, sqlite3, json, shutil, base64, io, re, secrets, hashlib, urllib.parse, threading, queue, time
-from datetime import datetime, timezone as _dt_timezone
+from datetime import datetime, timedelta, timezone as _dt_timezone
 from zoneinfo import ZoneInfo
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
 from werkzeug.utils import secure_filename
@@ -1795,13 +1795,17 @@ _GENUINE_EVENTS_SQL = f"""
     WHERE (le.created_at, le.id) >= (co.cutoff_at, co.cutoff_id)
 """
 
-HOT_LEAD_OPENS = 3  # opening the same link this many times or more is a strong buying signal
+# Velocity-based hot-lead thresholds: (hours since their first open, opens
+# needed within that window). Faster re-opening is a stronger buying signal
+# than the same open count spread over a longer time, so these are checked
+# fastest-window-first and the first one met wins.
+HOT_LEAD_TIERS = [(24, 2), (48, 3), (72, 4)]
 
 def _get_repeat_openers(conn, limit=10):
     """Clients who've opened the same link 2+ times and haven't booked yet —
-    still comparing, not gone cold. 'hot' (opens >= HOT_LEAD_OPENS) always
-    sorts first regardless of recency — that many repeat visits is the signal
-    itself, not just a recent one. Within a tier, most recent activity first."""
+    still comparing, not gone cold. 'hot' (met one of HOT_LEAD_TIERS) always
+    sorts first regardless of recency — that velocity is the signal itself,
+    not just a recent one. Within a tier, most recent activity first."""
     rows = conn.execute(f"""
         SELECT token, ip_hash, COUNT(*) as opens, MAX(created_at) as last_open
         FROM ({_GENUINE_EVENTS_SQL}) WHERE event_type='open' AND ip_hash IS NOT NULL
@@ -1827,14 +1831,31 @@ def _get_repeat_openers(conn, limit=10):
                FROM ({_GENUINE_EVENTS_SQL}) WHERE token=? AND ip_hash=? AND event_type='click'""",
             (token, ip_hash)
         ).fetchone()[0]
-        last_open_dt = _parse_utc(r['last_open'])
+
+        # Velocity check needs every open timestamp for this visitor, not just
+        # the count/last — "2 opens in the first 24h" depends on when their
+        # FIRST open was, which COUNT(*)/MAX(created_at) alone can't answer.
+        open_rows = conn.execute(
+            f"""SELECT created_at FROM ({_GENUINE_EVENTS_SQL})
+               WHERE token=? AND ip_hash=? AND event_type='open' ORDER BY created_at ASC""",
+            (token, ip_hash)
+        ).fetchall()
+        open_dts = [_parse_utc(row['created_at']) for row in open_rows]
+        first_open_dt = open_dts[0]
+        last_open_dt = open_dts[-1]
         hours_since = (datetime.now(_dt_timezone.utc) - last_open_dt).total_seconds() / 3600
-        if r['opens'] >= HOT_LEAD_OPENS:
-            action = 'hot'
-        elif hours_since <= 24:
-            action = 'call'
-        else:
-            action = 'watch'
+
+        action, hot_reason = 'watch', None
+        for hours, min_opens in HOT_LEAD_TIERS:
+            cutoff = first_open_dt + timedelta(hours=hours)
+            count_within = sum(1 for dt in open_dts if dt <= cutoff)
+            if count_within >= min_opens:
+                action = 'hot'
+                hot_reason = f'{count_within} opens within {hours}h'
+                break
+        if action != 'hot':
+            action = 'call' if hours_since <= 24 else 'watch'
+
         results.append({
             'label': (link['label'] if link else None) or 'Unlabelled link',
             'token': token,
@@ -1844,6 +1865,7 @@ def _get_repeat_openers(conn, limit=10):
             'last_open_rel': _relative_time(last_open_dt),
             'clicks': clicks,
             'action': action,
+            'hot_reason': hot_reason,
         })
 
     tier_rank = {'hot': 0, 'call': 1, 'watch': 2}
@@ -2045,7 +2067,7 @@ def dashboard_analytics():
         repeat_openers=repeat_openers,
         hour_counts=hour_counts,
         peak_window=peak_window,
-        HOT_LEAD_OPENS=HOT_LEAD_OPENS,
+        HOT_LEAD_TIERS=HOT_LEAD_TIERS,
     )
 
 

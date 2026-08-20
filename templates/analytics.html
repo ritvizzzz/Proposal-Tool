@@ -21,7 +21,7 @@
       {{ hot_leads|length }} client{{ 's' if hot_leads|length != 1 }} actively re-checking their proposal — worth a call today
     </div>
     <div style="font-size:12.5px;color:#B91C1C;margin-top:2px">
-      {{ hot_leads | map(attribute='label') | join(', ') }} — opened their link {{ HOT_LEAD_OPENS }}+ times. See "Still Deciding" below.
+      {{ hot_leads | map(attribute='label') | join(', ') }} — re-opening fast enough to flag as hot ({{ hot_leads | map(attribute='hot_reason') | join('; ') }}). See "Still Deciding" below.
     </div>
   </div>
 </div>
@@ -100,7 +100,11 @@
 <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:20px;margin-bottom:20px">
   <div style="background:#fff;border-radius:14px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.07)">
     <h2 style="font-size:15px;font-weight:800;color:#1A1A2E;margin-bottom:4px">Still Deciding</h2>
-    <p style="font-size:12px;color:#9CA3AF;margin-bottom:16px">Clients who've opened their link more than once but haven't booked yet</p>
+    <p style="font-size:12px;color:#9CA3AF;margin-bottom:16px">
+      Clients who've opened their link more than once but haven't booked yet ·
+      flagged 🔥 Hot when they re-open fast:
+      {% for hours, min_opens in HOT_LEAD_TIERS %}{{ min_opens }}+ in {{ hours }}h{{ ', ' if not loop.last }}{% endfor %}
+    </p>
     {% if repeat_openers %}
     <div style="display:flex;flex-direction:column;gap:10px">
       {% for o in repeat_openers %}
@@ -116,8 +120,11 @@
             </div>
           </div>
           {% if o.action == 'hot' %}
-          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.4px;padding:5px 10px;border-radius:999px;white-space:nowrap;background:#DC2626;color:#fff">
-            🔥 Hot Lead
+          <div style="text-align:right">
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.4px;padding:5px 10px;border-radius:999px;white-space:nowrap;background:#DC2626;color:#fff">
+              🔥 Hot Lead
+            </div>
+            <div style="font-size:10.5px;color:#B91C1C;margin-top:4px;white-space:nowrap">{{ o.hot_reason }}</div>
           </div>
           {% else %}
           <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.4px;padding:5px 10px;border-radius:999px;white-space:nowrap;{{ 'background:#FEF3C7;color:#D97706' if o.action=='call' else 'background:#F3F4F6;color:#6B7280' }}">
