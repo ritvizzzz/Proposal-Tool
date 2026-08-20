@@ -2257,6 +2257,46 @@ def api_weekly_report_proposals_sent():
     ]})
 
 
+@app.route('/api/weekly-report/unique-spaces-clicked')
+def api_weekly_report_unique_spaces_clicked():
+    """One row per distinct space clicked during the week, with how many
+    times it was clicked and the most recent click — the drill-down behind
+    clicking 'Unique Spaces Clicked'."""
+    week_start, err = _parse_week_start_arg()
+    if err:
+        return err
+
+    with get_db() as conn:
+        rows = conn.execute(f"""
+            SELECT le.created_at, le.centre_id, le.centre_name
+            FROM ({_GENUINE_EVENTS_SQL}) le
+            WHERE le.event_type='click' AND (le.centre_id IS NOT NULL OR le.centre_name IS NOT NULL)
+            AND le.token IN ({_REAL_LINKS_SQL})
+        """).fetchall()
+
+    spaces = {}
+    for r in rows:
+        try:
+            dt_utc = _parse_utc(r['created_at'])
+        except ValueError:
+            continue
+        local = dt_utc.astimezone(_LONDON_TZ)
+        if local.date() - timedelta(days=local.weekday()) != week_start:
+            continue
+        key = r['centre_id'] or r['centre_name']
+        name = r['centre_name'] or r['centre_id']
+        s = spaces.setdefault(key, {'space': name, 'clicks': 0, 'last_dt': dt_utc})
+        s['clicks'] += 1
+        if dt_utc > s['last_dt']:
+            s['last_dt'] = dt_utc
+
+    ordered = sorted(spaces.values(), key=lambda s: s['last_dt'], reverse=True)
+    return jsonify({'events': [
+        {'space': s['space'], 'clicks': s['clicks'], 'when': _fmt_dual_tz(s['last_dt'])}
+        for s in ordered
+    ]})
+
+
 @app.route('/dashboard/analytics')
 def dashboard_analytics():
     from collections import Counter
