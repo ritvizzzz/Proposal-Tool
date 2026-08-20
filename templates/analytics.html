@@ -78,6 +78,20 @@
         <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280;margin-bottom:4px">Avg Clicks per Link</div>
         <div style="font-size:28px;font-weight:900;color:#059669">{{ avg_clicks_per_link }}</div>
       </div>
+      <div style="background:#FDF4FF;border-radius:10px;padding:16px;text-align:center">
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280;margin-bottom:10px">Spaces Engagement Rate</div>
+        {% set circumference = 326.73 %}
+        <div style="position:relative;width:110px;height:110px;margin:0 auto">
+          <svg width="110" height="110" viewBox="0 0 120 120" style="transform:rotate(-90deg)">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="#F1E4F7" stroke-width="14"></circle>
+            <circle cx="60" cy="60" r="52" fill="none" stroke="#9333EA" stroke-width="14" stroke-linecap="round"
+                    stroke-dasharray="{{ circumference }}"
+                    stroke-dashoffset="{{ circumference * (1 - engagement_pct / 100) }}"></circle>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#1A1A2E">{{ engagement_pct }}%</div>
+        </div>
+        <div style="font-size:11px;color:#9CA3AF;margin-top:8px">of every space shared has been clicked</div>
+      </div>
     </div>
   </div>
 </div>

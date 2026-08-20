@@ -2369,6 +2369,30 @@ def dashboard_analytics():
             )
         """).fetchone()[0]
 
+        # Cumulative space-engagement rate: of every space shared across every
+        # real link, what fraction actually got clicked — summed across all
+        # links first, then divided, not an average of each link's own
+        # percentage. A link with 5 spaces where all 5 got clicked plus a
+        # link with 4 spaces where only 2 did is 7/9 = 78%, not (100+50)/2.
+        engagement_rows = conn.execute(f"""
+            SELECT sl.token, json_array_length(sl.centre_ids) as total_spaces,
+                   COALESCE(uc.cnt, 0) as clicked_spaces
+            FROM share_links sl
+            LEFT JOIN (
+                SELECT token, COUNT(DISTINCT COALESCE(centre_id, centre_name)) as cnt
+                FROM ({_GENUINE_EVENTS_SQL})
+                WHERE event_type='click' AND (centre_id IS NOT NULL OR centre_name IS NOT NULL)
+                GROUP BY token
+            ) uc ON uc.token = sl.token
+            WHERE sl.centre_ids IS NOT NULL AND (sl.is_test=0 OR sl.is_test IS NULL)
+        """).fetchall()
+        total_spaces_shared = sum(r['total_spaces'] or 0 for r in engagement_rows)
+        # Capped per-link at its own space count — a click logged against a
+        # centre no longer in the link's list (e.g. after an edit) shouldn't
+        # push that link's contribution past 100%.
+        total_spaces_engaged = sum(min(r['clicked_spaces'], r['total_spaces'] or 0) for r in engagement_rows)
+        engagement_pct = round(100 * total_spaces_engaged / total_spaces_shared) if total_spaces_shared else 0
+
         repeat_openers = _get_repeat_openers(conn)
         hour_counts, peak_window, peak_window_ist = _get_peak_open_hours(conn)
 
@@ -2415,6 +2439,7 @@ def dashboard_analytics():
         time_prefs=[dict(r) for r in time_prefs],
         avg_spaces=round(avg_spaces or 0, 1),
         avg_clicks_per_link=round(avg_clicks_per_link or 0, 1),
+        engagement_pct=engagement_pct,
         repeat_openers=repeat_openers,
         hot_by_tier=hot_by_tier,
         hour_counts=hour_counts,
