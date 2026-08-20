@@ -2107,25 +2107,25 @@ def weekly_report():
     return render_template('weekly_report.html', weeks=weeks)
 
 
-@app.route('/api/weekly-report/opens')
-def api_weekly_report_opens():
-    """Every genuine open in one Monday-Sunday week, most recent first —
-    the drill-down behind clicking 'Total Opens' on the weekly report."""
+def _parse_week_start_arg():
+    """Returns (date, error_response). error_response is None on success."""
     start_str = request.args.get('start', '')
     try:
-        week_start = datetime.strptime(start_str, '%Y-%m-%d').date()
+        return datetime.strptime(start_str, '%Y-%m-%d').date(), None
     except ValueError:
-        return jsonify({'error': 'invalid or missing start date'}), 400
+        return None, (jsonify({'error': 'invalid or missing start date'}), 400)
 
-    with get_db() as conn:
-        rows = conn.execute(f"""
-            SELECT le.created_at, sl.label, le.token
-            FROM ({_GENUINE_EVENTS_SQL}) le
-            JOIN share_links sl ON sl.token = le.token
-            WHERE le.event_type='open' AND le.token IN ({_REAL_LINKS_SQL})
-        """).fetchall()
-
-    events = []
+def _week_open_rows(conn, week_start):
+    """Every genuine open whose London-local week matches week_start, as
+    (token, ip_hash, label, dt_utc) — the shared basis for both the raw
+    Total Opens drill-down and the per-client Unique Client Opens one."""
+    rows = conn.execute(f"""
+        SELECT le.created_at, le.token, le.ip_hash, sl.label
+        FROM ({_GENUINE_EVENTS_SQL}) le
+        JOIN share_links sl ON sl.token = le.token
+        WHERE le.event_type='open' AND le.token IN ({_REAL_LINKS_SQL})
+    """).fetchall()
+    out = []
     for r in rows:
         try:
             dt_utc = _parse_utc(r['created_at'])
@@ -2134,16 +2134,50 @@ def api_weekly_report_opens():
         local = dt_utc.astimezone(_LONDON_TZ)
         if local.date() - timedelta(days=local.weekday()) != week_start:
             continue
-        events.append({
-            'sort_key': dt_utc.isoformat(),
-            'when': _fmt_dual_tz(dt_utc),
-            'client': r['label'] or 'Unlabelled link',
-            'token': r['token'],
-        })
-    events.sort(key=lambda e: e['sort_key'], reverse=True)
-    for e in events:
-        del e['sort_key']
-    return jsonify({'events': events})
+        out.append({'token': r['token'], 'ip_hash': r['ip_hash'],
+                     'label': r['label'] or 'Unlabelled link', 'dt_utc': dt_utc})
+    return out
+
+@app.route('/api/weekly-report/opens')
+def api_weekly_report_opens():
+    """Every genuine open in one Monday-Sunday week, most recent first —
+    the drill-down behind clicking 'Total Opens' on the weekly report."""
+    week_start, err = _parse_week_start_arg()
+    if err:
+        return err
+    with get_db() as conn:
+        rows = _week_open_rows(conn, week_start)
+    events = sorted(rows, key=lambda r: r['dt_utc'], reverse=True)
+    return jsonify({'events': [
+        {'when': _fmt_dual_tz(r['dt_utc']), 'client': r['label'], 'token': r['token']}
+        for r in events
+    ]})
+
+@app.route('/api/weekly-report/unique-client-opens')
+def api_weekly_report_unique_client_opens():
+    """One row per distinct (link, visitor) that opened during the week,
+    each showing how many times they opened it and their most recent open —
+    the drill-down behind clicking 'Unique Client Opens'. This is the same
+    set _get_weekly_report counts via len(client_opens) for that week."""
+    week_start, err = _parse_week_start_arg()
+    if err:
+        return err
+    with get_db() as conn:
+        rows = _week_open_rows(conn, week_start)
+
+    clients = {}
+    for r in rows:
+        key = (r['token'], r['ip_hash'])
+        c = clients.setdefault(key, {'label': r['label'], 'token': r['token'], 'opens': 0, 'last_dt': r['dt_utc']})
+        c['opens'] += 1
+        if r['dt_utc'] > c['last_dt']:
+            c['last_dt'] = r['dt_utc']
+
+    ordered = sorted(clients.values(), key=lambda c: c['last_dt'], reverse=True)
+    return jsonify({'events': [
+        {'client': c['label'], 'token': c['token'], 'opens': c['opens'], 'when': _fmt_dual_tz(c['last_dt'])}
+        for c in ordered
+    ]})
 
 
 @app.route('/dashboard/analytics')
