@@ -27,9 +27,9 @@
 <div style="background:#fff;border-radius:14px;padding:20px 24px;box-shadow:0 1px 3px rgba(0,0,0,0.07);margin-bottom:24px">
   <div id="week-range-label" style="font-size:13px;color:#9CA3AF;font-weight:600;margin-bottom:16px"></div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px">
-    <div>
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#6B7280;margin-bottom:6px">Total Opens</div>
-      <div id="stat-total_opens" style="font-size:32px;font-weight:900;color:#1E22AA">0</div>
+    <div class="stat-clickable" onclick="openStatDetail('total_opens')" style="cursor:pointer" title="Click to see every open, in order">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#6B7280;margin-bottom:6px">Total Opens <span style="color:#9CA3AF;font-weight:500;text-transform:none;letter-spacing:0">— click for detail</span></div>
+      <div id="stat-total_opens" style="font-size:32px;font-weight:900;color:#1E22AA;text-decoration:underline;text-decoration-color:#E0E1F5;text-underline-offset:6px">0</div>
     </div>
     <div>
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#6B7280;margin-bottom:6px">Unique Client Opens</div>
@@ -59,6 +59,18 @@
 </div>
 
 {% endif %}
+
+<!-- Stat drill-down modal -->
+<div id="stat-detail-overlay" style="display:none;position:fixed;inset:0;background:rgba(17,19,40,0.45);z-index:500" onclick="closeStatDetail()"></div>
+<div id="stat-detail-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:520px;max-width:92vw;max-height:80vh;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.25);z-index:501;padding:24px;overflow-y:auto">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+    <h3 id="stat-detail-title" style="font-size:16px;font-weight:800;color:#1A1A2E"></h3>
+    <button onclick="closeStatDetail()" style="background:none;border:none;font-size:20px;color:#9CA3AF;cursor:pointer;line-height:1">&times;</button>
+  </div>
+  <p id="stat-detail-subtitle" style="font-size:12.5px;color:#9CA3AF;margin-bottom:16px"></p>
+  <div id="stat-detail-body"></div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -139,6 +151,65 @@ function renderMetricToggles() {
 function toggleMetric(key, checked) {
   if (checked) activeMetrics.add(key); else activeMetrics.delete(key);
   renderChart();
+}
+
+// ── Stat drill-down: click a stat card to see the underlying events ──
+const STAT_DETAIL_ENDPOINTS = {
+  total_opens: { url: '/api/weekly-report/opens', title: 'Opens', columnLabel: 'Client' },
+};
+
+function escapeHtml(s) {
+  return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function openStatDetail(metricKey) {
+  const cfg = STAT_DETAIL_ENDPOINTS[metricKey];
+  if (!cfg) return;
+  const w = WEEKS[selectedWeek];
+  document.getElementById('stat-detail-title').textContent = `${cfg.title} — Week ${w.week_num}`;
+  document.getElementById('stat-detail-subtitle').textContent = `${w.label} · most recent first`;
+  const body = document.getElementById('stat-detail-body');
+  body.innerHTML = '<p style="color:#9CA3AF;font-size:13px">Loading…</p>';
+  document.getElementById('stat-detail-overlay').style.display = 'block';
+  document.getElementById('stat-detail-modal').style.display = 'block';
+
+  try {
+    const res = await fetch(`${cfg.url}?start=${encodeURIComponent(w.start)}`);
+    const data = await res.json();
+    if (!res.ok) {
+      body.innerHTML = `<p style="color:#DC2626;font-size:13px">${escapeHtml(data.error || 'Could not load')}</p>`;
+      return;
+    }
+    if (!data.events.length) {
+      body.innerHTML = '<p style="color:#9CA3AF;font-size:13px">No activity in this week.</p>';
+      return;
+    }
+    body.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="border-bottom:1.5px solid #F3F4F6">
+            <th style="text-align:left;padding:6px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#9CA3AF">${cfg.columnLabel}</th>
+            <th style="text-align:right;padding:6px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#9CA3AF">Date &amp; Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.events.map(e => `
+            <tr style="border-bottom:1px solid #F9FAFB">
+              <td style="padding:8px 4px;font-weight:600;color:#1A1A2E">${escapeHtml(e.client)}</td>
+              <td style="padding:8px 4px;text-align:right;color:#6B7280;white-space:nowrap">${escapeHtml(e.when)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (e) {
+    body.innerHTML = '<p style="color:#DC2626;font-size:13px">Could not load activity.</p>';
+  }
+}
+
+function closeStatDetail() {
+  document.getElementById('stat-detail-overlay').style.display = 'none';
+  document.getElementById('stat-detail-modal').style.display = 'none';
 }
 
 renderWeekTabs();

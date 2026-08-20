@@ -2057,6 +2057,7 @@ def _get_weekly_report(conn):
         week_end = d + timedelta(days=6)
         weeks.append({
             'week_num': idx,
+            'start': d.isoformat(),
             'label': f'{_fmt_short_date(d)} – {_fmt_short_date(week_end)}, {week_end.year}',
             'total_opens': b['total_opens'],
             'unique_client_opens': len(b['client_opens']),
@@ -2074,6 +2075,45 @@ def weekly_report():
     with get_db() as conn:
         weeks = _get_weekly_report(conn)
     return render_template('weekly_report.html', weeks=weeks)
+
+
+@app.route('/api/weekly-report/opens')
+def api_weekly_report_opens():
+    """Every genuine open in one Monday-Sunday week, most recent first —
+    the drill-down behind clicking 'Total Opens' on the weekly report."""
+    start_str = request.args.get('start', '')
+    try:
+        week_start = datetime.strptime(start_str, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({'error': 'invalid or missing start date'}), 400
+
+    with get_db() as conn:
+        rows = conn.execute(f"""
+            SELECT le.created_at, sl.label, le.token
+            FROM ({_GENUINE_EVENTS_SQL}) le
+            JOIN share_links sl ON sl.token = le.token
+            WHERE le.event_type='open' AND le.token IN ({_REAL_LINKS_SQL})
+        """).fetchall()
+
+    events = []
+    for r in rows:
+        try:
+            dt_utc = _parse_utc(r['created_at'])
+        except ValueError:
+            continue
+        local = dt_utc.astimezone(_LONDON_TZ)
+        if local.date() - timedelta(days=local.weekday()) != week_start:
+            continue
+        events.append({
+            'sort_key': dt_utc.isoformat(),
+            'when': local.strftime('%a %d %b, %I:%M %p'),
+            'client': r['label'] or 'Unlabelled link',
+            'token': r['token'],
+        })
+    events.sort(key=lambda e: e['sort_key'], reverse=True)
+    for e in events:
+        del e['sort_key']
+    return jsonify({'events': events})
 
 
 @app.route('/dashboard/analytics')
