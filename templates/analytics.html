@@ -337,33 +337,64 @@ async function openSpaceEngagementDetail() {
       body.innerHTML = `<p style="color:#DC2626;font-size:13px">${_escapeHtml(data.error || 'Could not load')}</p>`;
       return;
     }
-    if (!data.spaces.length) {
+    if (!data.clicked.length && !data.not_clicked.length) {
       body.innerHTML = '<p style="color:#9CA3AF;font-size:13px">No spaces shared yet.</p>';
       return;
     }
+    const thStyle = 'padding:6px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#9CA3AF';
+    const tdBase = 'padding:8px 4px;border-bottom:1px solid #F9FAFB';
+
+    function renderClickedTable(rows) {
+      if (!rows.length) return '<p style="color:#9CA3AF;font-size:12.5px">None yet.</p>';
+      return `
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr style="border-bottom:1.5px solid #F3F4F6">
+            <th style="text-align:left;${thStyle}">Space</th>
+            <th style="text-align:center;${thStyle}">Shared</th>
+            <th style="text-align:center;${thStyle}">Clicked</th>
+            <th style="text-align:right;${thStyle}">Click %</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(s => {
+              const color = s.pct >= 75 ? '#059669' : '#D97706';
+              return `
+              <tr>
+                <td style="${tdBase};font-weight:600;color:#1A1A2E">${_escapeHtml(s.space)}</td>
+                <td style="${tdBase};text-align:center;color:#1A1A2E">${s.shared}</td>
+                <td style="${tdBase};text-align:center;color:#1A1A2E">${s.clicked}</td>
+                <td style="${tdBase};text-align:right;font-weight:700;color:${color}">${s.pct}%</td>
+              </tr>
+            `; }).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function renderNotClickedTable(rows) {
+      if (!rows.length) return '<p style="color:#9CA3AF;font-size:12.5px">None — every shared space has been clicked at least once.</p>';
+      return `
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr style="border-bottom:1.5px solid #F3F4F6">
+            <th style="text-align:left;${thStyle}">Space</th>
+            <th style="text-align:right;${thStyle}">Times Shared</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(s => `
+              <tr>
+                <td style="${tdBase};font-weight:600;color:#1A1A2E">${_escapeHtml(s.space)}</td>
+                <td style="${tdBase};text-align:right;font-weight:700;color:#DC2626">${s.shared}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
     body.innerHTML = `
-      <table style="width:100%;border-collapse:collapse;font-size:13px">
-        <thead>
-          <tr style="border-bottom:1.5px solid #F3F4F6">
-            <th style="text-align:left;padding:6px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#9CA3AF">Space</th>
-            <th style="text-align:center;padding:6px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#9CA3AF">Shared</th>
-            <th style="text-align:center;padding:6px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#9CA3AF">Clicked</th>
-            <th style="text-align:right;padding:6px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#9CA3AF">Click %</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${data.spaces.map(s => {
-            const color = s.pct === 0 ? '#DC2626' : (s.pct >= 75 ? '#059669' : '#D97706');
-            return `
-            <tr style="border-bottom:1px solid #F9FAFB">
-              <td style="padding:8px 4px;font-weight:600;color:#1A1A2E">${_escapeHtml(s.space)}</td>
-              <td style="padding:8px 4px;text-align:center;color:#1A1A2E">${s.shared}</td>
-              <td style="padding:8px 4px;text-align:center;color:#1A1A2E">${s.clicked}</td>
-              <td style="padding:8px 4px;text-align:right;font-weight:700;color:${color}">${s.pct}%</td>
-            </tr>
-          `; }).join('')}
-        </tbody>
-      </table>
+      <h4 style="font-size:13px;font-weight:800;color:#059669;margin-bottom:8px">✓ Clicked (${data.clicked.length})</h4>
+      ${renderClickedTable(data.clicked)}
+      <h4 style="font-size:13px;font-weight:800;color:#DC2626;margin:20px 0 8px">✕ Never Clicked (${data.not_clicked.length})</h4>
+      ${renderNotClickedTable(data.not_clicked)}
     `;
   } catch (e) {
     body.innerHTML = '<p style="color:#DC2626;font-size:13px">Could not load activity.</p>';

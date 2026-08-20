@@ -2301,9 +2301,9 @@ def api_weekly_report_unique_spaces_clicked():
 def api_space_engagement():
     """Per-space breakdown behind the Spaces Engagement Rate ring: for every
     space that's ever been shared, how many distinct proposals included it
-    and how many of those proposals had it clicked at least once. Sorted
-    worst-first (least-clicked, most-shared) so the spaces worth questioning
-    surface immediately; best performers naturally land at the bottom.
+    and how many of those proposals had it clicked at least once. Split into
+    two lists — clicked (best engagement first) and never-clicked (most
+    shared-yet-ignored first, the strongest "why isn't this landing" signal).
 
     A space gets referred to by hubble_id in some places (links created from
     the map) and by the centres table's own id in others (links created via
@@ -2371,8 +2371,15 @@ def api_space_engagement():
             'clicked': clicked_count,
             'pct': pct,
         })
-    spaces.sort(key=lambda s: (s['pct'], -s['shared']))
-    return jsonify({'spaces': spaces})
+
+    clicked = [s for s in spaces if s['clicked'] > 0]
+    not_clicked = [s for s in spaces if s['clicked'] == 0]
+    # Clicked: best engagement first. Not clicked: most-shared-yet-ignored
+    # first — that combination is the strongest "why is nobody clicking this"
+    # signal, more so than a space nobody bothered sharing much either.
+    clicked.sort(key=lambda s: (-s['pct'], -s['clicked']))
+    not_clicked.sort(key=lambda s: -s['shared'])
+    return jsonify({'clicked': clicked, 'not_clicked': not_clicked})
 
 
 @app.route('/dashboard/analytics')
