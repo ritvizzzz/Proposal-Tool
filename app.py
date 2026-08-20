@@ -1661,11 +1661,10 @@ def api_link_events(token):
 @app.route('/api/visitor-detail')
 def api_visitor_detail():
     token = request.args.get('token', '')
-    ip_hash = request.args.get('ip_hash', '')
-    if not token or not ip_hash:
-        return jsonify({'error': 'token and ip_hash required'}), 400
+    if not token:
+        return jsonify({'error': 'token required'}), 400
     with get_db() as conn:
-        detail = _get_visitor_detail(conn, token, ip_hash)
+        detail = _get_visitor_detail(conn, token)
     if not detail:
         return jsonify({'error': 'not found'}), 404
     return jsonify(detail)
@@ -1846,23 +1845,27 @@ HOT_LEAD_TIERS = [(24, 2), (48, 3), (72, 4)]
 
 def _get_repeat_openers(conn, limit=10):
     """Clients who've opened the same link 2+ times and haven't booked yet —
-    still comparing, not gone cold. 'hot' (met one of HOT_LEAD_TIERS) always
-    sorts first regardless of recency — that velocity is the signal itself,
-    not just a recent one. Within a tier, most recent activity first."""
+    still comparing, not gone cold. Grouped by link (token) alone, not by
+    visiting IP — the same person switching from wifi to mobile data would
+    otherwise look like two different "clients" each short of the repeat-open
+    threshold, hiding a real re-engagement signal. 'hot' (met one of
+    HOT_LEAD_TIERS) always sorts first regardless of recency — that velocity
+    is the signal itself, not just a recent one. Within a tier, most recent
+    activity first."""
     rows = conn.execute(f"""
-        SELECT token, ip_hash, COUNT(*) as opens, MAX(created_at) as last_open
-        FROM ({_GENUINE_EVENTS_SQL}) WHERE event_type='open' AND ip_hash IS NOT NULL
+        SELECT token, COUNT(*) as opens, MAX(created_at) as last_open
+        FROM ({_GENUINE_EVENTS_SQL}) WHERE event_type='open'
         AND token IN ({_REAL_LINKS_SQL})
-        GROUP BY token, ip_hash HAVING COUNT(*) >= 2
+        GROUP BY token HAVING COUNT(*) >= 2
         ORDER BY last_open DESC LIMIT ?
     """, (limit * 3,)).fetchall()  # over-fetch — some get dropped below if already booked
 
     results = []
     for r in rows:
-        token, ip_hash = r['token'], r['ip_hash']
+        token = r['token']
         has_booking = conn.execute(
-            f"SELECT 1 FROM ({_GENUINE_EVENTS_SQL}) WHERE token=? AND ip_hash=? AND event_type='booking_request' LIMIT 1",
-            (token, ip_hash)
+            f"SELECT 1 FROM ({_GENUINE_EVENTS_SQL}) WHERE token=? AND event_type='booking_request' LIMIT 1",
+            (token,)
         ).fetchone()
         if has_booking:
             continue  # already moved forward — not a "still deciding" case
@@ -1871,17 +1874,17 @@ def _get_repeat_openers(conn, limit=10):
         # space (e.g. to look again) must not inflate the count.
         clicks = conn.execute(
             f"""SELECT COUNT(DISTINCT COALESCE(centre_id, centre_name))
-               FROM ({_GENUINE_EVENTS_SQL}) WHERE token=? AND ip_hash=? AND event_type='click'""",
-            (token, ip_hash)
+               FROM ({_GENUINE_EVENTS_SQL}) WHERE token=? AND event_type='click'""",
+            (token,)
         ).fetchone()[0]
 
-        # Velocity check needs every open timestamp for this visitor, not just
+        # Velocity check needs every open timestamp for this link, not just
         # the count/last — "2 opens in the first 24h" depends on when their
         # FIRST open was, which COUNT(*)/MAX(created_at) alone can't answer.
         open_rows = conn.execute(
             f"""SELECT created_at FROM ({_GENUINE_EVENTS_SQL})
-               WHERE token=? AND ip_hash=? AND event_type='open' ORDER BY created_at ASC""",
-            (token, ip_hash)
+               WHERE token=? AND event_type='open' ORDER BY created_at ASC""",
+            (token,)
         ).fetchall()
         open_dts = [_parse_utc(row['created_at']) for row in open_rows]
         first_open_dt = open_dts[0]
@@ -1903,7 +1906,6 @@ def _get_repeat_openers(conn, limit=10):
         results.append({
             'label': (link['label'] if link else None) or 'Unlabelled link',
             'token': token,
-            'ip_hash': ip_hash,
             'opens': r['opens'],
             'last_open_dt': last_open_dt,
             'last_open_rel': _relative_time(last_open_dt),
@@ -1919,15 +1921,17 @@ def _get_repeat_openers(conn, limit=10):
         del o['last_open_dt']  # was only needed for sorting, not JSON/template-safe
     return results[:limit]
 
-def _get_visitor_detail(conn, token, ip_hash):
-    """Full activity for one visitor on one link: last open, distinct spaces
-    clicked (not raw click count), total time spent (deduped, outliers capped
-    the same way the analytics-page average is), and interest/booking signals."""
+def _get_visitor_detail(conn, token):
+    """Full activity for one client's link: opens, distinct spaces clicked
+    (not raw click count), total time spent (deduped, outliers capped the
+    same way the analytics-page average is), and interest/booking signals —
+    aggregated across the whole link, not split by visiting IP (switching
+    from wifi to mobile data shouldn't make it look like a different person)."""
     link = conn.execute('SELECT label FROM share_links WHERE token=?', (token,)).fetchone()
     events = conn.execute(
         f"""SELECT event_type, centre_id, centre_name, dwell_seconds, created_at
-           FROM ({_GENUINE_EVENTS_SQL}) WHERE token=? AND ip_hash=? ORDER BY created_at ASC""",
-        (token, ip_hash)
+           FROM ({_GENUINE_EVENTS_SQL}) WHERE token=? ORDER BY created_at ASC""",
+        (token,)
     ).fetchall()
     if not events:
         return None
@@ -2052,7 +2056,7 @@ def _get_weekly_report(conn):
             continue
         b = bucket(d)
         b['total_opens'] += 1
-        b['client_opens'].add((r['token'], r['ip_hash']))
+        b['client_opens'].add(r['token'])  # per link/client, not per visiting IP
         all_weeks_seen.append(d)
     for r in clicks:
         try:
@@ -2155,10 +2159,12 @@ def api_weekly_report_opens():
 
 @app.route('/api/weekly-report/unique-client-opens')
 def api_weekly_report_unique_client_opens():
-    """One row per distinct (link, visitor) that opened during the week,
-    each showing how many times they opened it and their most recent open —
+    """One row per distinct link (client) that got opened during the week,
+    each showing how many times it was opened and the most recent open —
     the drill-down behind clicking 'Unique Client Opens'. This is the same
-    set _get_weekly_report counts via len(client_opens) for that week."""
+    set _get_weekly_report counts via len(client_opens) for that week.
+    Grouped by link, not by visiting IP — the same client opening from two
+    different networks is still one client, not two."""
     week_start, err = _parse_week_start_arg()
     if err:
         return err
@@ -2167,7 +2173,7 @@ def api_weekly_report_unique_client_opens():
 
     clients = {}
     for r in rows:
-        key = (r['token'], r['ip_hash'])
+        key = r['token']
         c = clients.setdefault(key, {'label': r['label'], 'token': r['token'], 'opens': 0, 'last_dt': r['dt_utc']})
         c['opens'] += 1
         if r['dt_utc'] > c['last_dt']:
