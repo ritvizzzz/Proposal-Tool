@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+{% block title %}Weekly Report – myHQ{% endblock %}
+
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+  <div>
+    <a href="/dashboard/analytics" style="font-size:13px;color:#6B7280;text-decoration:none;font-weight:600">← Back to Analytics</a>
+    <h1 style="font-size:24px;font-weight:800;color:#1A1A2E;margin-top:6px">Weekly Report</h1>
+    <p style="margin-top:4px;font-size:14px;color:#6B7280">Engagement broken down week by week, Monday–Sunday (London time)</p>
+  </div>
+</div>
+
+{% if not weeks %}
+<div style="text-align:center;padding:60px 20px;color:#9CA3AF;background:#fff;border-radius:14px">
+  <div style="font-size:40px;margin-bottom:10px">📅</div>
+  <p style="font-size:15px;font-weight:600;color:#4B4F6A">No activity tracked yet</p>
+  <p style="margin-top:4px;font-size:13px">This fills in once links start getting opened and clicked.</p>
+</div>
+{% else %}
+
+<!-- Week toggle -->
+<div id="week-tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px"></div>
+
+<!-- Selected week's stat cards -->
+<div style="background:#fff;border-radius:14px;padding:20px 24px;box-shadow:0 1px 3px rgba(0,0,0,0.07);margin-bottom:24px">
+  <div id="week-range-label" style="font-size:13px;color:#9CA3AF;font-weight:600;margin-bottom:16px"></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px">
+    <div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#6B7280;margin-bottom:6px">Total Opens</div>
+      <div id="stat-total_opens" style="font-size:32px;font-weight:900;color:#1E22AA">0</div>
+    </div>
+    <div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#6B7280;margin-bottom:6px">Unique Client Opens</div>
+      <div id="stat-unique_client_opens" style="font-size:32px;font-weight:900;color:#7C3AED">0</div>
+    </div>
+    <div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#6B7280;margin-bottom:6px">Total Clicks</div>
+      <div id="stat-total_clicks" style="font-size:32px;font-weight:900;color:#059669">0</div>
+    </div>
+    <div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#6B7280;margin-bottom:6px">Unique Spaces Clicked</div>
+      <div id="stat-unique_spaces_clicked" style="font-size:32px;font-weight:900;color:#0891B2">0</div>
+    </div>
+    <div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#6B7280;margin-bottom:6px">Proposals Sent</div>
+      <div id="stat-proposals_sent" style="font-size:32px;font-weight:900;color:#D97706">0</div>
+    </div>
+  </div>
+</div>
+
+<!-- Compare across weeks -->
+<div style="background:#fff;border-radius:14px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.07)">
+  <h2 style="font-size:15px;font-weight:800;color:#1A1A2E;margin-bottom:4px">Compare Across Weeks</h2>
+  <p style="font-size:12px;color:#9CA3AF;margin-bottom:14px">Pick any combination — e.g. Total Opens vs Unique Client Opens, or leave everything checked</p>
+  <div id="metric-toggles" style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:18px"></div>
+  <canvas id="chartCompare" style="max-height:340px"></canvas>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const WEEKS = {{ weeks | tojson }};
+{% if weeks %}
+const METRICS = [
+  {key: 'total_opens',           label: 'Total Opens',            color: '#1E22AA'},
+  {key: 'unique_client_opens',   label: 'Unique Client Opens',    color: '#7C3AED'},
+  {key: 'total_clicks',          label: 'Total Clicks',           color: '#059669'},
+  {key: 'unique_spaces_clicked', label: 'Unique Spaces Clicked',  color: '#0891B2'},
+  {key: 'proposals_sent',        label: 'Proposals Sent',         color: '#D97706'},
+];
+
+let selectedWeek = WEEKS.length - 1;   // default to the most recent week
+let activeMetrics = new Set(METRICS.map(m => m.key));  // default: compare everything
+
+function renderWeekTabs() {
+  const el = document.getElementById('week-tabs');
+  el.innerHTML = WEEKS.map((w, i) => `
+    <button onclick="selectWeek(${i})" style="padding:9px 16px;border-radius:999px;border:1.5px solid ${i===selectedWeek ? '#1E22AA' : '#E5E7EB'};background:${i===selectedWeek ? '#1E22AA' : '#fff'};color:${i===selectedWeek ? '#fff' : '#4B4F6A'};font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">
+      Week ${w.week_num}
+    </button>
+  `).join('');
+}
+
+function renderWeekCards() {
+  const w = WEEKS[selectedWeek];
+  document.getElementById('week-range-label').textContent = `Week ${w.week_num} · ${w.label}`;
+  METRICS.forEach(m => {
+    document.getElementById(`stat-${m.key}`).textContent = w[m.key];
+  });
+}
+
+function selectWeek(i) {
+  selectedWeek = i;
+  renderWeekTabs();
+  renderWeekCards();
+}
+
+let compareChart = null;
+function renderChart() {
+  const labels = WEEKS.map(w => `Week ${w.week_num}`);
+  const datasets = METRICS.filter(m => activeMetrics.has(m.key)).map(m => ({
+    label: m.label,
+    data: WEEKS.map(w => w[m.key]),
+    borderColor: m.color,
+    backgroundColor: m.color,
+    tension: 0.3,
+    pointRadius: 3,
+    fill: false,
+  }));
+  if (compareChart) compareChart.destroy();
+  compareChart = new Chart(document.getElementById('chartCompare'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'bottom' } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+}
+
+function renderMetricToggles() {
+  const el = document.getElementById('metric-toggles');
+  el.innerHTML = METRICS.map(m => `
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#374151;cursor:pointer;user-select:none">
+      <input type="checkbox" ${activeMetrics.has(m.key) ? 'checked' : ''} onchange="toggleMetric('${m.key}', this.checked)"
+        style="accent-color:${m.color};width:15px;height:15px;cursor:pointer">
+      <span style="width:10px;height:10px;border-radius:50%;background:${m.color};display:inline-block"></span>
+      ${m.label}
+    </label>
+  `).join('');
+}
+
+function toggleMetric(key, checked) {
+  if (checked) activeMetrics.add(key); else activeMetrics.delete(key);
+  renderChart();
+}
+
+renderWeekTabs();
+renderWeekCards();
+renderMetricToggles();
+renderChart();
+{% endif %}
+</script>
+{% endblock %}

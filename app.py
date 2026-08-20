@@ -1980,6 +1980,102 @@ def _get_peak_open_hours(conn):
     return hour_counts, peak_window
 
 
+def _fmt_short_date(d):
+    """'Aug 4' — cross-platform equivalent of %-d (Windows has no such code)."""
+    return f'{d.strftime("%b")} {d.day}'
+
+def _get_weekly_report(conn):
+    """Rolls engagement up into Monday–Sunday weeks (London time), covering
+    every week from the first tracked activity through the current week —
+    no gaps, so 'Week 3' always means the same thing across visits even if
+    a week had zero activity. Week 1 is the earliest week on record."""
+    opens = conn.execute(f"""
+        SELECT created_at, token, ip_hash FROM ({_GENUINE_EVENTS_SQL})
+        WHERE event_type='open' AND token IN ({_REAL_LINKS_SQL})
+    """).fetchall()
+    clicks = conn.execute(f"""
+        SELECT created_at, centre_id, centre_name FROM ({_GENUINE_EVENTS_SQL})
+        WHERE event_type='click' AND (centre_id IS NOT NULL OR centre_name IS NOT NULL)
+        AND token IN ({_REAL_LINKS_SQL})
+    """).fetchall()
+    links = conn.execute("""
+        SELECT token, created_at FROM share_links WHERE is_test=0 OR is_test IS NULL
+    """).fetchall()
+
+    def week_start(dt_utc):
+        local = dt_utc.astimezone(_LONDON_TZ)
+        return local.date() - timedelta(days=local.weekday())
+
+    buckets = {}
+    def bucket(d):
+        return buckets.setdefault(d, {
+            'total_opens': 0, 'client_opens': set(),
+            'total_clicks': 0, 'spaces_clicked': set(),
+            'proposals_sent': 0,
+        })
+
+    all_weeks_seen = []
+    for r in opens:
+        try:
+            d = week_start(_parse_utc(r['created_at']))
+        except ValueError:
+            continue
+        b = bucket(d)
+        b['total_opens'] += 1
+        b['client_opens'].add((r['token'], r['ip_hash']))
+        all_weeks_seen.append(d)
+    for r in clicks:
+        try:
+            d = week_start(_parse_utc(r['created_at']))
+        except ValueError:
+            continue
+        b = bucket(d)
+        b['total_clicks'] += 1
+        b['spaces_clicked'].add(r['centre_id'] or r['centre_name'])
+        all_weeks_seen.append(d)
+    for r in links:
+        try:
+            d = week_start(_parse_utc(r['created_at']))
+        except ValueError:
+            continue
+        bucket(d)['proposals_sent'] += 1
+        all_weeks_seen.append(d)
+
+    if not all_weeks_seen:
+        return []
+
+    first_week = min(all_weeks_seen)
+    current_week = week_start(datetime.now(_dt_timezone.utc))
+    last_week = max(first_week, current_week)
+
+    weeks = []
+    d, idx = first_week, 1
+    empty = {'total_opens': 0, 'client_opens': set(), 'total_clicks': 0,
+             'spaces_clicked': set(), 'proposals_sent': 0}
+    while d <= last_week:
+        b = buckets.get(d, empty)
+        week_end = d + timedelta(days=6)
+        weeks.append({
+            'week_num': idx,
+            'label': f'{_fmt_short_date(d)} – {_fmt_short_date(week_end)}, {week_end.year}',
+            'total_opens': b['total_opens'],
+            'unique_client_opens': len(b['client_opens']),
+            'total_clicks': b['total_clicks'],
+            'unique_spaces_clicked': len(b['spaces_clicked']),
+            'proposals_sent': b['proposals_sent'],
+        })
+        d += timedelta(days=7)
+        idx += 1
+    return weeks
+
+
+@app.route('/dashboard/weekly-report')
+def weekly_report():
+    with get_db() as conn:
+        weeks = _get_weekly_report(conn)
+    return render_template('weekly_report.html', weeks=weeks)
+
+
 @app.route('/dashboard/analytics')
 def dashboard_analytics():
     from collections import Counter
