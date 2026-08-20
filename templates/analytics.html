@@ -78,8 +78,8 @@
         <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280;margin-bottom:4px">Avg Clicks per Link</div>
         <div style="font-size:28px;font-weight:900;color:#059669">{{ avg_clicks_per_link }}</div>
       </div>
-      <div style="background:#FDF4FF;border-radius:10px;padding:16px;text-align:center">
-        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280;margin-bottom:10px">Spaces Engagement Rate</div>
+      <div class="stat-clickable" onclick="openSpaceEngagementDetail()" style="background:#FDF4FF;border-radius:10px;padding:16px;text-align:center;cursor:pointer" title="Click to see the per-space breakdown">
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280;margin-bottom:10px">Spaces Engagement Rate <span style="color:#9CA3AF;font-weight:500;text-transform:none;letter-spacing:0">— click for detail</span></div>
         {% set circumference = 326.73 %}
         <div style="position:relative;width:110px;height:110px;margin:0 auto">
           <svg width="110" height="110" viewBox="0 0 120 120" style="transform:rotate(-90deg)">
@@ -149,6 +149,17 @@
     {% endif %}
   </div>
   {% endfor %}
+</div>
+
+<!-- Space-engagement drill-down modal -->
+<div id="space-eng-overlay" style="display:none;position:fixed;inset:0;background:rgba(17,19,40,0.45);z-index:500" onclick="closeSpaceEngagementDetail()"></div>
+<div id="space-eng-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:560px;max-width:92vw;max-height:80vh;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.25);z-index:501;padding:24px;overflow-y:auto">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+    <h3 style="font-size:16px;font-weight:800;color:#1A1A2E">Spaces Engagement Rate — by space</h3>
+    <button onclick="closeSpaceEngagementDetail()" style="background:none;border:none;font-size:20px;color:#9CA3AF;cursor:pointer;line-height:1">&times;</button>
+  </div>
+  <p style="font-size:12.5px;color:#9CA3AF;margin-bottom:16px">Sorted least-clicked first — the spaces at the top are shared often but rarely clicked</p>
+  <div id="space-eng-body"></div>
 </div>
 
 <script>
@@ -310,5 +321,58 @@ document.querySelectorAll('.opener-row').forEach(row => {
     }
   });
 });
+
+// ── Spaces Engagement Rate: per-space breakdown ──
+async function openSpaceEngagementDetail() {
+  const overlay = document.getElementById('space-eng-overlay');
+  const modal = document.getElementById('space-eng-modal');
+  const body = document.getElementById('space-eng-body');
+  overlay.style.display = 'block';
+  modal.style.display = 'block';
+  body.innerHTML = '<p style="color:#9CA3AF;font-size:13px">Loading…</p>';
+  try {
+    const res = await fetch('/api/space-engagement');
+    const data = await res.json();
+    if (!res.ok) {
+      body.innerHTML = `<p style="color:#DC2626;font-size:13px">${_escapeHtml(data.error || 'Could not load')}</p>`;
+      return;
+    }
+    if (!data.spaces.length) {
+      body.innerHTML = '<p style="color:#9CA3AF;font-size:13px">No spaces shared yet.</p>';
+      return;
+    }
+    body.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="border-bottom:1.5px solid #F3F4F6">
+            <th style="text-align:left;padding:6px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#9CA3AF">Space</th>
+            <th style="text-align:center;padding:6px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#9CA3AF">Shared</th>
+            <th style="text-align:center;padding:6px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#9CA3AF">Clicked</th>
+            <th style="text-align:right;padding:6px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#9CA3AF">Click %</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.spaces.map(s => {
+            const color = s.pct === 0 ? '#DC2626' : (s.pct >= 75 ? '#059669' : '#D97706');
+            return `
+            <tr style="border-bottom:1px solid #F9FAFB">
+              <td style="padding:8px 4px;font-weight:600;color:#1A1A2E">${_escapeHtml(s.space)}</td>
+              <td style="padding:8px 4px;text-align:center;color:#1A1A2E">${s.shared}</td>
+              <td style="padding:8px 4px;text-align:center;color:#1A1A2E">${s.clicked}</td>
+              <td style="padding:8px 4px;text-align:right;font-weight:700;color:${color}">${s.pct}%</td>
+            </tr>
+          `; }).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (e) {
+    body.innerHTML = '<p style="color:#DC2626;font-size:13px">Could not load activity.</p>';
+  }
+}
+
+function closeSpaceEngagementDetail() {
+  document.getElementById('space-eng-overlay').style.display = 'none';
+  document.getElementById('space-eng-modal').style.display = 'none';
+}
 </script>
 {% endblock %}

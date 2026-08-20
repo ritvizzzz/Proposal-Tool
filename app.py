@@ -2297,6 +2297,61 @@ def api_weekly_report_unique_spaces_clicked():
     ]})
 
 
+@app.route('/api/space-engagement')
+def api_space_engagement():
+    """Per-space breakdown behind the Spaces Engagement Rate ring: for every
+    space that's ever been shared, how many distinct proposals included it
+    and how many of those proposals had it clicked at least once. Sorted
+    worst-first (least-clicked, most-shared) so the spaces worth questioning
+    surface immediately; best performers naturally land at the bottom."""
+    with get_db() as conn:
+        links = conn.execute("""
+            SELECT token, centre_ids, centre_names FROM share_links
+            WHERE centre_ids IS NOT NULL AND (is_test=0 OR is_test IS NULL)
+        """).fetchall()
+        click_rows = conn.execute(f"""
+            SELECT DISTINCT token, centre_id, centre_name
+            FROM ({_GENUINE_EVENTS_SQL})
+            WHERE event_type='click' AND (centre_id IS NOT NULL OR centre_name IS NOT NULL)
+            AND token IN ({_REAL_LINKS_SQL})
+        """).fetchall()
+
+    shared_by = {}   # space key -> set of tokens that included it
+    name_by_key = {}
+    for l in links:
+        try:
+            ids = json.loads(l['centre_ids'] or '[]')
+            names = json.loads(l['centre_names'] or '[]')
+        except Exception:
+            continue
+        for idx, cid in enumerate(ids):
+            key = str(cid)
+            shared_by.setdefault(key, set()).add(l['token'])
+            if names and idx < len(names) and names[idx] and key not in name_by_key:
+                name_by_key[key] = names[idx]
+
+    clicked_by = {}  # space key -> set of tokens where it was clicked at least once
+    for r in click_rows:
+        key = str(r['centre_id']) if r['centre_id'] else r['centre_name']
+        clicked_by.setdefault(key, set()).add(r['token'])
+        if r['centre_name'] and key not in name_by_key:
+            name_by_key[key] = r['centre_name']
+
+    spaces = []
+    for key, tokens in shared_by.items():
+        shared_count = len(tokens)
+        clicked_count = len(clicked_by.get(key, set()) & tokens)
+        pct = round(100 * clicked_count / shared_count) if shared_count else 0
+        spaces.append({
+            'space': name_by_key.get(key, key),
+            'shared': shared_count,
+            'clicked': clicked_count,
+            'pct': pct,
+        })
+    spaces.sort(key=lambda s: (s['pct'], -s['shared']))
+    return jsonify({'spaces': spaces})
+
+
 @app.route('/dashboard/analytics')
 def dashboard_analytics():
     from collections import Counter
