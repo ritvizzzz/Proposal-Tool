@@ -1837,10 +1837,12 @@ _GENUINE_EVENTS_SQL = f"""
     WHERE (le.created_at, le.id) >= (co.cutoff_at, co.cutoff_id)
 """
 
-# Velocity-based hot-lead thresholds: (hours since their first open, opens
-# needed within that window). Faster re-opening is a stronger buying signal
-# than the same open count spread over a longer time, so these are checked
-# fastest-window-first and the first one met wins.
+# Velocity-based hot-lead thresholds: (trailing hours counted back from
+# right now, opens needed within that window). This is about who's active
+# TODAY, not who once had a burst of opens weeks ago — a link with 2+ opens
+# in the last 24h is hot even if it was created months back, and a link
+# that had a flurry of opens once but has been silent since is not.
+# Checked fastest-window-first; the first tier met wins.
 HOT_LEAD_TIERS = [(24, 2), (48, 3), (72, 4)]
 
 def _get_repeat_openers(conn, limit=10):
@@ -1879,25 +1881,30 @@ def _get_repeat_openers(conn, limit=10):
         ).fetchone()[0]
 
         # Velocity check needs every open timestamp for this link, not just
-        # the count/last — "2 opens in the first 24h" depends on when their
-        # FIRST open was, which COUNT(*)/MAX(created_at) alone can't answer.
+        # the count/last — "2 opens in the last 24h" is a trailing window
+        # counted back from right now, which COUNT(*)/MAX(created_at) alone
+        # can't answer.
         open_rows = conn.execute(
             f"""SELECT created_at FROM ({_GENUINE_EVENTS_SQL})
                WHERE token=? AND event_type='open' ORDER BY created_at ASC""",
             (token,)
         ).fetchall()
         open_dts = [_parse_utc(row['created_at']) for row in open_rows]
-        first_open_dt = open_dts[0]
         last_open_dt = open_dts[-1]
-        hours_since = (datetime.now(_dt_timezone.utc) - last_open_dt).total_seconds() / 3600
+        now = datetime.now(_dt_timezone.utc)
+        hours_since = (now - last_open_dt).total_seconds() / 3600
 
+        # Hot means active RIGHT NOW, not "once had a burst of opens" — so
+        # the window trails back from the current moment, not forward from
+        # whenever they first opened it. A client who opened twice in a day
+        # three weeks ago and has been silent since is not a hot lead.
         action, hot_reason, hot_tier_hours = 'watch', None, None
         for hours, min_opens in HOT_LEAD_TIERS:
-            cutoff = first_open_dt + timedelta(hours=hours)
-            count_within = sum(1 for dt in open_dts if dt <= cutoff)
+            cutoff = now - timedelta(hours=hours)
+            count_within = sum(1 for dt in open_dts if dt >= cutoff)
             if count_within >= min_opens:
                 action = 'hot'
-                hot_reason = f'{count_within} opens within {hours}h'
+                hot_reason = f'{count_within} opens in the last {hours}h'
                 hot_tier_hours = hours
                 break
         if action != 'hot':

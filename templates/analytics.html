@@ -115,14 +115,16 @@
   {% endif %}
 </div>
 
-<!-- Hot Leads by velocity tier — one table per "N+ opens within Xh" category —
+<!-- Hot Leads by velocity tier — one table per "N+ opens in the last Xh" category,
+     a trailing window counted back from right now (not from their first open),
+     so this reflects who's active right now, not who once had an old burst —
      this is the whole "still deciding / re-opening" story now, no separate list -->
 <h2 style="font-size:15px;font-weight:800;color:#1A1A2E;margin-bottom:4px">Hot Leads</h2>
-<p style="font-size:12px;color:#9CA3AF;margin-bottom:12px">Clients re-opening their link fast enough to be worth a call — grouped by how fast</p>
+<p style="font-size:12px;color:#9CA3AF;margin-bottom:12px">Clients actively re-opening their link right now — grouped by how recently</p>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:22px">
   {% for tier in hot_by_tier %}
   <div style="background:#fff;border-radius:14px;padding:18px 20px;box-shadow:0 1px 3px rgba(0,0,0,0.07);border-top:3px solid #DC2626">
-    <h3 style="font-size:13.5px;font-weight:800;color:#991B1B;margin-bottom:2px">🔥 {{ tier.min_opens }}+ opens within {{ tier.hours }}h</h3>
+    <h3 style="font-size:13.5px;font-weight:800;color:#991B1B;margin-bottom:2px">🔥 {{ tier.min_opens }}+ opens in the last {{ tier.hours }}h</h3>
     <p style="font-size:11.5px;color:#9CA3AF;margin-bottom:12px">{{ tier.leads|length }} client{{ 's' if tier.leads|length != 1 }} in this category</p>
     {% if tier.leads %}
     <table style="width:100%;border-collapse:collapse;font-size:12.5px">
