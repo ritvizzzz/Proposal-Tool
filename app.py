@@ -1824,6 +1824,12 @@ _REAL_LINKS_SQL = "SELECT token FROM share_links WHERE is_test=0 OR is_test IS N
 # opens/clicks/dwell number below. Per-token, the cutoff is the SECOND 'open'
 # event ever logged; everything from that point on is treated as genuine
 # client activity. A link with fewer than 2 opens has no genuine data yet.
+# On top of that, _GENUINE_EVENTS_SQL also drops any event with no browser
+# identity at all (blank user_agent) — a real visitor's browser always sends
+# one; a blank one is the signature of a link-preview bot (WhatsApp, Slack,
+# an email security scanner fetching the URL to make a thumbnail) rather
+# than an actual person, and would otherwise inflate opens/clicks with
+# visits nobody actually made.
 _SECOND_OPEN_CUTOFF_SQL = """
     SELECT token, created_at AS cutoff_at, id AS cutoff_id FROM (
         SELECT token, created_at, id,
@@ -1835,6 +1841,7 @@ _GENUINE_EVENTS_SQL = f"""
     SELECT le.* FROM link_events le
     JOIN ({_SECOND_OPEN_CUTOFF_SQL}) co ON co.token = le.token
     WHERE (le.created_at, le.id) >= (co.cutoff_at, co.cutoff_id)
+    AND le.user_agent IS NOT NULL AND le.user_agent != ''
 """
 
 # Velocity-based hot-lead thresholds: (trailing hours counted back from
