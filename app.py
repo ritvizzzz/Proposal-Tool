@@ -2311,6 +2311,35 @@ def api_weekly_report_unique_spaces_clicked():
     ]})
 
 
+@app.route('/api/open-directory')
+def api_open_directory():
+    """Every genuine open across every real link, most recent first — a flat,
+    interleaved chronological feed (not grouped by link), so it's possible to
+    see exactly who opened relative to everyone else — e.g. that Client X
+    opened before Client Y, not just each of their own open histories in
+    isolation."""
+    with get_db() as conn:
+        rows = conn.execute(f"""
+            SELECT le.created_at, sl.label, le.token
+            FROM ({_GENUINE_EVENTS_SQL}) le
+            JOIN share_links sl ON sl.token = le.token
+            WHERE le.event_type='open' AND le.token IN ({_REAL_LINKS_SQL})
+            ORDER BY le.created_at DESC, le.id DESC
+            LIMIT 501
+        """).fetchall()
+
+    truncated = len(rows) > 500
+    rows = rows[:500]
+    events = []
+    for r in rows:
+        try:
+            dt_utc = _parse_utc(r['created_at'])
+        except ValueError:
+            continue
+        events.append({'client': r['label'] or 'Unlabelled link', 'when': _fmt_dual_tz(dt_utc), 'token': r['token']})
+    return jsonify({'events': events, 'truncated': truncated})
+
+
 @app.route('/api/space-engagement')
 def api_space_engagement():
     """Per-space breakdown behind the Spaces Engagement Rate ring: for every

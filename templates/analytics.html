@@ -158,6 +158,20 @@
   {% endfor %}
 </div>
 
+<!-- Open Activity Directory: every genuine open, interleaved across clients,
+     most recent first — so it's clear exactly who opened when relative to
+     everyone else, not just within their own link. -->
+<div style="background:#fff;border-radius:14px;padding:20px 24px;box-shadow:0 1px 3px rgba(0,0,0,0.07);margin-bottom:20px">
+  <details id="open-directory-details">
+    <summary style="cursor:pointer;font-size:15px;font-weight:800;color:#1A1A2E;list-style:none">
+      📖 Open Activity Directory
+      <span style="color:#9CA3AF;font-weight:500;font-size:12.5px;text-transform:none">— click to expand</span>
+    </summary>
+    <p style="font-size:12px;color:#9CA3AF;margin:8px 0 14px">Every genuine open across every client, most recent first — see exactly who opened when, relative to everyone else</p>
+    <div id="open-directory-body" style="max-height:480px;overflow-y:auto"></div>
+  </details>
+</div>
+
 <!-- Space-engagement drill-down modal -->
 <div id="space-eng-overlay" style="display:none;position:fixed;inset:0;background:rgba(17,19,40,0.45);z-index:500" onclick="closeSpaceEngagementDetail()"></div>
 <div id="space-eng-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:560px;max-width:92vw;max-height:80vh;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.25);z-index:501;padding:24px;overflow-y:auto">
@@ -412,5 +426,44 @@ function closeSpaceEngagementDetail() {
   document.getElementById('space-eng-overlay').style.display = 'none';
   document.getElementById('space-eng-modal').style.display = 'none';
 }
+
+// ── Open Activity Directory: lazy-loaded on first expand ──
+let _openDirectoryLoaded = false;
+document.getElementById('open-directory-details').addEventListener('toggle', async function() {
+  if (!this.open || _openDirectoryLoaded) return;
+  _openDirectoryLoaded = true;
+  const body = document.getElementById('open-directory-body');
+  body.innerHTML = '<p style="color:#9CA3AF;font-size:13px">Loading…</p>';
+  try {
+    const res = await fetch('/api/open-directory');
+    const data = await res.json();
+    if (!data.events.length) {
+      body.innerHTML = '<p style="color:#9CA3AF;font-size:13px">No opens yet.</p>';
+      return;
+    }
+    body.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="border-bottom:1.5px solid #F3F4F6">
+            <th style="text-align:left;padding:6px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#9CA3AF;position:sticky;top:0;background:#fff">Client</th>
+            <th style="text-align:right;padding:6px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#9CA3AF;position:sticky;top:0;background:#fff">Opened</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.events.map(e => `
+            <tr style="border-bottom:1px solid #F9FAFB">
+              <td style="padding:8px 4px;font-weight:600;color:#1A1A2E">${_escapeHtml(e.client)}</td>
+              <td style="padding:8px 4px;text-align:right;color:#6B7280;white-space:nowrap">${_escapeHtml(e.when)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      ${data.truncated ? `<p style="color:#9CA3AF;font-size:11.5px;margin-top:10px">Showing the most recent ${data.events.length} opens.</p>` : ''}
+    `;
+  } catch (e) {
+    body.innerHTML = '<p style="color:#DC2626;font-size:13px">Could not load activity.</p>';
+    _openDirectoryLoaded = false;
+  }
+});
 </script>
 {% endblock %}
