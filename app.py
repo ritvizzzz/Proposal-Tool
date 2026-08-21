@@ -2433,6 +2433,13 @@ def dashboard_analytics():
         total_clicks = totals[1] or 0
         unique_links = totals[2] or 0
 
+        # Every real proposal ever created, regardless of whether it's been
+        # opened yet — marking a link as test drops it from this the moment
+        # it's toggled, same as everywhere else "real" links are counted.
+        total_proposals_sent = conn.execute(f"""
+            SELECT COUNT(*) FROM share_links WHERE token IN ({_REAL_LINKS_SQL})
+        """).fetchone()[0]
+
         # Booking time preferences
         time_prefs = conn.execute(f"""
             SELECT booking_time, COUNT(*) as cnt FROM ({_GENUINE_EVENTS_SQL})
@@ -2521,6 +2528,7 @@ def dashboard_analytics():
         total_opens=total_opens,
         total_clicks=total_clicks,
         unique_links=unique_links,
+        total_proposals_sent=total_proposals_sent,
         time_prefs=[dict(r) for r in time_prefs],
         avg_spaces=round(avg_spaces or 0, 1),
         avg_clicks_per_link=round(avg_clicks_per_link or 0, 1),
