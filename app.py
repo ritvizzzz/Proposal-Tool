@@ -2453,12 +2453,18 @@ def dashboard_analytics():
             SELECT AVG(json_array_length(centre_ids)) FROM share_links
             WHERE centre_ids IS NOT NULL AND (is_test=0 OR is_test IS NULL)
         """).fetchone()[0]
+        # AVG over every engaged link (has a genuine open), zero-click links
+        # counted as 0 via the LEFT JOIN + COALESCE — GROUP BY alone silently
+        # drops zero-click links from the average instead of counting them.
         avg_clicks_per_link = conn.execute(f"""
-            SELECT AVG(c) FROM (
-                SELECT COUNT(*) as c FROM ({_GENUINE_EVENTS_SQL})
+            SELECT AVG(COALESCE(c.clicks, 0)) FROM (
+                SELECT co.token FROM ({_SECOND_OPEN_CUTOFF_SQL}) co WHERE co.token IN ({_REAL_LINKS_SQL})
+            ) engaged
+            LEFT JOIN (
+                SELECT token, COUNT(*) as clicks FROM ({_GENUINE_EVENTS_SQL})
                 WHERE event_type='click' AND token IN ({_REAL_LINKS_SQL})
                 GROUP BY token
-            )
+            ) c ON c.token = engaged.token
         """).fetchone()[0]
 
         # Cumulative space-engagement rate: of every space shared across every
