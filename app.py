@@ -600,6 +600,38 @@ def centre_update(cid):
             conn.execute(f'UPDATE centres SET {sets} WHERE id=?', vals)
     return jsonify({'ok': True})
 
+@app.route('/centres/bulk-update', methods=['POST'])
+def centres_bulk_update():
+    """Bulk field updates for batch data-entry: [{id, memberships: '...', price_from: ..., ...}, ...].
+    Same field whitelist as /centres/<id>/update, applied one row at a time in a single request."""
+    items = request.json or []
+    allowed = ['name','address','city','about','space_type','brand','price_from','price_unit',
+               'open_hours','amenities','transport','website','map_url','why_recommend','lat','lng','memberships']
+    updated = 0
+    with get_db() as conn:
+        for item in items:
+            cid = item.get('id')
+            if cid is None:
+                continue
+            data = {k: v for k, v in item.items() if k in allowed}
+            if 'memberships' in data and isinstance(data['memberships'], str):
+                try:
+                    json.loads(data['memberships'])
+                except:
+                    data['memberships'] = json.dumps([m.strip() for m in data['memberships'].split(',') if m.strip()])
+            if 'amenities' in data and isinstance(data['amenities'], str):
+                try:
+                    json.loads(data['amenities'])
+                except:
+                    data['amenities'] = json.dumps([a.strip() for a in data['amenities'].split(',') if a.strip()])
+            if not data:
+                continue
+            sets = ', '.join(f'{f}=?' for f in data)
+            vals = list(data.values()) + [int(cid)]
+            conn.execute(f'UPDATE centres SET {sets} WHERE id=?', vals)
+            updated += 1
+    return jsonify({'updated': updated})
+
 @app.route('/centres/bulk-update-coordinates', methods=['POST'])
 def centres_bulk_update_coordinates():
     """One-shot backfill helper: [{id, lat, lng}, ...] -> updates centres.lat/lng."""
