@@ -1,4 +1,5 @@
 import os, sqlite3, json, shutil, base64, io, re, secrets, hashlib, urllib.parse, threading, queue, time
+import requests
 from datetime import datetime, timedelta, timezone as _dt_timezone
 from zoneinfo import ZoneInfo
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
@@ -27,6 +28,24 @@ def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+
+def _geocode_address(address):
+    """Best-effort lat/lng lookup for a UK address via Nominatim. Returns (lat, lng) or (None, None)."""
+    if not address:
+        return None, None
+    try:
+        r = requests.get(
+            'https://nominatim.openstreetmap.org/search',
+            params={'q': address, 'format': 'json', 'limit': 1, 'countrycodes': 'gb'},
+            headers={'User-Agent': 'myHQ-proposal-tool'},
+            timeout=5,
+        )
+        results = r.json()
+        if results:
+            return float(results[0]['lat']), float(results[0]['lon'])
+    except Exception:
+        pass
+    return None, None
 
 def init_db():
     with get_db() as conn:
@@ -126,6 +145,10 @@ def init_db():
             # app.py code (matching, indexing, backup restore) depends on this column
             # existing on ANY database, so it belongs in the main schema migration too.
             conn.execute("ALTER TABLE centres ADD COLUMN hubble_id TEXT")
+        if 'lat' not in cols:
+            conn.execute("ALTER TABLE centres ADD COLUMN lat REAL")
+        if 'lng' not in cols:
+            conn.execute("ALTER TABLE centres ADD COLUMN lng REAL")
     # migrate: add new columns to share_links if missing
     with get_db() as conn:
         for col_def in ['client_email TEXT', 'client_phone TEXT', 'canonical_ids TEXT', 'personalised_message TEXT', 'recommended_ids TEXT']:
@@ -531,29 +554,49 @@ def centre_add():
             json.loads(amenities)
         except:
             amenities = json.dumps([a.strip() for a in amenities.split(',') if a.strip()])
+    lat, lng = data.get('lat'), data.get('lng')
+    if lat in (None, '') or lng in (None, ''):
+        # No coordinates supplied — geocode the address so the centre can be
+        # placed on the map without anyone manually looking up lat/lng.
+        lat, lng = _geocode_address(data.get('address'))
+    else:
+        lat, lng = float(lat), float(lng)
     with get_db() as conn:
         cur = conn.execute('''INSERT INTO centres
-            (name,address,city,about,space_type,brand,price_from,price_unit,open_hours,amenities,transport,website,map_url,why_recommend,source)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+            (name,address,city,about,space_type,brand,price_from,price_unit,open_hours,amenities,transport,website,map_url,why_recommend,source,lat,lng)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
             (data.get('name'), data.get('address'), data.get('city'),
              data.get('about'), data.get('space_type'), data.get('brand'),
              data.get('price_from') or None, data.get('price_unit','MONTHLY'),
              data.get('open_hours','9:00 AM – 6:00 PM'),
              amenities, data.get('transport'), data.get('website'),
-             data.get('map_url'), data.get('why_recommend'), 'manual'))
-        return jsonify({'id': cur.lastrowid, 'ok': True})
+             data.get('map_url'), data.get('why_recommend'), 'manual', lat, lng))
+        return jsonify({'id': cur.lastrowid, 'ok': True, 'lat': lat, 'lng': lng})
 
 @app.route('/centres/<int:cid>/update', methods=['POST'])
 def centre_update(cid):
     data = request.json or request.form
     fields = ['name','address','city','about','space_type','brand','price_from','price_unit',
-              'open_hours','amenities','transport','website','map_url','why_recommend']
+              'open_hours','amenities','transport','website','map_url','why_recommend','lat','lng']
     sets = ', '.join(f'{f}=?' for f in fields if f in data)
     vals = [data[f] for f in fields if f in data] + [cid]
     if sets:
         with get_db() as conn:
             conn.execute(f'UPDATE centres SET {sets} WHERE id=?', vals)
     return jsonify({'ok': True})
+
+@app.route('/centres/bulk-update-coordinates', methods=['POST'])
+def centres_bulk_update_coordinates():
+    """One-shot backfill helper: [{id, lat, lng}, ...] -> updates centres.lat/lng."""
+    items = request.json or []
+    updated = 0
+    with get_db() as conn:
+        for item in items:
+            if item.get('id') is not None and item.get('lat') is not None and item.get('lng') is not None:
+                conn.execute('UPDATE centres SET lat=?, lng=? WHERE id=?',
+                             (float(item['lat']), float(item['lng']), int(item['id'])))
+                updated += 1
+    return jsonify({'updated': updated})
 
 @app.route('/centres/<int:cid>/delete', methods=['POST','DELETE'])
 def centre_delete(cid):
