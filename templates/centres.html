@@ -123,6 +123,10 @@
           <input class="input" id="a_amenities" placeholder="wifi, parking, meeting_rooms, cafeteria">
         </div>
         <div class="form-group full-width">
+          <label>Memberships (comma-separated — hot-desk plans only, no day passes)</label>
+          <input class="input" id="a_memberships" placeholder="5 days/month - £99, 10 days/month - £149, Unlimited - £199">
+        </div>
+        <div class="form-group full-width">
           <label>Transport Links</label>
           <input class="input" id="a_transport" placeholder="e.g. Holborn (Central, Piccadilly) – 2 min walk">
         </div>
@@ -153,8 +157,10 @@ async function submitAddCentre() {
   if (!name) { showToast('Name is required', 'error'); return; }
   const amenitiesRaw = document.getElementById('a_amenities').value;
   const amenities = amenitiesRaw.split(',').map(a => a.trim()).filter(Boolean);
+  const membershipsRaw = document.getElementById('a_memberships').value;
+  const memberships = membershipsRaw.split(',').map(a => a.trim()).filter(Boolean);
   const data = {
-    name, amenities: JSON.stringify(amenities),
+    name, amenities: JSON.stringify(amenities), memberships: JSON.stringify(memberships),
     address: document.getElementById('a_address').value,
     city: document.getElementById('a_city').value,
     space_type: document.getElementById('a_space_type').value,

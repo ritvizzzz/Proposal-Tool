@@ -149,6 +149,10 @@ def init_db():
             conn.execute("ALTER TABLE centres ADD COLUMN lat REAL")
         if 'lng' not in cols:
             conn.execute("ALTER TABLE centres ADD COLUMN lng REAL")
+        if 'memberships' not in cols:
+            # Hot-desk membership plans (e.g. "5 days/month - £99", "Unlimited - £199"),
+            # deliberately separate from amenities — day passes are excluded on purpose.
+            conn.execute("ALTER TABLE centres ADD COLUMN memberships TEXT")
     # migrate: add new columns to share_links if missing
     with get_db() as conn:
         for col_def in ['client_email TEXT', 'client_phone TEXT', 'canonical_ids TEXT', 'personalised_message TEXT', 'recommended_ids TEXT']:
@@ -554,6 +558,12 @@ def centre_add():
             json.loads(amenities)
         except:
             amenities = json.dumps([a.strip() for a in amenities.split(',') if a.strip()])
+    memberships = data.get('memberships', '[]')
+    if isinstance(memberships, str):
+        try:
+            json.loads(memberships)
+        except:
+            memberships = json.dumps([m.strip() for m in memberships.split(',') if m.strip()])
     lat, lng = data.get('lat'), data.get('lng')
     if lat in (None, '') or lng in (None, ''):
         # No coordinates supplied — geocode the address so the centre can be
@@ -563,21 +573,26 @@ def centre_add():
         lat, lng = float(lat), float(lng)
     with get_db() as conn:
         cur = conn.execute('''INSERT INTO centres
-            (name,address,city,about,space_type,brand,price_from,price_unit,open_hours,amenities,transport,website,map_url,why_recommend,source,lat,lng)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+            (name,address,city,about,space_type,brand,price_from,price_unit,open_hours,amenities,transport,website,map_url,why_recommend,source,lat,lng,memberships)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
             (data.get('name'), data.get('address'), data.get('city'),
              data.get('about'), data.get('space_type'), data.get('brand'),
              data.get('price_from') or None, data.get('price_unit','MONTHLY'),
              data.get('open_hours','9:00 AM – 6:00 PM'),
              amenities, data.get('transport'), data.get('website'),
-             data.get('map_url'), data.get('why_recommend'), 'manual', lat, lng))
+             data.get('map_url'), data.get('why_recommend'), 'manual', lat, lng, memberships))
         return jsonify({'id': cur.lastrowid, 'ok': True, 'lat': lat, 'lng': lng})
 
 @app.route('/centres/<int:cid>/update', methods=['POST'])
 def centre_update(cid):
     data = request.json or request.form
+    if 'memberships' in data and isinstance(data['memberships'], str):
+        try:
+            json.loads(data['memberships'])
+        except:
+            data['memberships'] = json.dumps([m.strip() for m in data['memberships'].split(',') if m.strip()])
     fields = ['name','address','city','about','space_type','brand','price_from','price_unit',
-              'open_hours','amenities','transport','website','map_url','why_recommend','lat','lng']
+              'open_hours','amenities','transport','website','map_url','why_recommend','lat','lng','memberships']
     sets = ', '.join(f'{f}=?' for f in fields if f in data)
     vals = [data[f] for f in fields if f in data] + [cid]
     if sets:

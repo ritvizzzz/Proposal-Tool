@@ -63,6 +63,10 @@
         <input class="input" id="f_amenities" value="{{ centre.amenities | replace('[','') | replace(']','') | replace('"','') | replace("'",'') }}">
       </div>
       <div class="form-group full-width">
+        <label>Memberships (comma-separated — hot-desk plans only, no day passes)</label>
+        <input class="input" id="f_memberships" placeholder="5 days/month - £99, 10 days/month - £149, Unlimited - £199" value="{{ centre.memberships | replace('[','') | replace(']','') | replace('"','') | replace("'",'') }}">
+      </div>
+      <div class="form-group full-width">
         <label>Transport Links</label>
         <input class="input" id="f_transport" value="{{ centre.transport or '' }}">
       </div>
@@ -153,6 +157,7 @@ async function saveChanges() {
     price_unit: document.getElementById('f_price_unit').value,
     open_hours: document.getElementById('f_hours').value,
     amenities: JSON.stringify(document.getElementById('f_amenities').value.split(',').map(a=>a.trim()).filter(Boolean)),
+    memberships: JSON.stringify(document.getElementById('f_memberships').value.split(',').map(a=>a.trim()).filter(Boolean)),
     transport: document.getElementById('f_transport').value,
     website: document.getElementById('f_website').value,
     map_url: document.getElementById('f_map_url').value,
