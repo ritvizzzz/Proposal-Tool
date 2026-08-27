@@ -1313,22 +1313,6 @@ def share_link_create():
 
 _BAD_BRANDS = {'the','a','an','our','new','old','my','one','at','of','in','by'}
 
-_ip_country_cache = {}  # ip → 'IN' / 'GB' / etc., cached in-process
-
-def _is_india_ip(ip):
-    """Returns True if the IP geolocates to India. Cached per IP, non-blocking."""
-    if not ip or ip in ('127.0.0.1', '::1') or ip.startswith('192.168.') or ip.startswith('10.'):
-        return False
-    if ip in _ip_country_cache:
-        return _ip_country_cache[ip] == 'IN'
-    try:
-        r = requests.get(f'http://ip-api.com/json/{ip}?fields=countryCode', timeout=2)
-        country = r.json().get('countryCode', '')
-    except Exception:
-        country = ''
-    _ip_country_cache[ip] = country
-    return country == 'IN'
-
 def _load_centres_for_compare(conn, hubble_ids):
     """Fetch centre data + images for a list of hubble_ids (batched)."""
     if not hubble_ids:
@@ -1461,8 +1445,6 @@ def compare_direct():
     ua = request.headers.get('User-Agent', '')
 
     def _log_open():
-        if _is_india_ip(raw_ip):
-            return
         try:
             with get_db() as c:
                 # OR IGNORE + the partial unique index (see init_db) atomically drops a
@@ -1503,8 +1485,6 @@ def compare_page(token):
     ua      = request.headers.get('User-Agent', '')
 
     def _log_open():
-        if _is_india_ip(raw_ip):
-            return
         try:
             with get_db() as c:
                 # OR IGNORE + the partial unique index (see init_db) atomically drops a
@@ -1546,8 +1526,6 @@ def track_event():
     if not token or not event_type:
         return jsonify({'ok': False, 'error': 'token and event_type required'}), 400
     ip = (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
-    if _is_india_ip(ip):
-        return jsonify({'ok': True})
     ip_hash = hashlib.md5(ip.encode()).hexdigest()[:8]
     ua = request.headers.get('User-Agent', '')
     payload = {
