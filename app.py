@@ -1738,6 +1738,23 @@ def api_visitor_detail():
     return jsonify(detail)
 
 
+@app.route('/api/raw-events/<token>')
+def api_raw_events(token):
+    """Debug helper: every link_events row for a token, completely unfiltered —
+    no genuine-events cutoff, no user-agent check. Used to tell apart 'really
+    zero activity' from 'something got wrongly excluded'."""
+    with get_db() as conn:
+        link = conn.execute('SELECT label, created_at FROM share_links WHERE token=?', (token,)).fetchone()
+        rows = conn.execute(
+            'SELECT id, event_type, centre_name, ip_hash, user_agent, created_at FROM link_events WHERE token=? ORDER BY created_at',
+            (token,)
+        ).fetchall()
+    return jsonify({
+        'link': dict(link) if link else None,
+        'raw_event_count': len(rows),
+        'events': [dict(r) for r in rows],
+    })
+
 @app.route('/api/link-detail/<token>')
 def api_link_detail(token):
     with get_db() as conn:
