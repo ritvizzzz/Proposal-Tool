@@ -181,6 +181,11 @@ def init_db():
         cols = [r[1] for r in conn.execute('PRAGMA table_info(share_links)').fetchall()]
         if 'is_test' not in cols:
             conn.execute('ALTER TABLE share_links ADD COLUMN is_test INTEGER DEFAULT 0')
+        if 'bypass_open_cutoff' not in cols:
+            # Escape hatch for links that will never get a "genuine" second open
+            # (e.g. the real second open was lost to a since-fixed tracking bug) —
+            # counts every real event from the first open instead of waiting.
+            conn.execute('ALTER TABLE share_links ADD COLUMN bypass_open_cutoff INTEGER DEFAULT 0')
     # migrate: 'open' and 'dwell' events were sometimes logged twice for one real
     # visit (browser/beacon quirk) — clean up existing duplicates, then enforce
     # one-per-second-per-visitor at the DB level so it can't happen again.
@@ -1672,6 +1677,19 @@ def share_link_mark_test(token):
     return jsonify({'ok': True, 'is_test': bool(is_test)})
 
 
+@app.route('/share-links/<token>/bypass-open-cutoff', methods=['POST'])
+def share_link_bypass_open_cutoff(token):
+    """Set/unset the escape hatch for a link that will never get a genuine
+    second open (its real second open was lost, or it just hasn't happened
+    yet and won't retroactively) — makes its real activity count from the
+    first open instead of staying hidden forever."""
+    data = request.json or {}
+    bypass = 1 if data.get('bypass') else 0
+    with get_db() as conn:
+        conn.execute('UPDATE share_links SET bypass_open_cutoff=? WHERE token=?', (bypass, token))
+    return jsonify({'ok': True, 'bypass_open_cutoff': bool(bypass)})
+
+
 @app.route('/api/poll-updates')
 def api_poll_updates():
     """Lightweight stats poll — replaces SSE so gunicorn threads stay free."""
@@ -1922,10 +1940,23 @@ _SECOND_OPEN_CUTOFF_SQL = """
         FROM link_events WHERE event_type='open'
     ) WHERE rn = 2
 """
+
+# bypass_open_cutoff is a per-link escape hatch: set on a link whose real
+# second open is permanently lost (e.g. to a since-fixed tracking bug), so
+# it would otherwise be stuck showing zero activity forever while waiting
+# for a second open that will never come. Counts every real event from the
+# first open instead. Everything else still goes through the normal rule.
 _GENUINE_EVENTS_SQL = f"""
     SELECT le.* FROM link_events le
     JOIN ({_SECOND_OPEN_CUTOFF_SQL}) co ON co.token = le.token
+    JOIN share_links sl ON sl.token = le.token
     WHERE (le.created_at, le.id) >= (co.cutoff_at, co.cutoff_id)
+    AND le.user_agent IS NOT NULL AND le.user_agent != ''
+    AND (sl.bypass_open_cutoff = 0 OR sl.bypass_open_cutoff IS NULL)
+    UNION ALL
+    SELECT le.* FROM link_events le
+    JOIN share_links sl ON sl.token = le.token
+    WHERE sl.bypass_open_cutoff = 1
     AND le.user_agent IS NOT NULL AND le.user_agent != ''
 """
 
