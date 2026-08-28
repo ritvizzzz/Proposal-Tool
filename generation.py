@@ -1050,21 +1050,25 @@ def generate_proposal_map(centres, out_path):
     tx0 = int(cx) - tiles_x // 2
     ty0 = int(cy) - tiles_y // 2
 
-    # ── 3. Fetch & stitch CartoDB Voyager @2x tiles ─────────────────────────
+    # ── 3. Fetch & stitch Esri light-gray canvas tiles ──────────────────────
+    # Previously CartoDB Voyager @2x tiles — CARTO now requires an API key
+    # we never set up, so every tile came back as an "API key required"
+    # placeholder image baked right into the exported proposal. Esri's basemap
+    # needs no key. It has no retina/@2x variant, so tiles come back 256x256
+    # and get upscaled to TILE (512) by the resize fallback below — softer
+    # than a true retina tile, but sharp enough at this map's small size.
     import ssl as _ssl
     _ctx = _ssl._create_unverified_context()
     canvas = _PI.new('RGB', ((tiles_x + 1) * TILE, (tiles_y + 1) * TILE), (242, 243, 244))
     headers = {'User-Agent': 'myHQ-proposal-tool/1.0'}
     n_tiles = 2 ** zoom
-    subdomain = ['a', 'b', 'c', 'd']
     for dx in range(tiles_x + 1):
         for dy in range(tiles_y + 1):
             tx = (tx0 + dx) % n_tiles
             ty = (ty0 + dy) % n_tiles
             if ty < 0 or ty >= n_tiles:
                 continue
-            s = subdomain[(tx + ty) % 4]
-            url = f'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{zoom}/{tx}/{ty}@2x.png'
+            url = f'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{zoom}/{ty}/{tx}'
             try:
                 req = urllib.request.Request(url, headers=headers)
                 with urllib.request.urlopen(req, timeout=8, context=_ctx) as r:
