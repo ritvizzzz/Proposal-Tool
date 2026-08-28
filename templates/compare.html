@@ -1100,12 +1100,10 @@ let _activePinEl = null;
   _compareMap = L.map('compare-map', {zoomControl:false, scrollWheelZoom:false});
   L.control.zoom({position:'bottomleft'}).addTo(_compareMap);
   // CARTO's basemap tiles now require an API key we never set up, which
-  // broke this map with an "API key required" watermark. Esri's light gray
-  // canvas basemap needs no key and looks close to the same clean style.
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-    {attribution:'© OpenStreetMap · Tiles © Esri', maxZoom:19, maxNativeZoom:16}).addTo(_compareMap);
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
-    {maxZoom:19, maxNativeZoom:16}).addTo(_compareMap);
+  // broke this map with an "API key required" watermark. Esri's street
+  // basemap needs no key and keeps the roads/parks/water in color.
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+    {attribution:'© OpenStreetMap · Tiles © Esri', maxZoom:19, maxNativeZoom:19}).addTo(_compareMap);
 
   const bounds = [];
   pts.forEach(c => {

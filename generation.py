@@ -1050,13 +1050,14 @@ def generate_proposal_map(centres, out_path):
     tx0 = int(cx) - tiles_x // 2
     ty0 = int(cy) - tiles_y // 2
 
-    # ── 3. Fetch & stitch Esri light-gray canvas tiles ──────────────────────
+    # ── 3. Fetch & stitch Esri street map tiles ─────────────────────────────
     # Previously CartoDB Voyager @2x tiles — CARTO now requires an API key
     # we never set up, so every tile came back as an "API key required"
     # placeholder image baked right into the exported proposal. Esri's basemap
-    # needs no key. It has no retina/@2x variant, so tiles come back 256x256
-    # and get upscaled to TILE (512) by the resize fallback below — softer
-    # than a true retina tile, but sharp enough at this map's small size.
+    # needs no key and keeps roads/parks/water in color. It has no retina/@2x
+    # variant, so tiles come back 256x256 and get upscaled to TILE (512) by
+    # the resize fallback below — softer than a true retina tile, but sharp
+    # enough at this map's small embedded size.
     import ssl as _ssl
     _ctx = _ssl._create_unverified_context()
     canvas = _PI.new('RGB', ((tiles_x + 1) * TILE, (tiles_y + 1) * TILE), (242, 243, 244))
@@ -1068,7 +1069,7 @@ def generate_proposal_map(centres, out_path):
             ty = (ty0 + dy) % n_tiles
             if ty < 0 or ty >= n_tiles:
                 continue
-            url = f'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{zoom}/{ty}/{tx}'
+            url = f'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{zoom}/{ty}/{tx}'
             try:
                 req = urllib.request.Request(url, headers=headers)
                 with urllib.request.urlopen(req, timeout=8, context=_ctx) as r:
