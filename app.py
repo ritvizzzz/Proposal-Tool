@@ -1921,23 +1921,39 @@ def _fmt_dual_tz(dt_utc):
 # they stay visible/manageable in the dashboard list, just not counted.
 _REAL_LINKS_SQL = "SELECT token FROM share_links WHERE is_test=0 OR is_test IS NULL"
 
+# Known link-preview / crawler user agents — these fetch a URL automatically
+# (to build a chat preview card, a search index, an SEO report...) and always
+# send a real, non-blank User-Agent, so the blank-UA check below never catches
+# them. Named individually rather than a generic '%bot%' wildcard, which risks
+# matching a legitimate browser string by accident.
+_BOT_UA_PATTERNS = [
+    'WhatsApp', 'facebookexternalhit', 'Slackbot', 'Slack-ImgProxy', 'TelegramBot',
+    'Twitterbot', 'LinkedInBot', 'Discordbot', 'SkypeUriPreview', 'WhatsAppBot',
+    'Googlebot', 'Google-InspectionTool', 'bingbot', 'YandexBot', 'Applebot',
+    'Pinterest', 'redditbot', 'vkShare', 'SemrushBot', 'AhrefsBot', 'MJ12bot',
+    'DotBot', 'PetalBot', 'Bytespider', 'GPTBot', 'ChatGPT-User', 'ClaudeBot',
+]
+
+def _real_visitor_sql(col='user_agent'):
+    """SQL condition: this event's user_agent belongs to an actual person's
+    browser — not blank, and not one of the known link-preview/crawler bots."""
+    conds = [f"{col} IS NOT NULL", f"{col} != ''"]
+    conds += [f"{col} NOT LIKE '%{p}%'" for p in _BOT_UA_PATTERNS]
+    return ' AND '.join(conds)
+
 # The creator always opens their own share link once to check it before sending
 # it on — that first open (and anything clicked/dwelled during it) is the
 # creator's own activity, not the client's, and would otherwise pollute every
 # opens/clicks/dwell number below. Per-token, the cutoff is the SECOND 'open'
-# event ever logged; everything from that point on is treated as genuine
-# client activity. A link with fewer than 2 opens has no genuine data yet.
-# On top of that, _GENUINE_EVENTS_SQL also drops any event with no browser
-# identity at all (blank user_agent) — a real visitor's browser always sends
-# one; a blank one is the signature of a link-preview bot (WhatsApp, Slack,
-# an email security scanner fetching the URL to make a thumbnail) rather
-# than an actual person, and would otherwise inflate opens/clicks with
-# visits nobody actually made.
-_SECOND_OPEN_CUTOFF_SQL = """
+# event from an actual person (bot fetches are excluded before counting, so
+# one can never accidentally become "the second open" and corrupt the
+# cutoff); everything from that point on is treated as genuine client
+# activity. A link with fewer than 2 real opens has no genuine data yet.
+_SECOND_OPEN_CUTOFF_SQL = f"""
     SELECT token, created_at AS cutoff_at, id AS cutoff_id FROM (
         SELECT token, created_at, id,
                ROW_NUMBER() OVER (PARTITION BY token ORDER BY created_at, id) AS rn
-        FROM link_events WHERE event_type='open'
+        FROM link_events WHERE event_type='open' AND {_real_visitor_sql()}
     ) WHERE rn = 2
 """
 
@@ -1951,13 +1967,13 @@ _GENUINE_EVENTS_SQL = f"""
     JOIN ({_SECOND_OPEN_CUTOFF_SQL}) co ON co.token = le.token
     JOIN share_links sl ON sl.token = le.token
     WHERE (le.created_at, le.id) >= (co.cutoff_at, co.cutoff_id)
-    AND le.user_agent IS NOT NULL AND le.user_agent != ''
+    AND {_real_visitor_sql('le.user_agent')}
     AND (sl.bypass_open_cutoff = 0 OR sl.bypass_open_cutoff IS NULL)
     UNION ALL
     SELECT le.* FROM link_events le
     JOIN share_links sl ON sl.token = le.token
     WHERE sl.bypass_open_cutoff = 1
-    AND le.user_agent IS NOT NULL AND le.user_agent != ''
+    AND {_real_visitor_sql('le.user_agent')}
 """
 
 # Velocity-based hot-lead thresholds: (trailing hours counted back from
