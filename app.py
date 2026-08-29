@@ -1463,10 +1463,17 @@ def compare_direct():
             pass
         _push_sse({'token': token, 'event_type': 'open', 'centre_name': ''})
 
+    # Card order: hand-picked recommendations first, then any space with a
+    # membership plan on offer, then everything else — in that priority.
     rec_ids = json.loads(link.get('recommended_ids') or '[]')
-    if rec_ids:
-        rec_str = [str(r) for r in rec_ids]
-        centres = sorted(centres, key=lambda c: 0 if str(c.get('id','')) in rec_str or str(c.get('hubble_id','')) in rec_str else 1)
+    rec_str = [str(r) for r in rec_ids]
+    def _card_priority(c):
+        if str(c.get('id','')) in rec_str or str(c.get('hubble_id','')) in rec_str:
+            return 0
+        if c.get('memberships') and c.get('memberships') != '[]':
+            return 1
+        return 2
+    centres = sorted(centres, key=_card_priority)
     threading.Thread(target=_log_open, daemon=True).start()
     return render_template('compare.html', link=link, centres=centres, token=token,
                            price_mode=price_mode,
@@ -1504,10 +1511,17 @@ def compare_page(token):
         # Push SSE outside DB context so it always fires even if DB write fails
         _push_sse({'token': token, 'event_type': 'open', 'centre_name': ''})
 
+    # Card order: hand-picked recommendations first, then any space with a
+    # membership plan on offer, then everything else — in that priority.
     rec_ids = json.loads(link.get('recommended_ids') or '[]')
-    if rec_ids:
-        rec_str = [str(r) for r in rec_ids]
-        centres = sorted(centres, key=lambda c: 0 if str(c.get('id','')) in rec_str or str(c.get('hubble_id','')) in rec_str else 1)
+    rec_str = [str(r) for r in rec_ids]
+    def _card_priority(c):
+        if str(c.get('id','')) in rec_str or str(c.get('hubble_id','')) in rec_str:
+            return 0
+        if c.get('memberships') and c.get('memberships') != '[]':
+            return 1
+        return 2
+    centres = sorted(centres, key=_card_priority)
     is_preview = request.args.get('preview') == '1'
     if not is_preview:
         threading.Thread(target=_log_open, daemon=True).start()
