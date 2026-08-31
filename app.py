@@ -1,4 +1,4 @@
-import os, sqlite3, json, shutil, base64, io, re, secrets, hashlib, urllib.parse, threading, queue, time
+import os, sqlite3, json, shutil, base64, io, re, secrets, hashlib, urllib.parse, threading, queue, time, csv
 import requests
 from datetime import datetime, timedelta, timezone as _dt_timezone
 from zoneinfo import ZoneInfo
@@ -2953,6 +2953,117 @@ def _restore_rows(conn, rows, table, columns):
             pass
     return n
 
+
+# --- Google Sheet sync -----------------------------------------------------
+# "myHQ Centre Data" is the sheet Arjun edits directly (prices, amenities,
+# membership plans, brand-new centres). This polls its public CSV export and
+# upserts into `centres`, matching rows by Name — new names become new
+# centres (auto-geocoded). Photos aren't synced yet: the sheet's Photos
+# column is for a future onboarding step, not wired to centre_images here.
+CENTRE_SHEET_ID = os.environ.get('CENTRE_SHEET_ID', '1NQtYzJThRngtHi2J3DyiCzl_djrbA7AmnGFLu8hD9dw')
+_SHEET_SYNC_INTERVAL_SECONDS = 5 * 60
+_sheet_sync_status = {'last_run': None, 'ok': None, 'error': None, 'added': 0, 'updated': 0, 'membership_rows': 0}
+
+def _sheet_csv(tab_name):
+    url = (f'https://docs.google.com/spreadsheets/d/{CENTRE_SHEET_ID}/gviz/tq'
+           f'?tqx=out:csv&sheet={urllib.parse.quote(tab_name)}')
+    r = requests.get(url, timeout=20)
+    r.raise_for_status()
+    return list(csv.reader(io.StringIO(r.text)))
+
+def _sheet_int(v):
+    v = (v or '').strip().replace(',', '')
+    if not v:
+        return None
+    try:
+        return int(float(v))
+    except ValueError:
+        return None
+
+def run_sheet_sync():
+    centres_rows = _sheet_csv('Centres')
+    membership_rows = _sheet_csv('Memberships')
+    if not centres_rows:
+        raise RuntimeError('Centres tab came back empty — check the sheet is shared "Anyone with the link"')
+
+    plans_by_name = {}
+    for row in membership_rows[1:]:
+        if len(row) < 2:
+            continue
+        name, plan = row[0].strip(), row[1].strip()
+        if name and plan:
+            plans_by_name.setdefault(name.lower(), []).append(plan)
+
+    added = updated = 0
+    with get_db() as conn:
+        existing = {r['name'].strip().lower(): r['id'] for r in conn.execute('SELECT id, name FROM centres').fetchall()}
+
+        for row in centres_rows[1:]:
+            row = row + [''] * (13 - len(row))
+            (name, brand, address, city, space_type, price_from, price_unit,
+             amenities, transport, website, about, _photos, map_url) = row[:13]
+            name = name.strip()
+            if not name or name.startswith('[Example]'):
+                continue
+
+            amenities_json = json.dumps([a.strip() for a in amenities.split(',') if a.strip()])
+            memberships_json = json.dumps(plans_by_name.get(name.lower(), []))
+            price_val = _sheet_int(price_from)
+            unit_val = (price_unit or '').strip().upper() or 'MONTHLY'
+            key = name.lower()
+
+            if key in existing:
+                conn.execute('''UPDATE centres SET brand=?, address=?, city=?, space_type=?,
+                    price_from=?, price_unit=?, amenities=?, transport=?, website=?, about=?,
+                    map_url=?, memberships=? WHERE id=?''',
+                    (brand.strip() or None, address.strip() or None, city.strip() or None,
+                     space_type.strip() or None, price_val, unit_val, amenities_json,
+                     transport.strip() or None, website.strip() or None, about.strip() or None,
+                     map_url.strip() or None, memberships_json, existing[key]))
+                updated += 1
+            else:
+                lat, lng = _geocode_address(address.strip())
+                time.sleep(1)  # be polite to Nominatim when several new centres land at once
+                cur = conn.execute('''INSERT INTO centres
+                    (name,brand,address,city,space_type,price_from,price_unit,amenities,transport,
+                     website,about,map_url,memberships,source,lat,lng)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                    (name, brand.strip() or None, address.strip() or None, city.strip() or None,
+                     space_type.strip() or None, price_val, unit_val, amenities_json,
+                     transport.strip() or None, website.strip() or None, about.strip() or None,
+                     map_url.strip() or None, memberships_json, 'sheet_sync', lat, lng))
+                existing[key] = cur.lastrowid
+                added += 1
+
+    return {'added': added, 'updated': updated, 'membership_rows': len(membership_rows) - 1}
+
+def _sheet_sync_loop():
+    while True:
+        try:
+            result = run_sheet_sync()
+            _sheet_sync_status.update(last_run=datetime.now(_dt_timezone.utc).isoformat(), ok=True, error=None, **result)
+            print(f"[sheet-sync] added={result['added']} updated={result['updated']} "
+                  f"membership_rows={result['membership_rows']}")
+        except Exception as e:
+            _sheet_sync_status.update(last_run=datetime.now(_dt_timezone.utc).isoformat(), ok=False, error=str(e))
+            print(f'[sheet-sync] failed: {e}')
+        time.sleep(_SHEET_SYNC_INTERVAL_SECONDS)
+
+threading.Thread(target=_sheet_sync_loop, daemon=True).start()
+
+@app.route('/admin/sheet-sync/status')
+def admin_sheet_sync_status():
+    return jsonify(_sheet_sync_status)
+
+@app.route('/admin/sheet-sync/run', methods=['POST'])
+def admin_sheet_sync_run():
+    try:
+        result = run_sheet_sync()
+        _sheet_sync_status.update(last_run=datetime.now(_dt_timezone.utc).isoformat(), ok=True, error=None, **result)
+        return jsonify({'ok': True, **result})
+    except Exception as e:
+        _sheet_sync_status.update(last_run=datetime.now(_dt_timezone.utc).isoformat(), ok=False, error=str(e))
+        return jsonify({'ok': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
