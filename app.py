@@ -611,7 +611,8 @@ def centres_bulk_update():
     Same field whitelist as /centres/<id>/update, applied one row at a time in a single request."""
     items = request.json or []
     allowed = ['name','address','city','about','space_type','brand','price_from','price_unit',
-               'open_hours','amenities','transport','website','map_url','why_recommend','lat','lng','memberships']
+               'open_hours','amenities','transport','website','map_url','why_recommend','lat','lng',
+               'memberships','hotdesk_price']
     updated = 0
     with get_db() as conn:
         for item in items:
