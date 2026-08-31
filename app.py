@@ -6,6 +6,8 @@ from flask import Flask, render_template, request, jsonify, send_file, redirect,
 from werkzeug.utils import secure_filename
 from PIL import Image
 import openpyxl
+from openpyxl.styles import Font, PatternFill
+from openpyxl.utils import get_column_letter
 
 app = Flask(__name__)
 app.secret_key = 'myhq-proposal-tool-secret'
@@ -822,6 +824,90 @@ def centre_import_url(cid):
 
     return jsonify({'ok': True, 'images': images})
 
+
+@app.route('/centres/export-all')
+def centres_export_all():
+    """Full export matching the myHQ Centre Data Google Sheet's tab layout, so it can
+    be brought in with Sheets' File > Import > Replace current spreadsheet."""
+    with get_db() as conn:
+        centres = conn.execute('SELECT * FROM centres ORDER BY name').fetchall()
+
+    wb = openpyxl.Workbook()
+
+    readme = wb.active
+    readme.title = "Read Me First"
+    readme.column_dimensions['A'].width = 95
+    readme_lines = [
+        ("myHQ Centre Data - how to use this sheet", True),
+        ("", False),
+        ("Two tabs matter: Centres (one row per space) and Memberships (one row per plan).", False),
+        ("A centre with 3 plans gets 3 rows in Memberships, all with the same Centre Name.", False),
+        ("", False),
+        ("New centre: add a row at the bottom of Centres. Name and Address matter most.", False),
+        ("Photos: make a Drive folder, share it, paste the link in the Photos column.", False),
+        ("Editing: find the row by Name, change the cell. Updates the map tool within minutes.", False),
+        ("Messy provider data (PDF, website, screenshot)? Paste it to Claude and ask it to turn", False),
+        ("it into a row matching these columns, then paste that row in.", False),
+        ("", False),
+        ("Don't rename column headers or tabs - the sync matches on these exactly.", True),
+    ]
+    for i, (text, bold) in enumerate(readme_lines, start=1):
+        cell = readme.cell(row=i, column=1, value=text if text else None)
+        if bold:
+            cell.font = Font(bold=True, size=13 if i == 1 else 11)
+
+    NAVY = PatternFill(start_color="2323C7", end_color="2323C7", fill_type="solid")
+    AMBER = PatternFill(start_color="B45309", end_color="B45309", fill_type="solid")
+    WHITE_BOLD = Font(bold=True, color="FFFFFF")
+
+    centres_ws = wb.create_sheet("Centres")
+    headers = ["Name","Brand","Address","City","Space Type","Price From (GBP)","Price Unit",
+               "Amenities (comma-separated)","Transport","Website","About","Photos (Drive folder link)","Map URL"]
+    centres_ws.append(headers)
+    for c in range(1, len(headers) + 1):
+        centres_ws.cell(row=1, column=c).fill = NAVY
+        centres_ws.cell(row=1, column=c).font = WHITE_BOLD
+    centres_ws.freeze_panes = "A2"
+
+    memberships_ws = wb.create_sheet("Memberships")
+    memberships_ws.append(["Centre Name", "Plan Name / Price"])
+    for c in (1, 2):
+        memberships_ws.cell(row=1, column=c).fill = AMBER
+        memberships_ws.cell(row=1, column=c).font = WHITE_BOLD
+    memberships_ws.freeze_panes = "A2"
+
+    def _as_list(raw):
+        if not raw:
+            return []
+        try:
+            return json.loads(raw)
+        except Exception:
+            return [x.strip() for x in raw.split(',') if x.strip()]
+
+    for c in centres:
+        centres_ws.append([
+            c['name'], c['brand'], c['address'], c['city'], c['space_type'],
+            c['price_from'], c['price_unit'], ', '.join(_as_list(c['amenities'])),
+            c['transport'], c['website'], c['about'], '', c['map_url'],
+        ])
+        for plan in _as_list(c['memberships']):
+            memberships_ws.append([c['name'], plan])
+
+    widths = [28, 16, 32, 12, 16, 16, 12, 36, 26, 26, 40, 30, 30]
+    for i, w in enumerate(widths, start=1):
+        centres_ws.column_dimensions[get_column_letter(i)].width = w
+    memberships_ws.column_dimensions['A'].width = 30
+    memberships_ws.column_dimensions['B'].width = 40
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return send_file(
+        buf,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name='myHQ_Centre_Data_export.xlsx',
+    )
 
 @app.route('/centres/import-excel', methods=['POST'])
 def import_excel_route():
