@@ -142,6 +142,13 @@ def init_db():
             conn.execute("ALTER TABLE centres ADD COLUMN has_coworking INTEGER DEFAULT 0")
         if 'min_desks' not in cols:
             conn.execute("ALTER TABLE centres ADD COLUMN min_desks INTEGER")
+        if 'capacity_min' not in cols:
+            # Seater range for the office/desk listing (e.g. "4-32 seaters" on the
+            # map tool's detail badge) — distinct from min_desks, which tracks a
+            # different, unrelated field.
+            conn.execute("ALTER TABLE centres ADD COLUMN capacity_min INTEGER")
+        if 'capacity_max' not in cols:
+            conn.execute("ALTER TABLE centres ADD COLUMN capacity_max INTEGER")
         if 'hubble_id' not in cols:
             # Previously only added by the standalone import_hubble.py script — but
             # app.py code (matching, indexing, backup restore) depends on this column
@@ -580,14 +587,15 @@ def centre_add():
         lat, lng = float(lat), float(lng)
     with get_db() as conn:
         cur = conn.execute('''INSERT INTO centres
-            (name,address,city,about,space_type,brand,price_from,price_unit,open_hours,amenities,transport,website,map_url,why_recommend,source,lat,lng,memberships)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+            (name,address,city,about,space_type,brand,price_from,price_unit,open_hours,amenities,transport,website,map_url,why_recommend,source,lat,lng,memberships,capacity_min,capacity_max)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
             (data.get('name'), data.get('address'), data.get('city'),
              data.get('about'), data.get('space_type'), data.get('brand'),
              data.get('price_from') or None, data.get('price_unit','MONTHLY'),
              data.get('open_hours','9:00 AM – 6:00 PM'),
              amenities, data.get('transport'), data.get('website'),
-             data.get('map_url'), data.get('why_recommend'), 'manual', lat, lng, memberships))
+             data.get('map_url'), data.get('why_recommend'), 'manual', lat, lng, memberships,
+             data.get('capacity_min') or None, data.get('capacity_max') or None))
         return jsonify({'id': cur.lastrowid, 'ok': True, 'lat': lat, 'lng': lng})
 
 @app.route('/centres/<int:cid>/update', methods=['POST'])
@@ -599,7 +607,8 @@ def centre_update(cid):
         except:
             data['memberships'] = json.dumps([m.strip() for m in data['memberships'].split(',') if m.strip()])
     fields = ['name','address','city','about','space_type','brand','price_from','price_unit',
-              'open_hours','amenities','transport','website','map_url','why_recommend','lat','lng','memberships']
+              'open_hours','amenities','transport','website','map_url','why_recommend','lat','lng','memberships',
+              'capacity_min','capacity_max']
     sets = ', '.join(f'{f}=?' for f in fields if f in data)
     vals = [data[f] for f in fields if f in data] + [cid]
     if sets:
@@ -614,7 +623,7 @@ def centres_bulk_update():
     items = request.json or []
     allowed = ['name','address','city','about','space_type','brand','price_from','price_unit',
                'open_hours','amenities','transport','website','map_url','why_recommend','lat','lng',
-               'memberships','hotdesk_price']
+               'memberships','hotdesk_price','capacity_min','capacity_max']
     updated = 0
     with get_db() as conn:
         for item in items:
