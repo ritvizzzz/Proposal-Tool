@@ -1072,8 +1072,67 @@ def proposals_list():
         proposals = conn.execute('SELECT * FROM proposals ORDER BY created_at DESC').fetchall()
     return render_template('proposals.html', proposals=proposals)
 
+def _resolve_map_ws(map_ws_b64):
+    """Decode the base64 JSON workspace array from the London map into
+    (preselected_ids, map_workspaces) — DB-matched centres vs. manual fallback."""
+    preselected_ids = []
+    map_workspaces = []
+    if not map_ws_b64:
+        return preselected_ids, map_workspaces
+    try:
+        import base64
+        decoded = base64.b64decode(map_ws_b64).decode('utf-8')
+        spaces = json.loads(decoded)
+        if isinstance(spaces, list):
+            for sp in spaces:
+                if not isinstance(sp, dict) or not sp.get('name'):
+                    continue
+                row = None
+                with get_db() as conn:
+                    # Try hubble_id first (most reliable)
+                    hid = (sp.get('hubble_id') or '').strip()
+                    if hid:
+                        row = conn.execute(
+                            'SELECT id FROM centres WHERE hubble_id=? LIMIT 1', (hid,)
+                        ).fetchone()
+                    # Fall back to exact name match
+                    if not row:
+                        row = conn.execute(
+                            'SELECT id FROM centres WHERE LOWER(name)=LOWER(?) LIMIT 1',
+                            (sp['name'].strip(),)
+                        ).fetchone()
+                    # Fall back to partial name match
+                    if not row:
+                        row = conn.execute(
+                            'SELECT id FROM centres WHERE LOWER(name) LIKE LOWER(?) LIMIT 1',
+                            (f'%{sp["name"]}%',)
+                        ).fetchone()
+                if row:
+                    preselected_ids.append(row['id'])
+                else:
+                    # Workspace not in DB — pass as manual entry with Hubble image URLs
+                    if isinstance(sp.get('amenities'), list):
+                        sp['amenities'] = json.dumps(sp['amenities'])
+                    # Store image URLs so generation.py can download them
+                    if not sp.get('images') and sp.get('image_urls'):
+                        sp['images'] = sp['image_urls']
+                    map_workspaces.append(sp)
+    except Exception:
+        pass
+    return preselected_ids, map_workspaces
+
 @app.route('/proposals/new', methods=['GET','POST'])
 def proposal_new():
+    # POSTed from the map tool's "Create Proposal" button — a form field, not
+    # JSON, and used specifically to avoid the ~4KB URL-length limit that a
+    # GET query string hits once more than a handful of centres are selected.
+    if request.method == 'POST' and 'map_ws' in request.form:
+        preselected_ids, map_workspaces = _resolve_map_ws(request.form.get('map_ws', '').strip())
+        map_space_type = request.form.get('space_type', '').strip()
+        return render_template('builder.html', step=1, proposal=None,
+                               preselected_ids=preselected_ids,
+                               map_workspaces=map_workspaces,
+                               map_space_type=map_space_type)
     if request.method == 'POST':
         data = request.json
         with get_db() as conn:
@@ -1090,53 +1149,10 @@ def proposal_new():
                  data.get('duration')))
             pid = cur.lastrowid
         return jsonify({'ok': True, 'id': pid})
-    # Handle map_ws param (base64 JSON workspace array from London map)
-    preselected_ids = []
-    map_workspaces = []
-    map_ws_b64 = request.args.get('map_ws', '').strip()
-    if map_ws_b64:
-        try:
-            import base64
-            decoded = base64.b64decode(map_ws_b64).decode('utf-8')
-            spaces = json.loads(decoded)
-            if isinstance(spaces, list):
-                for sp in spaces:
-                    if not isinstance(sp, dict) or not sp.get('name'):
-                        continue
-                    row = None
-                    with get_db() as conn:
-                        # Try hubble_id first (most reliable)
-                        hid = (sp.get('hubble_id') or '').strip()
-                        if hid:
-                            row = conn.execute(
-                                'SELECT id FROM centres WHERE hubble_id=? LIMIT 1', (hid,)
-                            ).fetchone()
-                        # Fall back to exact name match
-                        if not row:
-                            row = conn.execute(
-                                'SELECT id FROM centres WHERE LOWER(name)=LOWER(?) LIMIT 1',
-                                (sp['name'].strip(),)
-                            ).fetchone()
-                        # Fall back to partial name match
-                        if not row:
-                            row = conn.execute(
-                                'SELECT id FROM centres WHERE LOWER(name) LIKE LOWER(?) LIMIT 1',
-                                (f'%{sp["name"]}%',)
-                            ).fetchone()
-                    if row:
-                        preselected_ids.append(row['id'])
-                    else:
-                        # Workspace not in DB — pass as manual entry with Hubble image URLs
-                        if isinstance(sp.get('amenities'), list):
-                            sp['amenities'] = json.dumps(sp['amenities'])
-                        # Store image URLs so generation.py can download them
-                        if not sp.get('images') and sp.get('image_urls'):
-                            sp['images'] = sp['image_urls']
-                        map_workspaces.append(sp)
-        except Exception:
-            pass
+    # GET: legacy path, still supported for small selections / bookmarked links
+    preselected_ids, map_workspaces = _resolve_map_ws(request.args.get('map_ws', '').strip())
     # Legacy fallback: map_names param
-    elif request.args.get('map_names', '').strip():
+    if not preselected_ids and not map_workspaces and request.args.get('map_names', '').strip():
         map_names = request.args.get('map_names', '').strip()
         names = [n.strip() for n in map_names.split(',') if n.strip()]
         with get_db() as conn:
