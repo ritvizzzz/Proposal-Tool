@@ -15,7 +15,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Use /data volume on Railway (persistent), fall back to local for dev
 _DATA_DIR = '/data' if os.path.isdir('/data') else BASE_DIR
 DB_PATH = os.path.join(_DATA_DIR, 'proposals.db')
-UPLOADS = os.path.join(BASE_DIR, 'uploads')
+UPLOADS = os.path.join(_DATA_DIR, 'uploads')
 CENTRE_IMAGES = os.path.join(UPLOADS, 'centres')
 PROPOSAL_FILES = os.path.join(UPLOADS, 'proposals')
 TEMPLATE_FILES = os.path.join(UPLOADS, 'templates')
