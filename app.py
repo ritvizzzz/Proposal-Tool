@@ -1106,7 +1106,7 @@ def proposal_new():
                     row = None
                     with get_db() as conn:
                         # Try hubble_id first (most reliable)
-                        hid = sp.get('hubble_id', '').strip()
+                        hid = (sp.get('hubble_id') or '').strip()
                         if hid:
                             row = conn.execute(
                                 'SELECT id FROM centres WHERE hubble_id=? LIMIT 1', (hid,)
