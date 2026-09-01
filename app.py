@@ -1436,14 +1436,19 @@ def _load_centres_for_compare(conn, hubble_ids):
         return []
     ph = ','.join('?' * len(hubble_ids))
     rows = conn.execute(f'SELECT * FROM centres WHERE hubble_id IN ({ph})', hubble_ids).fetchall()
-    # Also try by DB id for any that didn't match by hubble_id
-    found_hids = {r['hubble_id'] for r in rows}
-    fallback_ids = [h for h in hubble_ids if h not in found_hids]
+    # Key by hubble_id — reliable here since every matched row's hubble_id is
+    # non-null (that's what the WHERE clause just matched on).
+    centre_map = {r['hubble_id']: dict(r) for r in rows}
+    # Also try by DB id for any that didn't match by hubble_id — centres added
+    # since the last Hubble import (or without one at all) have no hubble_id,
+    # so they're only reachable this way. Key these by the *requested* id
+    # string, not r['hubble_id'] (which is None for all of them and would
+    # collapse every such centre onto the same key, losing all but one).
+    fallback_ids = [h for h in hubble_ids if h not in centre_map]
     if fallback_ids:
         ph2 = ','.join('?' * len(fallback_ids))
-        rows = list(rows) + conn.execute(f'SELECT * FROM centres WHERE id IN ({ph2})', fallback_ids).fetchall()
-
-    centre_map = {r['hubble_id']: dict(r) for r in rows}
+        for r in conn.execute(f'SELECT * FROM centres WHERE id IN ({ph2})', fallback_ids).fetchall():
+            centre_map[str(r['id'])] = dict(r)
     # Fetch all images in one query
     cids = [c['id'] for c in centre_map.values()]
     if cids:
