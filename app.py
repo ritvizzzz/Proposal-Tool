@@ -1489,6 +1489,12 @@ def _load_centres_for_compare(conn, hubble_ids):
         # it here rather than touch the template's parsing logic.
         if not c.get('coordinates') and c.get('lat') is not None and c.get('lng') is not None:
             c['coordinates'] = f"{c['lng']};{c['lat']}"
+        # The "View on map" button only renders when map_url is set, but most
+        # centres added since the original Hubble import only ever got lat/lng
+        # (never a map_url), so their card silently lost that button — same gap
+        # as the coordinates backfill above. Derive it from lat/lng when missing.
+        if not c.get('map_url') and c.get('lat') is not None and c.get('lng') is not None:
+            c['map_url'] = f"https://www.google.com/maps?q={c['lat']},{c['lng']}"
         b = (c.get('brand') or '').strip()
         if b.lower() in _BAD_BRANDS or (b and b.isdigit()):
             c['brand'] = ''
