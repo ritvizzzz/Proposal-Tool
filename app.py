@@ -1476,6 +1476,14 @@ def _load_centres_for_compare(conn, hubble_ids):
             c['amenities_list'] = json.loads(c.get('amenities') or '[]')
         except Exception:
             c['amenities_list'] = []
+        # compare.html's map plots from the legacy `coordinates` text field
+        # ("lng;lat"), which only ever got populated by the original Hubble
+        # import. Every centre added since (including anything from today,
+        # and manually-added ones like these WeWork entries) stores location
+        # in lat/lng instead, so it silently got no map pin at all. Backfill
+        # it here rather than touch the template's parsing logic.
+        if not c.get('coordinates') and c.get('lat') is not None and c.get('lng') is not None:
+            c['coordinates'] = f"{c['lng']};{c['lat']}"
         b = (c.get('brand') or '').strip()
         if b.lower() in _BAD_BRANDS or (b and b.isdigit()):
             c['brand'] = ''
