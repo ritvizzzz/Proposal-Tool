@@ -3049,20 +3049,42 @@ def run_sheet_sync():
             if not name or name.startswith('[Example]'):
                 continue
 
-            amenities_json = json.dumps([a.strip() for a in amenities.split(',') if a.strip()])
+            amenities_list = [a.strip() for a in amenities.split(',') if a.strip()]
             memberships_json = json.dumps(plans_by_name.get(name.lower(), []))
             price_val = _sheet_int(price_from)
             unit_val = (price_unit or '').strip().upper() or 'MONTHLY'
             key = name.lower()
 
             if key in existing:
-                conn.execute('''UPDATE centres SET brand=?, address=?, city=?, space_type=?,
-                    price_from=?, price_unit=?, amenities=?, transport=?, website=?, about=?,
-                    map_url=?, memberships=? WHERE id=?''',
-                    (brand.strip() or None, address.strip() or None, city.strip() or None,
-                     space_type.strip() or None, price_val, unit_val, amenities_json,
-                     transport.strip() or None, website.strip() or None, about.strip() or None,
-                     map_url.strip() or None, memberships_json, existing[key]))
+                # A blank sheet cell means "no instruction to change this
+                # field", not "clear it" — otherwise any centre enriched
+                # directly (capacity, amenities, etc. added outside the
+                # sheet) gets silently wiped back to blank on the next sync
+                # cycle just because that cell was never filled in.
+                sets, vals = [], []
+                for col, val in [
+                    ('brand', brand.strip() or None),
+                    ('address', address.strip() or None),
+                    ('city', city.strip() or None),
+                    ('space_type', space_type.strip() or None),
+                    ('transport', transport.strip() or None),
+                    ('website', website.strip() or None),
+                    ('about', about.strip() or None),
+                    ('map_url', map_url.strip() or None),
+                ]:
+                    if val:
+                        sets.append(f'{col}=?'); vals.append(val)
+                if price_val is not None:
+                    sets.append('price_from=?'); vals.append(price_val)
+                    sets.append('price_unit=?'); vals.append(unit_val)
+                if amenities_list:
+                    sets.append('amenities=?'); vals.append(json.dumps(amenities_list))
+                # Memberships tab is authoritative for whichever centres it
+                # lists, including "this centre now has zero plans" — that's
+                # a real, intentional signal, unlike a blank Centres-tab cell.
+                sets.append('memberships=?'); vals.append(memberships_json)
+                if sets:
+                    conn.execute(f'UPDATE centres SET {", ".join(sets)} WHERE id=?', vals + [existing[key]])
                 updated += 1
             else:
                 lat, lng = _geocode_address(address.strip())
@@ -3072,7 +3094,7 @@ def run_sheet_sync():
                      website,about,map_url,memberships,source,lat,lng)
                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
                     (name, brand.strip() or None, address.strip() or None, city.strip() or None,
-                     space_type.strip() or None, price_val, unit_val, amenities_json,
+                     space_type.strip() or None, price_val, unit_val, json.dumps(amenities_list),
                      transport.strip() or None, website.strip() or None, about.strip() or None,
                      map_url.strip() or None, memberships_json, 'sheet_sync', lat, lng))
                 existing[key] = cur.lastrowid
