@@ -875,7 +875,7 @@ def centres_export_all():
     WHITE_BOLD = Font(bold=True, color="FFFFFF")
 
     centres_ws = wb.create_sheet("Centres")
-    headers = ["Name","Brand","Address","City","Space Type","Price From (GBP)","Price Unit",
+    headers = ["Name","Brand","Address","City","Space Type","Seats Min","Seats Max","Price From (GBP)","Price Unit",
                "Amenities (comma-separated)","Transport","Website","About","Photos (Drive folder link)","Map URL"]
     centres_ws.append(headers)
     for c in range(1, len(headers) + 1):
@@ -901,13 +901,14 @@ def centres_export_all():
     for c in centres:
         centres_ws.append([
             c['name'], c['brand'], c['address'], c['city'], c['space_type'],
+            c['capacity_min'], c['capacity_max'],
             c['price_from'], c['price_unit'], ', '.join(_as_list(c['amenities'])),
             c['transport'], c['website'], c['about'], '', c['map_url'],
         ])
         for plan in _as_list(c['memberships']):
             memberships_ws.append([c['name'], plan])
 
-    widths = [28, 16, 32, 12, 16, 16, 12, 36, 26, 26, 40, 30, 30]
+    widths = [28, 16, 32, 12, 16, 10, 10, 16, 12, 36, 26, 26, 40, 30, 30]
     for i, w in enumerate(widths, start=1):
         centres_ws.column_dimensions[get_column_letter(i)].width = w
     memberships_ws.column_dimensions['A'].width = 30
@@ -3048,9 +3049,9 @@ def run_sheet_sync():
         existing = {r['name'].strip().lower(): r['id'] for r in conn.execute('SELECT id, name FROM centres').fetchall()}
 
         for row in centres_rows[1:]:
-            row = row + [''] * (13 - len(row))
-            (name, brand, address, city, space_type, price_from, price_unit,
-             amenities, transport, website, about, _photos, map_url) = row[:13]
+            row = row + [''] * (15 - len(row))
+            (name, brand, address, city, space_type, seats_min, seats_max, price_from, price_unit,
+             amenities, transport, website, about, _photos, map_url) = row[:15]
             name = name.strip()
             if not name or name.startswith('[Example]'):
                 continue
@@ -3059,6 +3060,8 @@ def run_sheet_sync():
             memberships_json = json.dumps(plans_by_name.get(name.lower(), []))
             price_val = _sheet_int(price_from)
             unit_val = (price_unit or '').strip().upper() or 'MONTHLY'
+            cap_min_val = _sheet_int(seats_min)
+            cap_max_val = _sheet_int(seats_max)
             key = name.lower()
 
             if key in existing:
@@ -3083,6 +3086,10 @@ def run_sheet_sync():
                 if price_val is not None:
                     sets.append('price_from=?'); vals.append(price_val)
                     sets.append('price_unit=?'); vals.append(unit_val)
+                if cap_min_val is not None:
+                    sets.append('capacity_min=?'); vals.append(cap_min_val)
+                if cap_max_val is not None:
+                    sets.append('capacity_max=?'); vals.append(cap_max_val)
                 if amenities_list:
                     sets.append('amenities=?'); vals.append(json.dumps(amenities_list))
                 # Memberships tab is authoritative for whichever centres it
@@ -3096,11 +3103,11 @@ def run_sheet_sync():
                 lat, lng = _geocode_address(address.strip())
                 time.sleep(1)  # be polite to Nominatim when several new centres land at once
                 cur = conn.execute('''INSERT INTO centres
-                    (name,brand,address,city,space_type,price_from,price_unit,amenities,transport,
+                    (name,brand,address,city,space_type,capacity_min,capacity_max,price_from,price_unit,amenities,transport,
                      website,about,map_url,memberships,source,lat,lng)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
                     (name, brand.strip() or None, address.strip() or None, city.strip() or None,
-                     space_type.strip() or None, price_val, unit_val, json.dumps(amenities_list),
+                     space_type.strip() or None, cap_min_val, cap_max_val, price_val, unit_val, json.dumps(amenities_list),
                      transport.strip() or None, website.strip() or None, about.strip() or None,
                      map_url.strip() or None, memberships_json, 'sheet_sync', lat, lng))
                 existing[key] = cur.lastrowid
