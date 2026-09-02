@@ -3094,7 +3094,7 @@ def run_sheet_sync():
                 # sheet) gets silently wiped back to blank on the next sync
                 # cycle just because that cell was never filled in.
                 sets, vals = [], []
-                for col, val in [
+                for col_name, val in [
                     ('brand', brand.strip() or None),
                     ('address', address.strip() or None),
                     ('city', city.strip() or None),
@@ -3105,7 +3105,7 @@ def run_sheet_sync():
                     ('map_url', map_url.strip() or None),
                 ]:
                     if val:
-                        sets.append(f'{col}=?'); vals.append(val)
+                        sets.append(f'{col_name}=?'); vals.append(val)
                 if price_val is not None:
                     sets.append('price_from=?'); vals.append(price_val)
                     sets.append('price_unit=?'); vals.append(unit_val)
