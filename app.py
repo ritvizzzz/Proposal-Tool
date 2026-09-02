@@ -3074,6 +3074,10 @@ def run_sheet_sync():
             transport = col(row, 'Transport')
             website = col(row, 'Website')
             about = col(row, 'About')
+            # A bare URL with no spaces isn't real "about" prose — a link
+            # (map/website/Hubble) landed in this column by mistake upstream.
+            if about.strip() and ' ' not in about.strip() and about.strip().lower().startswith(('http://', 'https://')):
+                about = ''
             map_url = col(row, 'Map URL')
             name = name.strip()
             if not name or name.startswith('[Example]'):
