@@ -3080,6 +3080,12 @@ def run_sheet_sync():
                 continue
 
             amenities_list = [a.strip() for a in amenities.split(',') if a.strip()]
+            # A single URL-shaped entry means this cell holds a link (website,
+            # map, Hubble listing) rather than real amenities — a column got
+            # misread somewhere upstream. Treat it as no data rather than
+            # write a link into the amenities chips.
+            if len(amenities_list) == 1 and amenities_list[0].lower().startswith(('http://', 'https://')):
+                amenities_list = []
             memberships_json = json.dumps(plans_by_name.get(name.lower(), []))
             price_val = _sheet_int(price_from)
             unit_val = (price_unit or '').strip().upper() or 'MONTHLY'
