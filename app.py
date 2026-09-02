@@ -3044,14 +3044,37 @@ def run_sheet_sync():
         if name and plan:
             plans_by_name.setdefault(name.lower(), []).append(plan)
 
+    # Look columns up by header name rather than fixed position — the sheet's
+    # column order/set (e.g. whether "Seats Min"/"Seats Max" exist yet) can
+    # legitimately differ from what export-all currently produces, and a
+    # positional mismatch there silently shifts every field, corrupting data
+    # instead of erroring.
+    header = [h.strip() for h in centres_rows[0]]
+    def col(row, name, default=''):
+        try:
+            return row[header.index(name)]
+        except (ValueError, IndexError):
+            return default
+
     added = updated = 0
     with get_db() as conn:
         existing = {r['name'].strip().lower(): r['id'] for r in conn.execute('SELECT id, name FROM centres').fetchall()}
 
         for row in centres_rows[1:]:
-            row = row + [''] * (15 - len(row))
-            (name, brand, address, city, space_type, seats_min, seats_max, price_from, price_unit,
-             amenities, transport, website, about, _photos, map_url) = row[:15]
+            name = col(row, 'Name')
+            brand = col(row, 'Brand')
+            address = col(row, 'Address')
+            city = col(row, 'City')
+            space_type = col(row, 'Space Type')
+            seats_min = col(row, 'Seats Min')
+            seats_max = col(row, 'Seats Max')
+            price_from = col(row, 'Price From (GBP)')
+            price_unit = col(row, 'Price Unit')
+            amenities = col(row, 'Amenities (comma-separated)')
+            transport = col(row, 'Transport')
+            website = col(row, 'Website')
+            about = col(row, 'About')
+            map_url = col(row, 'Map URL')
             name = name.strip()
             if not name or name.startswith('[Example]'):
                 continue
