@@ -606,6 +606,11 @@ def centre_update(cid):
             json.loads(data['memberships'])
         except:
             data['memberships'] = json.dumps([m.strip() for m in data['memberships'].split(',') if m.strip()])
+    if 'amenities' in data and isinstance(data['amenities'], str):
+        try:
+            json.loads(data['amenities'])
+        except:
+            data['amenities'] = json.dumps([a.strip() for a in data['amenities'].split(',') if a.strip()])
     fields = ['name','address','city','about','space_type','brand','price_from','price_unit',
               'open_hours','amenities','transport','website','map_url','why_recommend','lat','lng','memberships',
               'capacity_min','capacity_max']
