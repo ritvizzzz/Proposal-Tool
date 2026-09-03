@@ -1436,6 +1436,23 @@ def share_link_create():
 
 _BAD_BRANDS = {'the','a','an','our','new','old','my','one','at','of','in','by'}
 
+# Amenities shown on the comparison card lead with whichever of these match,
+# in this order, then fall back to whatever's left in its original order.
+_AMENITY_PRIORITY = ['meetingroom', 'phonebooth', 'coffee', 'wifi', '247', 'kitchen']
+
+def _amenity_norm(a):
+    return re.sub(r'[^a-z0-9]', '', a.lower())
+
+def _sort_amenities_by_priority(amenities):
+    def key(pair):
+        idx, a = pair
+        norm = _amenity_norm(a)
+        for p, keyword in enumerate(_AMENITY_PRIORITY):
+            if keyword in norm:
+                return (p, idx)
+        return (len(_AMENITY_PRIORITY), idx)
+    return [a for _, a in sorted(enumerate(amenities), key=key)]
+
 def _load_centres_for_compare(conn, hubble_ids):
     """Fetch centre data + images for a list of hubble_ids (batched)."""
     if not hubble_ids:
@@ -1479,9 +1496,24 @@ def _load_centres_for_compare(conn, hubble_ids):
             for fn in raw_imgs
         ]
         try:
-            c['amenities_list'] = json.loads(c.get('amenities') or '[]')
+            c['amenities_list'] = _sort_amenities_by_priority(json.loads(c.get('amenities') or '[]'))
         except Exception:
             c['amenities_list'] = []
+        # Coworking tiers: memberships are free-text plan strings ("Unlimited
+        # - £210/desk/month"), never surfaced on the card at all. Parse each
+        # into a name + price so the card can show every plan, not just one
+        # collapsed number.
+        c['coworking_tiers'] = []
+        try:
+            for plan in json.loads(c.get('memberships') or '[]'):
+                m = re.search(r'£\s?([\d,]+)', plan)
+                if not m:
+                    continue
+                name = plan.split(' - ')[0].strip() if ' - ' in plan else plan.strip()
+                c['coworking_tiers'].append({'name': name, 'price': int(m.group(1).replace(',', ''))})
+            c['coworking_tiers'].sort(key=lambda t: t['price'])
+        except Exception:
+            pass
         # compare.html's map plots from the legacy `coordinates` text field
         # ("lng;lat"), which only ever got populated by the original Hubble
         # import. Every centre added since (including anything from today,
