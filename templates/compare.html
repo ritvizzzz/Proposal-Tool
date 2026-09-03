@@ -127,7 +127,12 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 .tab-btn:not(.active) .tab-count { background: #F0F1FA; color: #1E22AA; }
 
 /* ── Cards grid ── */
-.cards-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 24px; }
+/* align-items defaults to stretch, which forces every card in a row to
+   match the tallest one -- a centre with no coworking panel next to ones
+   that have it was being stretched into a big empty gap of its own. Each
+   card sizes to its own content instead. (Phone's swipe-row already set
+   this separately; harmless to also state it here.) */
+.cards-grid { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 24px; }
 
 /* ── Space card ── */
 .space-card {
@@ -188,8 +193,8 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 /* Clip to ~2 rows of pills (24.5px pill height x2 + 8px row-gap) -- however
    many actually fit at the card's real rendered width, not a pre-guessed
    count, so it can never leave a gap a fixed number would on some screen
-   size. .expanded removes the clip; JS below decides whether "Show more"
-   is even needed by checking if anything's actually clipped. */
+   size. .expanded removes the clip; JS below counts the real hidden pills
+   and fills in "+N" before ever revealing the button. */
 .amenities.amen-clamp { max-height: 58px; overflow: hidden; }
 .amenities.amen-clamp.expanded { max-height: none; overflow: visible; }
 
@@ -639,17 +644,16 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
         <!-- However many pills actually fit in ~2 rows show -- that's a
              real render-time fact (depends on card width and each name's
              length), not a guess, so it can't leave a gap the way a fixed
-             count did. No exact "+N" is knowable without JS, so the button
-             just says "Show more"; JS below only reveals it when content
-             is actually clipped, and hides it when a centre's full list
-             already fits without clipping anything. -->
+             count did. The exact "+N" isn't knowable server-side, so JS
+             below counts the real hidden pills after layout and fills in
+             the button's text and count before ever revealing it. -->
         <div class="amen-wrap">
           <div class="amenities amen-clamp" id="amen-{{ c.id }}">
             {% for a in c.amenities_list %}
             <span class="amenity-pill">{{ a }}</span>
             {% endfor %}
           </div>
-          <button class="amenity-pill more" onclick="toggleAmenMore(this)" style="display:none">Show more</button>
+          <button class="amenity-pill more" onclick="toggleAmenMore(this)" style="display:none"></button>
         </div>
         {% endif %}
 
@@ -906,25 +910,36 @@ document.querySelectorAll('.photo-area').forEach(area => {
   }, {passive:true});
 });
 
-// ── "Show more" expanders (amenities / coworking plans) — inline reveal,
-// never a floating box, so the card's own overflow:hidden can't clip it ──
+// ── "+N" expanders (amenities / coworking plans) — inline reveal, never a
+// floating box, so the card's own overflow:hidden can't clip it ──
 function toggleAmenMore(btn) {
   event.stopPropagation();
   const wrap = btn.previousElementSibling;
   const expanded = wrap.classList.toggle('expanded');
-  btn.textContent = expanded ? '– Show less' : 'Show more';
+  btn.textContent = expanded ? '– Show less' : ('+' + btn.dataset.count);
 }
-// Amenities clip to ~2 rows via CSS max-height, but whether that clip is
-// actually hiding anything depends on the real rendered width -- only
-// known after layout, so the button starts hidden and this reveals it
-// where content genuinely overflows. Re-run on resize since rotating a
-// phone or resizing a desktop window changes how many pills fit per row.
+// Amenities clip to ~2 rows via CSS max-height. How many pills that
+// actually hides depends on the real rendered width (card size x each
+// name's length) -- not knowable server-side -- so count them after
+// layout instead of guessing: overflow:hidden only clips what's painted,
+// every pill still gets a real offsetTop as if the container were tall
+// enough, so anything positioned past the clip line is a hidden one.
+// Re-run on resize since rotating a phone or resizing a desktop window
+// changes how many pills fit per row.
 function _syncAmenMoreButtons() {
   document.querySelectorAll('.amenities.amen-clamp').forEach(el => {
     const btn = el.nextElementSibling;
     if (!btn || !btn.classList.contains('more')) return;
     if (el.classList.contains('expanded')) return; // leave user's choice alone
-    btn.style.display = (el.scrollHeight - el.clientHeight > 4) ? 'inline-block' : 'none';
+    const clampHeight = 58;
+    const hidden = Array.from(el.children).filter(p => p.offsetTop >= clampHeight - 2).length;
+    if (hidden > 0) {
+      btn.dataset.count = hidden;
+      btn.textContent = '+' + hidden;
+      btn.style.display = 'inline-block';
+    } else {
+      btn.style.display = 'none';
+    }
   });
 }
 window.addEventListener('load', _syncAmenMoreButtons);
