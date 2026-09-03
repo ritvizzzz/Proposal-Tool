@@ -1,4 +1,4 @@
-import os, sqlite3, json, shutil, base64, io, re, secrets, hashlib, urllib.parse, threading, queue, time, csv
+import os, sqlite3, json, shutil, base64, io, re, secrets, hashlib, urllib.parse, threading, queue, time, csv, unicodedata
 import requests
 from datetime import datetime, timedelta, timezone as _dt_timezone
 from zoneinfo import ZoneInfo
@@ -1500,7 +1500,10 @@ def _parse_membership_plan(p):
     return {'name': name, 'amount': amount, 'unit': '/desk/mo' if has_desk else '/mo', 'monthly_equiv': amount}
 
 def _amenity_norm(a):
-    return re.sub(r'[^a-z0-9]', '', a.lower())
+    # NFKD first so accents fall away as separate combining marks ("café" ->
+    # "café" -> "cafe") instead of the whole character being dropped.
+    decomposed = unicodedata.normalize('NFKD', a.lower())
+    return re.sub(r'[^a-z0-9]', '', decomposed)
 
 def _format_amenities(amenities):
     """Sort by priority, then attach an emoji and clean up slug-style names
@@ -1517,7 +1520,11 @@ def _format_amenities(amenities):
     for a in ordered:
         norm = _amenity_norm(a)
         emoji = _AMENITY_EMOJI.get(norm, '✓')
-        name = a.replace('-', ' ').replace('_', ' ').title() if a.islower() or '-' in a or '_' in a else a
+        # myhq-sourced amenities are lowercase slugs ("meeting-rooms",
+        # "power-backup"); Hubble-sourced ones are already clean Title Case
+        # and may legitimately contain a hyphen ("Wi-Fi") that must survive.
+        # islower() alone tells them apart correctly.
+        name = a.replace('-', ' ').replace('_', ' ').title() if a.islower() else a
         out.append(f'{emoji} {name}')
     return out
 
