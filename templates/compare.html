@@ -961,10 +961,23 @@ function _fillAmenGaps() {
     }
 
     const buttonRow = 26; // pill height + the amen-wrap gap below it
-    const clampHeight = Math.max(30, gap - buttonRow);
+    const available = Math.max(30, gap - buttonRow);
+    // Snap to the bottom edge of the last pill that fits *entirely* within
+    // that space -- using `available` directly as max-height would slice
+    // straight through the middle of whichever row it happens to land on.
+    // Pills come in row order (left-to-right, top-to-bottom), so once one
+    // doesn't fit, none after it will either.
+    const pills = Array.from(el.children);
+    let clampHeight = 0;
+    for (const p of pills) {
+      const bottom = p.offsetTop + p.offsetHeight;
+      if (bottom > available) break;
+      clampHeight = bottom;
+    }
+    if (!clampHeight && pills.length) clampHeight = pills[0].offsetTop + pills[0].offsetHeight; // always show row 1
     el.style.maxHeight = clampHeight + 'px';
     el.dataset.fitHeight = String(clampHeight);
-    const hidden = Array.from(el.children).filter(p => p.offsetTop >= clampHeight - 2).length;
+    const hidden = pills.filter(p => p.offsetTop >= clampHeight - 2).length;
     if (hidden > 0) {
       btn.dataset.count = hidden;
       btn.textContent = '+' + hidden;
