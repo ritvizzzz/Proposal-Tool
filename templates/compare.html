@@ -71,6 +71,8 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 .agent-popup-role { font-size: 12px; color: #6B7280; text-align: center; margin-top: 2px; margin-bottom: 12px; }
 .agent-popup-phone { display: block; text-align: center; font-size: 14px; font-weight: 700; color: #1E22AA; text-decoration: none; padding: 9px; background: #F0F1FA; border-radius: 8px; }
 .agent-popup-phone:hover { background: #EEEFFE; }
+.agent-popup-close { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%; background: #F0F1FA; border: none; color: #6B7280; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.agent-popup-close:hover { background: #E0E3F5; color: #1E22AA; }
 
 /* ── Main ── */
 .main { flex: 1; padding: 24px 32px 48px; max-width: 1400px; margin: 0 auto; width: 100%; }
@@ -179,12 +181,13 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 /* Compact book button (PHONE ONLY — hidden on desktop) */
 .btn-book-compact { display: none; }
 
-.amen-wrap { display: flex; flex-direction: column; gap: 8px; }
 .amenities { display: flex; flex-wrap: wrap; gap: 8px 6px; }
 .amenity-pill { font-size: 11px; font-weight: 500; background: #F0F1FA; color: #4B4F6A; padding: 4px 10px; border-radius: 20px; line-height: 1.5; white-space: nowrap; box-sizing: border-box; }
 .amenity-pill.more { background: #E0E3F5; color: #1E22AA; font-weight: 700; border: none; cursor: pointer; font-family: inherit; font-size: 11px; }
-.amen-extra { display: none; }
-.amen-extra.open { display: flex; }
+/* Extras are visible by default (all amenities show) -- .collapsed hides
+   them back down to the top 3, moved onto the container so toggling one
+   class re-flows everything instead of juggling a second block. */
+.amenities.collapsed .amen-extra-item { display: none; }
 
 /* Coworking panel — sits under the private-office price */
 .cow-panel {
@@ -459,6 +462,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 
 <!-- Agent popup — OUTSIDE header so it isn't trapped in header's stacking context -->
 <div class="agent-popup" id="agent-popup">
+  <button class="agent-popup-close" onclick="toggleAgentPopup()" aria-label="Close">✕</button>
   <img src="/static/images/agent-arjun.png?v=2" class="agent-popup-photo" alt="Arjun">
   <div class="agent-popup-name">Arjun</div>
   <div class="agent-popup-role">Talk to our expert</div>
@@ -622,21 +626,21 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
         {% endif %}
 
         {% if c.amenities_list %}
-        <div class="amen-wrap">
-          <div class="amenities">
-            {% for a in c.amenities_list[:3] %}
-            <span class="amenity-pill">{{ a }}</span>
-            {% endfor %}
-            {% if c.amenities_list|length > 3 %}
-            <button class="amenity-pill more" onclick="toggleAmenMore(this)">+{{ c.amenities_list|length - 3 }}</button>
-            {% endif %}
-          </div>
+        <!-- All amenities show by default (priority-ordered) rather than
+             capping at 3 -- a card with few amenities/no coworking plans
+             was leaving a lot of dead space that a taller sibling card
+             forces it to stretch to (flex-wrap:nowrap rows share height).
+             "Show less" collapses to the top 3 and always sits last in DOM
+             order, so it lands after however many pills are showing. -->
+        <div class="amenities" id="amen-{{ c.id }}">
+          {% for a in c.amenities_list[:3] %}
+          <span class="amenity-pill">{{ a }}</span>
+          {% endfor %}
           {% if c.amenities_list|length > 3 %}
-          <div class="amenities amen-extra">
-            {% for a in c.amenities_list[3:] %}
-            <span class="amenity-pill">{{ a }}</span>
-            {% endfor %}
-          </div>
+          {% for a in c.amenities_list[3:] %}
+          <span class="amenity-pill amen-extra-item">{{ a }}</span>
+          {% endfor %}
+          <button class="amenity-pill more" data-collapsed-label="+{{ c.amenities_list|length - 3 }}" onclick="toggleAmenMore(this)">– Show less</button>
           {% endif %}
         </div>
         {% endif %}
@@ -897,11 +901,12 @@ document.querySelectorAll('.photo-area').forEach(area => {
 // ── "+N" expanders (amenities / coworking plans) — inline reveal, never a
 // floating box, so the card's own overflow:hidden can't clip it ──
 function toggleAmenMore(btn) {
+  // All amenities show by default -- this collapses back to the top 3
+  // (button starts as "Show less" and switches to "+N" once collapsed).
   event.stopPropagation();
-  if (!btn.dataset.label) btn.dataset.label = btn.textContent;
-  const extra = btn.closest('.amen-wrap').querySelector('.amen-extra');
-  const open = extra.classList.toggle('open');
-  btn.textContent = open ? '– Show less' : btn.dataset.label;
+  const wrap = btn.closest('.amenities');
+  const collapsed = wrap.classList.toggle('collapsed');
+  btn.textContent = collapsed ? btn.dataset.collapsedLabel : '– Show less';
 }
 function toggleCowMore(btn) {
   event.stopPropagation();
