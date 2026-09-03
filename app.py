@@ -1482,18 +1482,6 @@ def _load_centres_for_compare(conn, hubble_ids):
             c['amenities_list'] = json.loads(c.get('amenities') or '[]')
         except Exception:
             c['amenities_list'] = []
-        # Coworking price: memberships are stored as free-text plan strings
-        # ("Unlimited - £210/desk/month"), never as a structured price — pull
-        # the cheapest one out so the card can show it next to the private
-        # office price instead of leaving coworking pricing invisible.
-        c['coworking_price'] = None
-        try:
-            plans = json.loads(c.get('memberships') or '[]')
-            prices = [int(m.group(1).replace(',', '')) for p in plans for m in [re.search(r'£\s?([\d,]+)', p)] if m]
-            if prices:
-                c['coworking_price'] = min(prices)
-        except Exception:
-            pass
         # compare.html's map plots from the legacy `coordinates` text field
         # ("lng;lat"), which only ever got populated by the original Hubble
         # import. Every centre added since (including anything from today,
