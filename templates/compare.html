@@ -127,12 +127,12 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 .tab-btn:not(.active) .tab-count { background: #F0F1FA; color: #1E22AA; }
 
 /* ── Cards grid ── */
-/* align-items defaults to stretch, which forces every card in a row to
-   match the tallest one -- a centre with no coworking panel next to ones
-   that have it was being stretched into a big empty gap of its own. Each
-   card sizes to its own content instead. (Phone's swipe-row already set
-   this separately; harmless to also state it here.) */
-.cards-grid { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 24px; }
+/* Cards deliberately stretch to match the tallest one in a row (flex's
+   default align-items) for a uniform grid look -- coworking plans and
+   amenities are both capped (see .cow-tiers / .amenities.amen-clamp) so
+   no single card's natural content should run far ahead of another's,
+   keeping the gap that creates small. */
+.cards-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 24px; }
 
 /* ── Space card ── */
 .space-card {
@@ -190,13 +190,12 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 .amenities { display: flex; flex-wrap: wrap; gap: 8px 6px; }
 .amenity-pill { font-size: 11px; font-weight: 500; background: #F0F1FA; color: #4B4F6A; padding: 4px 10px; border-radius: 20px; line-height: 1.5; white-space: nowrap; box-sizing: border-box; }
 .amenity-pill.more { background: #E0E3F5; color: #1E22AA; font-weight: 700; border: none; cursor: pointer; font-family: inherit; font-size: 11px; align-self: flex-end; }
-/* Clip to ~2 rows of pills (24.5px pill height x2 + 8px row-gap) -- however
-   many actually fit at the card's real rendered width, not a pre-guessed
-   count, so it can never leave a gap a fixed number would on some screen
-   size. .expanded removes the clip; JS below counts the real hidden pills
-   and fills in "+N" before ever revealing the button. */
-.amenities.amen-clamp { max-height: 58px; overflow: hidden; }
-.amenities.amen-clamp.expanded { max-height: none; overflow: visible; }
+/* Starts clipped small (inline style below); JS measures each card's real
+   leftover space after the uniform-height stretch and grows this to fill
+   it -- max-height/overflow get set directly via JS from here on (higher
+   specificity than any class rule could give us anyway), this is just the
+   base look before that runs. */
+.amenities.amen-clamp { overflow: hidden; }
 
 /* Coworking panel — sits under the private-office price */
 .cow-panel {
@@ -365,12 +364,10 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
     flex-wrap: nowrap; overflow-x: auto; scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch; gap: 12px;
     padding: 8px 24px 12px; justify-content: flex-start; scrollbar-width: none;
-    /* Default flex behavior stretches every card in the row to match the
-       tallest one -- so a centre with 20 amenities was dragging a centre
-       with 3 up to the same height, recreating the exact empty-space
-       problem this whole feature exists to fix. Each card now sizes to
-       its own content only. */
-    align-items: flex-start;
+    /* Cards stretch to a uniform height (flex's default) -- coworking
+       plans and amenities are both capped, so this should mean small,
+       consistent variation rather than one card dragging others into a
+       big empty gap. */
   }
   .cards-grid::-webkit-scrollbar { display: none; }
   .space-card {
@@ -641,14 +638,16 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
         {% endif %}
 
         {% if c.amenities_list %}
-        <!-- However many pills actually fit in ~2 rows show -- that's a
-             real render-time fact (depends on card width and each name's
-             length), not a guess, so it can't leave a gap the way a fixed
-             count did. The exact "+N" isn't knowable server-side, so JS
-             below counts the real hidden pills after layout and fills in
-             the button's text and count before ever revealing it. -->
+        <!-- Starts clipped to ~1 row so it doesn't itself influence how
+             tall the uniform-height row becomes (that's set by whichever
+             card's other content -- coworking panel, address wrap, etc.
+             -- is biggest). Once every card has settled into its final
+             stretched height, JS measures the real leftover space in
+             THIS card and grows its amenities to fill exactly that gap
+             (never more than the centre's actual amenity count), instead
+             of guessing a row count that's wrong for some cards. -->
         <div class="amen-wrap">
-          <div class="amenities amen-clamp" id="amen-{{ c.id }}">
+          <div class="amenities amen-clamp" id="amen-{{ c.id }}" style="max-height: 30px">
             {% for a in c.amenities_list %}
             <span class="amenity-pill">{{ a }}</span>
             {% endfor %}
@@ -914,24 +913,57 @@ document.querySelectorAll('.photo-area').forEach(area => {
 // floating box, so the card's own overflow:hidden can't clip it ──
 function toggleAmenMore(btn) {
   event.stopPropagation();
-  const wrap = btn.previousElementSibling;
-  const expanded = wrap.classList.toggle('expanded');
-  btn.textContent = expanded ? '– Show less' : ('+' + btn.dataset.count);
+  const wrap = btn.previousElementSibling; // the .amenities element
+  const expanding = !wrap.classList.contains('expanded');
+  wrap.classList.toggle('expanded', expanding);
+  if (expanding) {
+    wrap.style.maxHeight = 'none';
+    wrap.style.overflow = 'visible';
+  } else {
+    // Restore the fitted height _fillAmenGaps computed, not the original
+    // 1-row placeholder -- collapsing should go back to "fills its gap",
+    // not to looking clipped tighter than every other card in the row.
+    wrap.style.maxHeight = (wrap.dataset.fitHeight || '30') + 'px';
+    wrap.style.overflow = 'hidden';
+  }
+  btn.textContent = expanding ? '– Show less' : ('+' + btn.dataset.count);
 }
-// Amenities clip to ~2 rows via CSS max-height. How many pills that
-// actually hides depends on the real rendered width (card size x each
-// name's length) -- not knowable server-side -- so count them after
-// layout instead of guessing: overflow:hidden only clips what's painted,
-// every pill still gets a real offsetTop as if the container were tall
-// enough, so anything positioned past the clip line is a hidden one.
-// Re-run on resize since rotating a phone or resizing a desktop window
-// changes how many pills fit per row.
-function _syncAmenMoreButtons() {
+// Cards stretch to a uniform row height; amenities start clipped to ~1 row
+// (see the template) so they don't themselves influence how tall that
+// becomes -- it's set by whichever card's other content (coworking panel,
+// wrapped address, etc.) is biggest. Once that's settled, grow each card's
+// amenities to fill exactly ITS OWN real leftover space (never more than
+// the centre actually has), rather than guessing a row count that's wrong
+// for some card width or content mix. Re-run on resize since rotating a
+// phone or resizing a desktop window changes both the row height and how
+// many pills fit per row.
+function _fillAmenGaps() {
   document.querySelectorAll('.amenities.amen-clamp').forEach(el => {
+    if (el.classList.contains('expanded')) return; // leave user's choice alone
     const btn = el.nextElementSibling;
     if (!btn || !btn.classList.contains('more')) return;
-    if (el.classList.contains('expanded')) return; // leave user's choice alone
-    const clampHeight = 58;
+    const card = el.closest('.space-card');
+    const wrap = el.closest('.amen-wrap');
+    const actions = card && card.querySelector('.card-actions');
+    if (!actions || !wrap) return;
+
+    const gap = actions.getBoundingClientRect().top - wrap.getBoundingClientRect().top;
+    if (gap < 20) return; // nothing meaningful to grow into -- leave the default
+
+    const natural = el.scrollHeight; // full content height, ignoring the current clip
+    if (natural <= gap - 4) {
+      // Every amenity this centre has fits in the available space already.
+      el.style.maxHeight = 'none';
+      el.style.overflow = 'visible';
+      el.dataset.fitHeight = String(natural);
+      btn.style.display = 'none';
+      return;
+    }
+
+    const buttonRow = 26; // pill height + the amen-wrap gap below it
+    const clampHeight = Math.max(30, gap - buttonRow);
+    el.style.maxHeight = clampHeight + 'px';
+    el.dataset.fitHeight = String(clampHeight);
     const hidden = Array.from(el.children).filter(p => p.offsetTop >= clampHeight - 2).length;
     if (hidden > 0) {
       btn.dataset.count = hidden;
@@ -942,8 +974,12 @@ function _syncAmenMoreButtons() {
     }
   });
 }
-window.addEventListener('load', _syncAmenMoreButtons);
-window.addEventListener('resize', _syncAmenMoreButtons);
+// This script runs after all the card markup above it, so the DOM it needs
+// already exists -- calling straight away (DOMContentLoaded may already
+// have fired by this point in the page, which would make that listener a
+// no-op) rather than waiting on an event that could be long past.
+_fillAmenGaps();
+window.addEventListener('resize', _fillAmenGaps);
 function toggleCowMore(btn) {
   event.stopPropagation();
   if (!btn.dataset.label) btn.dataset.label = btn.textContent;
