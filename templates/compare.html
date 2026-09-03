@@ -338,6 +338,11 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
   /* Hide desktop-only elements on phone */
   .map-toggle-row { display: none !important; }
   .tabs-row { padding: 0 16px; }
+  /* Brand label ("WORKLIFE") is redundant with the name right below it on
+     this narrow a screen -- drop it to reclaim vertical space so price
+     (and the coworking panel, where there's room) shows without scrolling. */
+  .card-brand { display: none; }
+  .card-body { padding-top: 12px; }
 
   /* Cards: horizontal swipe. Snap-align center (not start) so the active
      card sits centered in the viewport with an even peek of its neighbour
@@ -475,28 +480,24 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
   <!-- Arjun card + personalised message (desktop: above map; phone: list view only, controlled by JS) -->
   {% if personalised_message %}
   <div id="intro-block" style="padding:0 0 16px">
-    <div style="display:flex;gap:12px;padding:14px 16px;background:#F7F8FC;border:1.5px solid #E8E9F3;border-radius:14px;align-items:flex-start">
-      <div style="display:flex;flex-direction:column;align-items:center;gap:7px;flex-shrink:0">
-        <img src="/static/images/agent-arjun.png?v=2" style="width:44px;height:44px;border-radius:50%;object-fit:contain;background:#fff;border:2px solid #1E22AA" alt="Arjun">
-        <button onclick="toggleAgentPopup()" style="padding:5px 10px;background:#1E22AA;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">Get in touch</button>
-      </div>
+    <div onclick="toggleAgentPopup()" style="cursor:pointer;display:flex;gap:12px;padding:14px 16px;background:#F7F8FC;border:1.5px solid #E8E9F3;border-radius:14px;align-items:center">
+      <img src="/static/images/agent-arjun.png?v=2" style="width:44px;height:44px;border-radius:50%;object-fit:contain;background:#fff;border:2px solid #1E22AA;flex-shrink:0" alt="Arjun">
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;color:#374151;font-style:italic;line-height:1.6;margin-bottom:4px;word-break:break-word;overflow-wrap:anywhere">"{{ personalised_message }}"</div>
         <div style="font-size:11px;font-weight:700;color:#6B7280">— Arjun · myHQ Advisor</div>
       </div>
+      <button style="padding:7px 12px;background:#1E22AA;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;font-family:inherit;white-space:nowrap;flex-shrink:0;pointer-events:none">📞 Get in touch</button>
     </div>
   </div>
   {% else %}
   <div id="intro-block" style="padding:0 0 16px;display:none">
-    <div style="display:flex;gap:12px;padding:14px 16px;background:#F7F8FC;border:1.5px solid #E8E9F3;border-radius:14px;align-items:flex-start">
-      <div style="display:flex;flex-direction:column;align-items:center;gap:7px;flex-shrink:0">
-        <img src="/static/images/agent-arjun.png?v=2" style="width:44px;height:44px;border-radius:50%;object-fit:contain;background:#fff;border:2px solid #1E22AA" alt="Arjun">
-        <button onclick="toggleAgentPopup()" style="padding:5px 10px;background:#1E22AA;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">Get in touch</button>
-      </div>
+    <div onclick="toggleAgentPopup()" style="cursor:pointer;display:flex;gap:12px;padding:14px 16px;background:#F7F8FC;border:1.5px solid #E8E9F3;border-radius:14px;align-items:center">
+      <img src="/static/images/agent-arjun.png?v=2" style="width:44px;height:44px;border-radius:50%;object-fit:contain;background:#fff;border:2px solid #1E22AA;flex-shrink:0" alt="Arjun">
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:700;color:#1A1A2E">Arjun · myHQ Advisor</div>
         <div style="font-size:12px;color:#6B7280">London workspace expert</div>
       </div>
+      <button style="padding:7px 12px;background:#1E22AA;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;font-family:inherit;white-space:nowrap;flex-shrink:0;pointer-events:none">📞 Get in touch</button>
     </div>
   </div>
   {% endif %}
@@ -650,12 +651,11 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
                   onclick="handleBookClick(this, event)">
             📅 Book a Viewing
           </button>
-          {% if c.map_url %}
-          <a class="btn-map-card" href="{{ c.map_url }}" target="_blank" rel="noopener"
-             onclick="event.stopPropagation()">
+          {% if c.coordinates %}
+          <button class="btn-map-card" onclick="viewOnMapButton('{{ c.id }}', event)">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
             View on map
-          </a>
+          </button>
           {% endif %}
         </div>
       </div>
@@ -1240,8 +1240,7 @@ function popupBook(id) {
   openBooking(id, c.name||'', null);
 }
 
-function highlightOnMap(centreId) {
-  if (window.innerWidth <= 640) return;
+function _panMapTo(centreId) {
   const marker = _mapMarkers[String(centreId)];
   if (!marker || !_compareMap) return;
   _compareMap.setView(marker.getLatLng(), 15, {animate:true});
@@ -1249,6 +1248,31 @@ function highlightOnMap(centreId) {
   if (_activePinEl) _activePinEl.classList.remove('pin-active');
   _activePinEl = document.getElementById('pin-label-' + centreId);
   if (_activePinEl) _activePinEl.classList.add('pin-active');
+}
+function highlightOnMap(centreId) {
+  // Tapping a card body on phone doesn't switch views (only the explicit
+  // "View on map" button does, via viewOnMapButton below) -- the map isn't
+  // even visible then, so there's nothing useful to pan.
+  if (window.innerWidth <= 640) return;
+  _panMapTo(centreId);
+}
+function viewOnMapButton(centreId, ev) {
+  // Used to open Google Maps in a new tab -- now stays in the app and
+  // shows the map we already built, centered on this exact centre.
+  ev.stopPropagation();
+  if (window.innerWidth <= 640) {
+    switchPhoneView('map');
+    // Map container just went from display:none to visible; Leaflet needs
+    // a beat (switchPhoneView already schedules invalidateSize at 60ms)
+    // before setView/openPopup will position correctly against it.
+    setTimeout(() => _panMapTo(centreId), 350);
+  } else {
+    const wasHidden = !_mapVisible;
+    if (wasHidden) toggleDesktopMap();
+    const mapSection = document.getElementById('map-section');
+    if (mapSection) mapSection.scrollIntoView({behavior:'smooth', block:'nearest'});
+    setTimeout(() => _panMapTo(centreId), wasHidden ? 340 : 0);
+  }
 }
 
 // ── Lightbox ──
