@@ -184,10 +184,10 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 .amenities { display: flex; flex-wrap: wrap; gap: 8px 6px; }
 .amenity-pill { font-size: 11px; font-weight: 500; background: #F0F1FA; color: #4B4F6A; padding: 4px 10px; border-radius: 20px; line-height: 1.5; white-space: nowrap; box-sizing: border-box; }
 .amenity-pill.more { background: #E0E3F5; color: #1E22AA; font-weight: 700; border: none; cursor: pointer; font-family: inherit; font-size: 11px; }
-/* Extras are visible by default (all amenities show) -- .collapsed hides
-   them back down to the top 3, moved onto the container so toggling one
-   class re-flows everything instead of juggling a second block. */
-.amenities.collapsed .amen-extra-item { display: none; }
+/* Extras hidden until "+N more" is tapped -- .expanded reveals them, on
+   the container so toggling one class re-flows everything at once. */
+.amen-extra-item { display: none; }
+.amenities.expanded .amen-extra-item { display: inline-block; }
 
 /* Coworking panel — sits under the private-office price */
 .cow-panel {
@@ -356,6 +356,12 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
     flex-wrap: nowrap; overflow-x: auto; scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch; gap: 12px;
     padding: 8px 24px 12px; justify-content: flex-start; scrollbar-width: none;
+    /* Default flex behavior stretches every card in the row to match the
+       tallest one -- so a centre with 20 amenities was dragging a centre
+       with 3 up to the same height, recreating the exact empty-space
+       problem this whole feature exists to fix. Each card now sizes to
+       its own content only. */
+    align-items: flex-start;
   }
   .cards-grid::-webkit-scrollbar { display: none; }
   .space-card {
@@ -626,21 +632,22 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
         {% endif %}
 
         {% if c.amenities_list %}
-        <!-- All amenities show by default (priority-ordered) rather than
-             capping at 3 -- a card with few amenities/no coworking plans
-             was leaving a lot of dead space that a taller sibling card
-             forces it to stretch to (flex-wrap:nowrap rows share height).
-             "Show less" collapses to the top 3 and always sits last in DOM
-             order, so it lands after however many pills are showing. -->
+        {% set n = c.amenities_default_count %}
+        <!-- Default count is bigger for centres with no coworking panel
+             (10 vs 5) -- that panel already fills card space the amenities
+             would otherwise need to make up for. "+N more" reveals the
+             rest; the button is always last in DOM order (not pinned to
+             the Nth slot) so it lands wherever the pills currently end,
+             collapsed or expanded. -->
         <div class="amenities" id="amen-{{ c.id }}">
-          {% for a in c.amenities_list[:3] %}
+          {% for a in c.amenities_list[:n] %}
           <span class="amenity-pill">{{ a }}</span>
           {% endfor %}
-          {% if c.amenities_list|length > 3 %}
-          {% for a in c.amenities_list[3:] %}
+          {% if c.amenities_list|length > n %}
+          {% for a in c.amenities_list[n:] %}
           <span class="amenity-pill amen-extra-item">{{ a }}</span>
           {% endfor %}
-          <button class="amenity-pill more" data-collapsed-label="+{{ c.amenities_list|length - 3 }}" onclick="toggleAmenMore(this)">– Show less</button>
+          <button class="amenity-pill more" data-more-label="+{{ c.amenities_list|length - n }}" onclick="toggleAmenMore(this)">+{{ c.amenities_list|length - n }}</button>
           {% endif %}
         </div>
         {% endif %}
@@ -901,12 +908,10 @@ document.querySelectorAll('.photo-area').forEach(area => {
 // ── "+N" expanders (amenities / coworking plans) — inline reveal, never a
 // floating box, so the card's own overflow:hidden can't clip it ──
 function toggleAmenMore(btn) {
-  // All amenities show by default -- this collapses back to the top 3
-  // (button starts as "Show less" and switches to "+N" once collapsed).
   event.stopPropagation();
   const wrap = btn.closest('.amenities');
-  const collapsed = wrap.classList.toggle('collapsed');
-  btn.textContent = collapsed ? btn.dataset.collapsedLabel : '– Show less';
+  const expanded = wrap.classList.toggle('expanded');
+  btn.textContent = expanded ? '– Show less' : btn.dataset.moreLabel;
 }
 function toggleCowMore(btn) {
   event.stopPropagation();
