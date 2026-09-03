@@ -181,18 +181,17 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 /* Compact book button (PHONE ONLY — hidden on desktop) */
 .btn-book-compact { display: none; }
 
+.amen-wrap { display: flex; flex-direction: column; gap: 6px; }
 .amenities { display: flex; flex-wrap: wrap; gap: 8px 6px; }
 .amenity-pill { font-size: 11px; font-weight: 500; background: #F0F1FA; color: #4B4F6A; padding: 4px 10px; border-radius: 20px; line-height: 1.5; white-space: nowrap; box-sizing: border-box; }
-/* margin-left:auto pushes this to the right edge of whichever wrapped row
-   it lands on -- self-adjusting to however many pills fit per row, which
-   differs between phone and desktop card widths, without needing to know
-   that width in advance. Fixes it landing stranded mid-row or alone on a
-   new line with a big empty gap trailing it. */
-.amenity-pill.more { background: #E0E3F5; color: #1E22AA; font-weight: 700; border: none; cursor: pointer; font-family: inherit; font-size: 11px; margin-left: auto; }
-/* Extras hidden until "+N more" is tapped -- .expanded reveals them, on
-   the container so toggling one class re-flows everything at once. */
-.amen-extra-item { display: none; }
-.amenities.expanded .amen-extra-item { display: inline-block; }
+.amenity-pill.more { background: #E0E3F5; color: #1E22AA; font-weight: 700; border: none; cursor: pointer; font-family: inherit; font-size: 11px; align-self: flex-end; }
+/* Clip to ~2 rows of pills (24.5px pill height x2 + 8px row-gap) -- however
+   many actually fit at the card's real rendered width, not a pre-guessed
+   count, so it can never leave a gap a fixed number would on some screen
+   size. .expanded removes the clip; JS below decides whether "Show more"
+   is even needed by checking if anything's actually clipped. */
+.amenities.amen-clamp { max-height: 58px; overflow: hidden; }
+.amenities.amen-clamp.expanded { max-height: none; overflow: visible; }
 
 /* Coworking panel — sits under the private-office price */
 .cow-panel {
@@ -637,23 +636,20 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
         {% endif %}
 
         {% if c.amenities_list %}
-        {% set n = c.amenities_default_count %}
-        <!-- Default count is bigger for centres with no coworking panel
-             (10 vs 5) -- that panel already fills card space the amenities
-             would otherwise need to make up for. "+N more" reveals the
-             rest; the button is always last in DOM order (not pinned to
-             the Nth slot) so it lands wherever the pills currently end,
-             collapsed or expanded. -->
-        <div class="amenities" id="amen-{{ c.id }}">
-          {% for a in c.amenities_list[:n] %}
-          <span class="amenity-pill">{{ a }}</span>
-          {% endfor %}
-          {% if c.amenities_list|length > n %}
-          {% for a in c.amenities_list[n:] %}
-          <span class="amenity-pill amen-extra-item">{{ a }}</span>
-          {% endfor %}
-          <button class="amenity-pill more" data-more-label="+{{ c.amenities_list|length - n }}" onclick="toggleAmenMore(this)">+{{ c.amenities_list|length - n }}</button>
-          {% endif %}
+        <!-- However many pills actually fit in ~2 rows show -- that's a
+             real render-time fact (depends on card width and each name's
+             length), not a guess, so it can't leave a gap the way a fixed
+             count did. No exact "+N" is knowable without JS, so the button
+             just says "Show more"; JS below only reveals it when content
+             is actually clipped, and hides it when a centre's full list
+             already fits without clipping anything. -->
+        <div class="amen-wrap">
+          <div class="amenities amen-clamp" id="amen-{{ c.id }}">
+            {% for a in c.amenities_list %}
+            <span class="amenity-pill">{{ a }}</span>
+            {% endfor %}
+          </div>
+          <button class="amenity-pill more" onclick="toggleAmenMore(this)" style="display:none">Show more</button>
         </div>
         {% endif %}
 
@@ -910,14 +906,29 @@ document.querySelectorAll('.photo-area').forEach(area => {
   }, {passive:true});
 });
 
-// ── "+N" expanders (amenities / coworking plans) — inline reveal, never a
-// floating box, so the card's own overflow:hidden can't clip it ──
+// ── "Show more" expanders (amenities / coworking plans) — inline reveal,
+// never a floating box, so the card's own overflow:hidden can't clip it ──
 function toggleAmenMore(btn) {
   event.stopPropagation();
-  const wrap = btn.closest('.amenities');
+  const wrap = btn.previousElementSibling;
   const expanded = wrap.classList.toggle('expanded');
-  btn.textContent = expanded ? '– Show less' : btn.dataset.moreLabel;
+  btn.textContent = expanded ? '– Show less' : 'Show more';
 }
+// Amenities clip to ~2 rows via CSS max-height, but whether that clip is
+// actually hiding anything depends on the real rendered width -- only
+// known after layout, so the button starts hidden and this reveals it
+// where content genuinely overflows. Re-run on resize since rotating a
+// phone or resizing a desktop window changes how many pills fit per row.
+function _syncAmenMoreButtons() {
+  document.querySelectorAll('.amenities.amen-clamp').forEach(el => {
+    const btn = el.nextElementSibling;
+    if (!btn || !btn.classList.contains('more')) return;
+    if (el.classList.contains('expanded')) return; // leave user's choice alone
+    btn.style.display = (el.scrollHeight - el.clientHeight > 4) ? 'inline-block' : 'none';
+  });
+}
+window.addEventListener('load', _syncAmenMoreButtons);
+window.addEventListener('resize', _syncAmenMoreButtons);
 function toggleCowMore(btn) {
   event.stopPropagation();
   if (!btn.dataset.label) btn.dataset.label = btn.textContent;

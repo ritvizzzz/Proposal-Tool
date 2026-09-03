@@ -1587,10 +1587,6 @@ def _load_centres_for_compare(conn, hubble_ids):
             c['coworking_tiers'].sort(key=lambda t: t['monthly_equiv'])
         except Exception:
             pass
-        # How many amenities show before "+N more": a centre with no
-        # coworking panel has more empty card space to make up for than one
-        # that already has that panel filling it, so show more of them.
-        c['amenities_default_count'] = 5 if c['coworking_tiers'] else 10
         # compare.html's map plots from the legacy `coordinates` text field
         # ("lng;lat"), which only ever got populated by the original Hubble
         # import. Every centre added since (including anything from today,
