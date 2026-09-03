@@ -339,15 +339,19 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
   .map-toggle-row { display: none !important; }
   .tabs-row { padding: 0 16px; }
 
-  /* Cards: horizontal swipe */
+  /* Cards: horizontal swipe. Snap-align center (not start) so the active
+     card sits centered in the viewport with an even peek of its neighbour
+     on both sides -- side padding is half the card's own side-margin
+     (48px/2 = 24px) so the first and last card can reach true center too,
+     not just get stuck flush against the edge. */
   .cards-grid {
     flex-wrap: nowrap; overflow-x: auto; scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch; gap: 12px;
-    padding: 8px 16px 12px; justify-content: flex-start; scrollbar-width: none;
+    padding: 8px 24px 12px; justify-content: flex-start; scrollbar-width: none;
   }
   .cards-grid::-webkit-scrollbar { display: none; }
   .space-card {
-    scroll-snap-align: start; flex-shrink: 0;
+    scroll-snap-align: center; flex-shrink: 0;
     width: calc(100vw - 48px); max-width: 360px; transform: none !important;
   }
   .photo-area { height: 200px; }
