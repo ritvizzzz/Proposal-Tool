@@ -183,7 +183,12 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 
 .amenities { display: flex; flex-wrap: wrap; gap: 8px 6px; }
 .amenity-pill { font-size: 11px; font-weight: 500; background: #F0F1FA; color: #4B4F6A; padding: 4px 10px; border-radius: 20px; line-height: 1.5; white-space: nowrap; box-sizing: border-box; }
-.amenity-pill.more { background: #E0E3F5; color: #1E22AA; font-weight: 700; border: none; cursor: pointer; font-family: inherit; font-size: 11px; }
+/* margin-left:auto pushes this to the right edge of whichever wrapped row
+   it lands on -- self-adjusting to however many pills fit per row, which
+   differs between phone and desktop card widths, without needing to know
+   that width in advance. Fixes it landing stranded mid-row or alone on a
+   new line with a big empty gap trailing it. */
+.amenity-pill.more { background: #E0E3F5; color: #1E22AA; font-weight: 700; border: none; cursor: pointer; font-family: inherit; font-size: 11px; margin-left: auto; }
 /* Extras hidden until "+N more" is tapped -- .expanded reveals them, on
    the container so toggling one class re-flows everything at once. */
 .amen-extra-item { display: none; }
