@@ -1436,6 +1436,91 @@ def share_link_create():
 
 _BAD_BRANDS = {'the','a','an','our','new','old','my','one','at','of','in','by'}
 
+# Amenities shown on the comparison card lead with whichever of these match,
+# in this order, then fall back to whatever's left in its original order.
+_AMENITY_PRIORITY = ['meetingroom', 'phonebooth', 'coffee', 'wifi', '247', 'kitchen']
+
+# Data comes from two sources with different naming ("Coffee & Tea" vs.
+# "coffee-tea" vs. "coffee"), so lookup is by normalized (lowercase,
+# non-alnum stripped) key rather than exact string match. Anything not
+# listed falls back to a plain checkmark, same as the map tool does.
+_AMENITY_EMOJI = {
+    'meetingroom': '🏛️', 'meetingrooms': '🏛️', 'conferenceroom': '🗣️',
+    'phonebooth': '📞', 'phonebooths': '📞',
+    'coffee': '☕', 'tea': '☕', 'coffeetea': '☕', 'cafe': '☕', 'onsitecafe': '☕',
+    'wifi': '📶',
+    '247access': '🔑', '247': '🔑',
+    'kitchen': '🍳', 'stockedkitchens': '🍳',
+    'gym': '💪', 'wellnesscentre': '🧘', 'wellnessroom': '🧘',
+    'bikestorage': '🚲',
+    'shower': '🚿', 'showers': '🚿',
+    'printing': '🖨️', 'printer': '🖨️',
+    'eventspace': '🎪', 'eventstalks': '🎤',
+    'secureaccess': '🔐', 'securitypersonnel': '🔐', 'securedaccess': '🔐',
+    'mailingaddress': '📬',
+    'cleaning': '🧹',
+    'reception': '💁', 'onsitestaff': '🧑‍💼',
+    'lockers': '🔒',
+    'furnished': '🛋️', 'loungearea': '🛋️',
+    'tradingaddress': '🏢',
+    'breakoutspace': '🎮', 'breakoutarea': '🎮', 'breakoutrecreationalarea': '🎮',
+    'utilitiesincluded': '💡', 'powerbackup': '⚡',
+    'disabledaccess': '♿', 'ramp': '♿',
+    'snacks': '🍪', 'beerwine': '🍷', 'water': '💧',
+    'airconditioning': '❄️',
+    'liftelevator': '🛗',
+    'parking': '🅿️', 'fourwheelerparking': '🅿️',
+    'rooftop': '🏙️', 'outdoorspace': '🌳',
+    'concierge': '🎩',
+    'separatewashroom': '🚻',
+    'petfriendly': '🐾', 'petsallowed': '🐾', 'dogfriendly': '🐶',
+    'storagespace': '📦', 'inventorystorage': '📦',
+    'chairsdesks': '🪑',
+}
+
+def _parse_membership_plan(p):
+    """Memberships are free-text plan strings ("Unlimited - £210/desk/month",
+    "Annual individual membership - £655/year") -- not all on the same
+    billing period. Extract name/amount/unit, plus a monthly-equivalent for
+    sorting so a cheap-looking weekly pass doesn't rank ahead of a yearly
+    plan that's actually cheaper month to month."""
+    m = re.search(r'£\s?([\d,]+)', p)
+    if not m:
+        return None
+    amount = int(m.group(1).replace(',', ''))
+    name = p.split(' - ')[0].strip() if ' - ' in p else p.strip()
+    tail = p[m.end():].lower()
+    has_desk = 'desk' in tail
+    if 'year' in tail:
+        return {'name': name, 'amount': amount, 'unit': '/yr', 'monthly_equiv': amount / 12}
+    if 'week' in tail:
+        return {'name': name, 'amount': amount, 'unit': '/desk/wk' if has_desk else '/wk', 'monthly_equiv': amount * 52 / 12}
+    if 'day' in tail and 'month' not in tail:
+        return {'name': name, 'amount': amount, 'unit': '/desk/day' if has_desk else '/day', 'monthly_equiv': amount * 30}
+    return {'name': name, 'amount': amount, 'unit': '/desk/mo' if has_desk else '/mo', 'monthly_equiv': amount}
+
+def _amenity_norm(a):
+    return re.sub(r'[^a-z0-9]', '', a.lower())
+
+def _format_amenities(amenities):
+    """Sort by priority, then attach an emoji and clean up slug-style names
+    ("meeting-rooms" -> "Meeting Rooms") so the template can just print it."""
+    def key(pair):
+        idx, a = pair
+        norm = _amenity_norm(a)
+        for p, keyword in enumerate(_AMENITY_PRIORITY):
+            if keyword in norm:
+                return (p, idx)
+        return (len(_AMENITY_PRIORITY), idx)
+    ordered = [a for _, a in sorted(enumerate(amenities), key=key)]
+    out = []
+    for a in ordered:
+        norm = _amenity_norm(a)
+        emoji = _AMENITY_EMOJI.get(norm, '✓')
+        name = a.replace('-', ' ').replace('_', ' ').title() if a.islower() or '-' in a or '_' in a else a
+        out.append(f'{emoji} {name}')
+    return out
+
 def _load_centres_for_compare(conn, hubble_ids):
     """Fetch centre data + images for a list of hubble_ids (batched)."""
     if not hubble_ids:
@@ -1479,9 +1564,22 @@ def _load_centres_for_compare(conn, hubble_ids):
             for fn in raw_imgs
         ]
         try:
-            c['amenities_list'] = json.loads(c.get('amenities') or '[]')
+            c['amenities_list'] = _format_amenities(json.loads(c.get('amenities') or '[]'))
         except Exception:
             c['amenities_list'] = []
+        # Coworking: memberships are parsed but were never surfaced on the
+        # card at all. Cap at 3 (cheapest-per-month first) so a heavily
+        # tiered centre doesn't stretch the card -- the rest sit behind a
+        # "+N more plans" expander, same pattern as the amenities one.
+        c['coworking_tiers'] = []
+        try:
+            for plan in json.loads(c.get('memberships') or '[]'):
+                parsed = _parse_membership_plan(plan)
+                if parsed:
+                    c['coworking_tiers'].append(parsed)
+            c['coworking_tiers'].sort(key=lambda t: t['monthly_equiv'])
+        except Exception:
+            pass
         # compare.html's map plots from the legacy `coordinates` text field
         # ("lng;lat"), which only ever got populated by the original Hubble
         # import. Every centre added since (including anything from today,
