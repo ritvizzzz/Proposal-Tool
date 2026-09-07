@@ -1467,21 +1467,73 @@ function openLightbox(src, ev) { ev.stopPropagation(); document.getElementById('
 function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
 
 // ── Agent popup ──
+// Desktop: the popup's CSS default (top:68px; right:16px) is pinned to the
+// raw viewport corner, ignoring wherever the advisor card actually is.
+// Just place it beside the card instead, in the empty space to its right.
 function toggleAgentPopup() {
   const popup = document.getElementById('agent-popup');
-  popup.classList.toggle('open');
-  if (popup.classList.contains('open')) {
-    setTimeout(() => document.addEventListener('click', _closeAgentOnOutside, {once:true}), 400);
+  const opening = !popup.classList.contains('open');
+  if (!opening) { _closeAgentPopup(); return; }
+
+  // Stop this same click from reaching the document-level outside-click
+  // listener registered just below -- without it, the listener would see
+  // this very click (it bubbles up right after) and close the popup the
+  // instant it opens. That used to be worked around with a 400ms delay
+  // before registering the listener at all, but closing some other way
+  // (Escape, scrolling the card away) inside that window left it
+  // registered anyway once the timer fired, becoming a zombie listener
+  // that closed the *next* unrelated click -- including the one meant to
+  // reopen the popup. Registering immediately, with propagation stopped
+  // here instead, removes the race entirely.
+  event.stopPropagation();
+  popup.classList.add('open');
+  if (window.innerWidth > 640) {
+    const intro = document.getElementById('intro-block');
+    if (intro) {
+      const r = intro.getBoundingClientRect();
+      const popupWidth = 240; // matches .agent-popup's CSS width
+      // Prefer sitting right beside the card, but never let it run past
+      // the edge of the window -- most windows aren't wide enough to fit
+      // the card *and* a 240px popup beside it with room to spare.
+      const left = Math.min(r.right + 16, window.innerWidth - popupWidth - 16);
+      popup.style.top = r.top + 'px';
+      popup.style.left = left + 'px';
+      popup.style.right = 'auto';
+    }
   }
+  document.addEventListener('click', _closeAgentOnOutside, {once:true});
+}
+function _closeAgentPopup() {
+  document.getElementById('agent-popup').classList.remove('open');
+  // Closing any way other than the outside-click listener itself firing
+  // (the close button, Escape, scrolling the card away) leaves that
+  // {once:true} listener still armed -- it would otherwise fire on
+  // whatever click happens next, including the one that reopens the
+  // popup, instantly closing it again. Safe to call even if it already
+  // fired or was never armed.
+  document.removeEventListener('click', _closeAgentOnOutside);
 }
 function _closeAgentOnOutside(e) {
   const popup = document.getElementById('agent-popup');
-  if (!popup.contains(e.target)) popup.classList.remove('open');
+  if (!popup.contains(e.target)) _closeAgentPopup();
 }
+// The popup is position:fixed (screen-anchored, opened level with the card
+// at that moment) -- scrolling the page doesn't move it, so once the
+// advisor card itself scrolls out of view the popup is left floating over
+// content it's no longer related to. Close it as soon as that happens.
+function _agentScrollCheck() {
+  const popup = document.getElementById('agent-popup');
+  if (!popup.classList.contains('open')) return;
+  const intro = document.getElementById('intro-block');
+  if (!intro) return;
+  const r = intro.getBoundingClientRect();
+  if (r.bottom <= 0 || r.top >= window.innerHeight) _closeAgentPopup();
+}
+window.addEventListener('scroll', _agentScrollCheck, {passive:true});
 
 // ── Keyboard shortcuts ──
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { closeLightbox(); closeBooking(); closeSchedulePanel(); closeActivePopup(); document.getElementById('agent-popup').classList.remove('open'); }
+  if (e.key === 'Escape') { closeLightbox(); closeBooking(); closeSchedulePanel(); closeActivePopup(); _closeAgentPopup(); }
 });
 
 // ── Close agent popup on outside click ──
@@ -1491,7 +1543,7 @@ document.addEventListener('click', e => {
   if (e.target.closest('[onclick*="toggleAgentPopup"]')) return;
   const mini = document.querySelector('.agent-mini');
   if (popup.classList.contains('open') && !popup.contains(e.target) && e.target !== mini && !mini?.contains(e.target)) {
-    popup.classList.remove('open');
+    _closeAgentPopup();
   }
 });
 
