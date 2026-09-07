@@ -1416,7 +1416,12 @@ function popupBook(id) {
 function _panMapTo(centreId) {
   const marker = _mapMarkers[String(centreId)];
   if (!marker || !_compareMap) return;
-  _compareMap.setView(marker.getLatLng(), 15, {animate:true});
+  // Opening the popup right after an *animated* setView races the pan --
+  // Leaflet positions the popup (and decides how far to auto-pan so it
+  // fits on screen) against wherever the map happens to be mid-animation,
+  // not its final centered position. Landing there instantly avoids the
+  // race entirely, so the popup always ends up centered on the marker.
+  _compareMap.setView(marker.getLatLng(), 15, {animate:false});
   marker.openPopup();
   if (_activePinEl) _activePinEl.classList.remove('pin-active');
   _activePinEl = document.getElementById('pin-label-' + centreId);
