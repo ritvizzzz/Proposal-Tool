@@ -132,7 +132,15 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
    capped (see .cow-tiers) and amenities start clipped to a fixed baseline
    (see .amenities) so no single card's natural content runs far ahead of
    another's before the amenities fit-to-gap logic below runs. */
-.cards-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 24px; }
+/* align-content:flex-start matters once a card is expanded: _syncGridMinHeight
+   below sets an explicit min-height on this container so the footer gets
+   pushed down past the expanded card, but the default align-content
+   ('normal', which stretches a single line to fill any extra cross-space)
+   would then stretch that flex *line* to fill the new min-height -- and
+   align-items:stretch would in turn stretch every card in it, including
+   the ones that never expanded. Pinning the line to the start keeps the
+   extra reserved space below the line instead of inside it. */
+.cards-grid { display: flex; flex-wrap: wrap; justify-content: center; align-content: flex-start; gap: 24px; position: relative; }
 
 /* ── Space card ── */
 .space-card {
@@ -959,21 +967,81 @@ function _fitAmenities() {
   });
 }
 
+// .cards-grid's own auto height is based only on its normal-flow children
+// (an absolutely positioned card doesn't count, even though it's the tall
+// one) -- so without this, whatever comes after the grid on the page (the
+// footer) renders right where the grid's *unexpanded* height ends, and the
+// expanded card's lower half sticks out past it, overlapping the footer.
+// Reserve enough height on the grid for the tallest expanded card (there
+// could be more than one open at once) so later content gets pushed down
+// to clear it; clear the reservation once nothing is expanded.
+function _syncGridMinHeight(grid) {
+  if (!grid) return;
+  const expandedCards = Array.from(grid.querySelectorAll('.space-card')).filter(c => c.dataset.placeholderId);
+  if (!expandedCards.length) { grid.style.minHeight = ''; return; }
+  const needed = Math.max(...expandedCards.map(c => c.offsetTop + c.offsetHeight));
+  grid.style.minHeight = needed + 'px';
+}
+
 function toggleAmenMore(btn) {
   event.stopPropagation();
   const el = btn.closest('.amenities');
+  const card = el.closest('.space-card');
+  const grid = card.closest('.cards-grid');
+  const desktop = window.innerWidth > 640;
   const expanding = !el.classList.contains('expanded');
+
   if (expanding) {
     el.classList.add('expanded');
+    if (desktop) {
+      // Growing this card in-flow would make it taller, and .cards-grid's
+      // default align-items:stretch re-stretches every card in the row to
+      // match the tallest one -- so every OTHER card would grow too, not
+      // just this one. Rather than float just the amenities section on its
+      // own (that left a floating white box that visibly outgrew the card
+      // behind it), lift the WHOLE card out of the flex flow -- pinned via
+      // position:absolute to the exact spot it already occupies -- so it
+      // stays one single, normal-looking card that's free to grow to its
+      // full natural height. A same-sized placeholder left behind in its
+      // old flex slot keeps the row's layout (and the other cards) from
+      // shifting at all.
+      const rect = { left: card.offsetLeft, top: card.offsetTop, width: card.offsetWidth, height: card.offsetHeight };
+      const placeholder = document.createElement('div');
+      placeholder.style.width = rect.width + 'px';
+      placeholder.style.height = rect.height + 'px';
+      placeholder.style.flexShrink = '0';
+      placeholder.style.visibility = 'hidden';
+      const phId = 'amen-ph-' + Math.random().toString(36).slice(2);
+      placeholder.id = phId;
+      card.dataset.placeholderId = phId;
+      card.parentNode.insertBefore(placeholder, card);
+      card.style.position = 'absolute';
+      card.style.top = rect.top + 'px';
+      card.style.left = rect.left + 'px';
+      card.style.width = rect.width + 'px';
+      card.style.zIndex = '50';
+    }
     el.style.maxHeight = 'none';
     el.style.overflow = 'visible';
     Array.from(el.children).forEach(p => p.style.display = '');
     btn.textContent = '– Show less';
+    if (desktop) _syncGridMinHeight(grid);
   } else {
     el.classList.remove('expanded');
+    if (desktop) {
+      const ph = document.getElementById(card.dataset.placeholderId || '');
+      if (ph) ph.remove();
+      delete card.dataset.placeholderId;
+      card.style.position = '';
+      card.style.top = '';
+      card.style.left = '';
+      card.style.width = '';
+      card.style.zIndex = '';
+    }
     el.style.maxHeight = '';
     el.style.overflow = '';
     _fitAmenities();
+    if (desktop) _syncGridMinHeight(grid);
   }
 }
 
