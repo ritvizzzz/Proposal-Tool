@@ -982,27 +982,43 @@ function _syncRowSpacers(grid) {
   const expandedCards = Array.from(grid.querySelectorAll(':scope > .space-card')).filter(c => c.dataset.placeholderId);
   if (!expandedCards.length) return;
 
-  const rowOverflow = new Map(); // rowTop (placeholder's offsetTop) -> px to add
-  expandedCards.forEach(card => {
-    const ph = document.getElementById(card.dataset.placeholderId);
-    if (!ph) return;
-    const rowTop = Math.round(ph.offsetTop);
-    const overflow = Math.max(0, card.offsetHeight - ph.offsetHeight);
-    rowOverflow.set(rowTop, Math.max(rowOverflow.get(rowTop) || 0, overflow));
-  });
-
+  // Group every flow item (cards + placeholders) into rows by their shared
+  // offsetTop, all measured together in one pass before any spacer exists
+  // -- and keep a direct reference to each row's last (rightmost) item,
+  // not just its offsetTop. Inserting a row's spacer shifts every row
+  // after it further down the page, which used to be looked up again by
+  // offsetTop for each row in turn -- so as soon as more than one row had
+  // an expanded card, the first spacer's insertion silently broke the
+  // position-based lookup for every row after it, leaving them with no
+  // spacer at all. A direct element reference isn't affected by later
+  // insertions shifting things around, so this stays correct no matter
+  // how many rows are expanded at once.
   const flowItems = Array.from(grid.children).filter(el =>
     el.classList.contains('space-card') || el.classList.contains('card-placeholder')
   );
-  rowOverflow.forEach((overflowPx, rowTop) => {
-    const rowItems = flowItems.filter(el => Math.round(el.offsetTop) === rowTop);
-    const last = rowItems[rowItems.length - 1];
-    if (!last) return;
+  const rows = new Map(); // rowTop -> {lastEl, overflow}
+  flowItems.forEach(el => {
+    const rowTop = Math.round(el.offsetTop);
+    const row = rows.get(rowTop);
+    if (row) row.lastEl = el; // later in DOM order within the same row = further right
+    else rows.set(rowTop, { lastEl: el, overflow: 0 });
+  });
+
+  expandedCards.forEach(card => {
+    const ph = document.getElementById(card.dataset.placeholderId);
+    if (!ph) return;
+    const row = rows.get(Math.round(ph.offsetTop));
+    if (!row) return;
+    row.overflow = Math.max(row.overflow, card.offsetHeight - ph.offsetHeight);
+  });
+
+  rows.forEach(({ lastEl, overflow }) => {
+    if (overflow <= 0) return;
     const spacer = document.createElement('div');
     spacer.className = 'row-spacer';
     spacer.style.flexBasis = '100%';
-    spacer.style.height = overflowPx + 'px';
-    last.parentNode.insertBefore(spacer, last.nextSibling);
+    spacer.style.height = overflow + 'px';
+    lastEl.parentNode.insertBefore(spacer, lastEl.nextSibling);
   });
 }
 
