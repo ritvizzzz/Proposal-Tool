@@ -512,7 +512,11 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
     </div>
   </div>
   {% else %}
-  <div id="intro-block" style="padding:0 0 16px;display:none">
+  {# No inline display:none here -- desktop should always show this card.
+     Phone starts on the map tab, where it should be hidden; that's handled
+     by JS (the window.innerWidth<=640 init block) explicitly hiding it on
+     load, and switchPhoneView toggling it with the spaces/map tabs. #}
+  <div id="intro-block" style="padding:0 0 16px">
     <div onclick="toggleAgentPopup()" style="cursor:pointer;display:flex;gap:12px;padding:14px 16px;background:#F7F8FC;border:1.5px solid #E8E9F3;border-radius:14px;align-items:center">
       <img src="/static/images/agent-arjun.png?v=2" style="width:44px;height:44px;border-radius:50%;object-fit:contain;background:#fff;border:2px solid #1E22AA;flex-shrink:0" alt="Arjun">
       <div style="flex:1;min-width:0">
