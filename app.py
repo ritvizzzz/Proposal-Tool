@@ -2387,32 +2387,49 @@ def _get_peak_open_hours(conn):
         SELECT cutoff_at as created_at FROM ({_SECOND_OPEN_CUTOFF_SQL}) co
         WHERE co.token IN ({_REAL_LINKS_SQL})
     """).fetchall()
-    hour_counts = [0] * 24       # UK local hour (BST or GMT depending on date)
-    hour_counts_ist = [0] * 24   # same events, bucketed by IST hour instead
+    hour_counts = [0] * 24  # UK local hour (BST or GMT depending on date)
     for r in rows:
         try:
             dt_utc = _parse_utc(r['created_at'])
         except ValueError:
             continue
         hour_counts[dt_utc.astimezone(_LONDON_TZ).hour] += 1
-        hour_counts_ist[dt_utc.astimezone(_IST_TZ).hour] += 1
 
     def _fmt_hour(h):
         suffix = 'am' if h % 24 < 12 else 'pm'
         hh = h % 12 or 12
         return f'{hh}{suffix}'
 
-    def _peak_window(counts):
-        if sum(counts) < 5:  # not enough data to draw a conclusion below this
-            return None
-        threshold = max(counts) * 0.7
-        peak_hours = [h for h, c in enumerate(counts) if c >= threshold and c > 0]
-        if not peak_hours:
-            return None
-        return f'{_fmt_hour(min(peak_hours))}–{_fmt_hour(max(peak_hours) + 1)}'
+    def _fmt_clock_terse(dt_local):
+        """Like _fmt_hour but for a real datetime that may carry minutes --
+        terse on the hour ('4pm'), explicit otherwise ('1:30pm'). Needed
+        because London->IST is a 4h30 (BST) or 5h30 (GMT) offset, so
+        converting a whole UK hour usually lands on a half hour in IST."""
+        h, m = dt_local.hour, dt_local.minute
+        suffix = 'am' if h < 12 else 'pm'
+        hh = h % 12 or 12
+        return f'{hh}{suffix}' if m == 0 else f'{hh}:{m:02d}{suffix}'
 
-    peak_window = _peak_window(hour_counts)
-    peak_window_ist = _peak_window(hour_counts_ist)
+    if sum(hour_counts) < 5:  # not enough data to draw a conclusion below this
+        return hour_counts, None, None
+    threshold = max(hour_counts) * 0.7
+    peak_hours = [h for h, c in enumerate(hour_counts) if c >= threshold and c > 0]
+    if not peak_hours:
+        return hour_counts, None, None
+    start_h, end_h = min(peak_hours), max(peak_hours) + 1
+    peak_window = f'{_fmt_hour(start_h)}–{_fmt_hour(end_h)}'
+
+    # Convert this exact window's own boundary hours into IST -- rather
+    # than separately re-bucketing every event by IST hour and finding
+    # its own 70%-threshold window, which (since IST sits a non-whole
+    # number of hours from London) can land on a different-width window
+    # entirely, not just a shifted one.
+    today = datetime.now(_LONDON_TZ).date()
+    def _to_ist(h):
+        local_dt = datetime(today.year, today.month, today.day, h % 24, tzinfo=_LONDON_TZ)
+        return local_dt.astimezone(_IST_TZ)
+    peak_window_ist = f'{_fmt_clock_terse(_to_ist(start_h))}–{_fmt_clock_terse(_to_ist(end_h))}'
+
     return hour_counts, peak_window, peak_window_ist
 
 
