@@ -967,20 +967,47 @@ function _fitAmenities() {
   });
 }
 
-// .cards-grid's own auto height is based only on its normal-flow children
-// (an absolutely positioned card doesn't count, even though it's the tall
-// one) -- so without this, whatever comes after the grid on the page (the
-// footer) renders right where the grid's *unexpanded* height ends, and the
-// expanded card's lower half sticks out past it, overlapping the footer.
-// Reserve enough height on the grid for the tallest expanded card (there
-// could be more than one open at once) so later content gets pushed down
-// to clear it; clear the reservation once nothing is expanded.
-function _syncGridMinHeight(grid) {
+// An expanded card is lifted out of the flex flow (position:absolute) so
+// it can grow without dragging its own row's siblings up with it -- but
+// that also means .cards-grid has no idea it's taller than its row, so
+// with more than one row of cards, whatever comes right after that row
+// (the next row down, or the footer past the last row) renders right
+// where the *unexpanded* row ended, on top of the expanded card's lower
+// half. Fix: insert a full-width spacer immediately after the last card
+// in the expanded card's own row -- flex-wrap breaks there, so it pushes
+// every row after it (and the footer) down by exactly the overflow
+// amount. Recomputed from scratch on every expand/collapse rather than
+// patched incrementally, so it stays correct even with several cards
+// (in different rows) expanded at once.
+function _syncRowSpacers(grid) {
   if (!grid) return;
-  const expandedCards = Array.from(grid.querySelectorAll('.space-card')).filter(c => c.dataset.placeholderId);
-  if (!expandedCards.length) { grid.style.minHeight = ''; return; }
-  const needed = Math.max(...expandedCards.map(c => c.offsetTop + c.offsetHeight));
-  grid.style.minHeight = needed + 'px';
+  grid.querySelectorAll(':scope > .row-spacer').forEach(s => s.remove());
+
+  const expandedCards = Array.from(grid.querySelectorAll(':scope > .space-card')).filter(c => c.dataset.placeholderId);
+  if (!expandedCards.length) return;
+
+  const rowOverflow = new Map(); // rowTop (placeholder's offsetTop) -> px to add
+  expandedCards.forEach(card => {
+    const ph = document.getElementById(card.dataset.placeholderId);
+    if (!ph) return;
+    const rowTop = Math.round(ph.offsetTop);
+    const overflow = Math.max(0, card.offsetHeight - ph.offsetHeight);
+    rowOverflow.set(rowTop, Math.max(rowOverflow.get(rowTop) || 0, overflow));
+  });
+
+  const flowItems = Array.from(grid.children).filter(el =>
+    el.classList.contains('space-card') || el.classList.contains('card-placeholder')
+  );
+  rowOverflow.forEach((overflowPx, rowTop) => {
+    const rowItems = flowItems.filter(el => Math.round(el.offsetTop) === rowTop);
+    const last = rowItems[rowItems.length - 1];
+    if (!last) return;
+    const spacer = document.createElement('div');
+    spacer.className = 'row-spacer';
+    spacer.style.flexBasis = '100%';
+    spacer.style.height = overflowPx + 'px';
+    last.parentNode.insertBefore(spacer, last.nextSibling);
+  });
 }
 
 function toggleAmenMore(btn) {
@@ -1007,6 +1034,7 @@ function toggleAmenMore(btn) {
       // shifting at all.
       const rect = { left: card.offsetLeft, top: card.offsetTop, width: card.offsetWidth, height: card.offsetHeight };
       const placeholder = document.createElement('div');
+      placeholder.className = 'card-placeholder';
       placeholder.style.width = rect.width + 'px';
       placeholder.style.height = rect.height + 'px';
       placeholder.style.flexShrink = '0';
@@ -1025,7 +1053,7 @@ function toggleAmenMore(btn) {
     el.style.overflow = 'visible';
     Array.from(el.children).forEach(p => p.style.display = '');
     btn.textContent = '– Show less';
-    if (desktop) _syncGridMinHeight(grid);
+    if (desktop) _syncRowSpacers(grid);
   } else {
     el.classList.remove('expanded');
     if (desktop) {
@@ -1041,7 +1069,7 @@ function toggleAmenMore(btn) {
     el.style.maxHeight = '';
     el.style.overflow = '';
     _fitAmenities();
-    if (desktop) _syncGridMinHeight(grid);
+    if (desktop) _syncRowSpacers(grid);
   }
 }
 
