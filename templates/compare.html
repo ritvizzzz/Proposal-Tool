@@ -132,14 +132,6 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
    capped (see .cow-tiers) and amenities start clipped to a fixed baseline
    (see .amenities) so no single card's natural content runs far ahead of
    another's before the amenities fit-to-gap logic below runs. */
-/* align-content:flex-start matters once a card is expanded: _syncGridMinHeight
-   below sets an explicit min-height on this container so the footer gets
-   pushed down past the expanded card, but the default align-content
-   ('normal', which stretches a single line to fill any extra cross-space)
-   would then stretch that flex *line* to fill the new min-height -- and
-   align-items:stretch would in turn stretch every card in it, including
-   the ones that never expanded. Pinning the line to the start keeps the
-   extra reserved space below the line instead of inside it. */
 .cards-grid { display: flex; flex-wrap: wrap; justify-content: center; align-content: flex-start; gap: 24px; position: relative; }
 
 /* ── Space card ── */
@@ -1450,8 +1442,13 @@ function viewOnMapButton(centreId, ev) {
   } else {
     const wasHidden = !_mapVisible;
     if (wasHidden) toggleDesktopMap();
-    const mapSection = document.getElementById('map-section');
-    if (mapSection) mapSection.scrollIntoView({behavior:'smooth', block:'nearest'});
+    // scrollIntoView({block:'nearest'}) only scrolls the minimum distance
+    // needed, which -- when the page was scrolled down to the cards below --
+    // often lands with just the bottom half of the map in view and its top
+    // (plus the popup, which opens above the pin) cut off above the
+    // viewport. The map section sits right under the page header, so
+    // scrolling to the very top reliably brings the whole thing into view.
+    window.scrollTo({top: 0, behavior: 'smooth'});
     setTimeout(() => _panMapTo(centreId), wasHidden ? 340 : 0);
   }
 }
