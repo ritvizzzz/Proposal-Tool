@@ -288,6 +288,11 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 .lightbox.open { display:flex; }
 .lightbox img { max-width:90vw;max-height:85vh;object-fit:contain;border-radius:8px; }
 .lightbox-close { position:absolute;top:20px;right:24px;background:none;border:none;color:#fff;font-size:32px;cursor:pointer;line-height:1; }
+.lightbox-nav { position:absolute;top:50%;transform:translateY(-50%);width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.12);border:none;color:#fff;font-size:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5; }
+.lightbox-nav:hover { background:rgba(255,255,255,0.22); }
+.lightbox-nav.prev { left:20px; }
+.lightbox-nav.next { right:20px; }
+.lightbox-counter { position:absolute;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.45);color:#fff;font-size:12px;font-weight:600;padding:4px 12px;border-radius:12px; }
 
 /* ── Footer ── */
 .footer { text-align:center;padding:24px 32px;font-size:13px;color:#9CA3AF;border-top:1px solid #E8E9F3;background:#fff; }
@@ -446,6 +451,9 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
   .slot-btn { font-size: 12px; padding: 10px 4px; }
 
   .lightbox-close { top: 12px; right: 12px; font-size: 24px; }
+  .lightbox-nav { width: 38px; height: 38px; font-size: 20px; }
+  .lightbox-nav.prev { left: 8px; }
+  .lightbox-nav.next { right: 8px; }
   .footer { padding-bottom: 82px; }
 }
 
@@ -567,7 +575,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
           <img class="photo-main" id="main-img-{{ c.id }}"
                src="{{ c.image_urls[0] }}"
                alt="{{ c.name|e }}"
-               onclick="openLightbox(this.src, event)">
+               onclick="openLightbox('{{ c.id }}', event)">
           {% if c.image_urls|length > 1 %}
             <button class="photo-nav prev" onclick="navPhoto('{{ c.id }}', -1, {{ c.image_urls|length }}, event)">‹</button>
             <button class="photo-nav next" onclick="navPhoto('{{ c.id }}', 1, {{ c.image_urls|length }}, event)">›</button>
@@ -692,7 +700,10 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 <!-- Lightbox -->
 <div class="lightbox" id="lightbox" onclick="closeLightbox()">
   <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+  <button class="lightbox-nav prev" id="lightbox-prev" onclick="lightboxNav(-1, event)">‹</button>
   <img id="lightbox-img" src="" alt="">
+  <button class="lightbox-nav next" id="lightbox-next" onclick="lightboxNav(1, event)">›</button>
+  <div class="lightbox-counter" id="lightbox-counter"></div>
 </div>
 
 <!-- Desktop booking modal -->
@@ -1498,8 +1509,35 @@ function viewOnMapButton(centreId, ev) {
 }
 
 // ── Lightbox ──
-function openLightbox(src, ev) { ev.stopPropagation(); document.getElementById('lightbox-img').src=src; document.getElementById('lightbox').classList.add('open'); }
+// ── Lightbox photo navigation -- reuses the same _photoUrls/_photoIdx
+// state as the card's own carousel, so the lightbox and the card thumbnail
+// always agree on which photo is showing, in both directions. ──
+let _lightboxCentreId = null;
+function openLightbox(centreId, ev) {
+  ev.stopPropagation();
+  const urls = _photoUrls[centreId];
+  if (!urls || !urls.length) return;
+  _lightboxCentreId = centreId;
+  const idx = _photoIdx[centreId] || 0;
+  document.getElementById('lightbox-img').src = urls[idx];
+  const showNav = urls.length > 1;
+  document.getElementById('lightbox-prev').style.display = showNav ? 'flex' : 'none';
+  document.getElementById('lightbox-next').style.display = showNav ? 'flex' : 'none';
+  document.getElementById('lightbox-counter').textContent = showNav ? (idx + 1) + ' / ' + urls.length : '';
+  document.getElementById('lightbox').classList.add('open');
+}
 function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+function lightboxNav(dir, ev) {
+  ev.stopPropagation();
+  const centreId = _lightboxCentreId;
+  const urls = _photoUrls[centreId];
+  if (!urls || !urls.length) return;
+  const idx = ((_photoIdx[centreId] || 0) + dir + urls.length) % urls.length;
+  _photoIdx[centreId] = idx;
+  _applyPhoto(centreId, idx, urls.length); // keeps the card's own thumbnail + counter in sync
+  document.getElementById('lightbox-img').src = urls[idx];
+  document.getElementById('lightbox-counter').textContent = (idx + 1) + ' / ' + urls.length;
+}
 
 // ── Agent popup ──
 // Desktop: the popup's CSS default (top:68px; right:16px) is pinned to the
@@ -1569,6 +1607,10 @@ window.addEventListener('scroll', _agentScrollCheck, {passive:true});
 // ── Keyboard shortcuts ──
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { closeLightbox(); closeBooking(); closeSchedulePanel(); closeActivePopup(); _closeAgentPopup(); }
+  if (document.getElementById('lightbox').classList.contains('open')) {
+    if (e.key === 'ArrowLeft') lightboxNav(-1, e);
+    if (e.key === 'ArrowRight') lightboxNav(1, e);
+  }
 });
 
 // ── Close agent popup on outside click ──
