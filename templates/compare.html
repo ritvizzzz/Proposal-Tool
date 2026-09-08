@@ -993,8 +993,12 @@ function _syncRowSpacers(grid) {
   // spacer at all. A direct element reference isn't affected by later
   // insertions shifting things around, so this stays correct no matter
   // how many rows are expanded at once.
+  // Only true in-flow elements define row membership -- an already-
+  // expanded card is itself position:absolute (removed from flow) even
+  // though it still carries the .space-card class, so it's excluded here;
+  // its placeholder is what actually marks its row.
   const flowItems = Array.from(grid.children).filter(el =>
-    el.classList.contains('space-card') || el.classList.contains('card-placeholder')
+    (el.classList.contains('space-card') && !el.dataset.placeholderId) || el.classList.contains('card-placeholder')
   );
   const rows = new Map(); // rowTop -> {lastEl, overflow}
   flowItems.forEach(el => {
@@ -1019,6 +1023,21 @@ function _syncRowSpacers(grid) {
     spacer.style.flexBasis = '100%';
     spacer.style.height = overflow + 'px';
     lastEl.parentNode.insertBefore(spacer, lastEl.nextSibling);
+  });
+
+  // Each expanded card's absolute position was set once, at the moment IT
+  // was expanded -- but expanding an EARLIER row afterward (if that just
+  // added a new spacer above, per the block above) shifts every row after
+  // it further down the page. A card expanded before that point would be
+  // left stranded at its old position, overlapping the row above it,
+  // unless re-synced here to wherever its own placeholder now sits --
+  // which, as a normal in-flow element, already reflects the up-to-date
+  // layout after this pass's spacers.
+  expandedCards.forEach(card => {
+    const ph = document.getElementById(card.dataset.placeholderId);
+    if (!ph) return;
+    card.style.top = ph.offsetTop + 'px';
+    card.style.left = ph.offsetLeft + 'px';
   });
 }
 
