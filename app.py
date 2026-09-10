@@ -681,12 +681,23 @@ def centre_delete(cid):
 def centre_upload_image(cid):
     img_dir = centre_image_dir(cid)
     filenames = []
+    skipped = 0
 
-    # Handle file upload
+    # Handle file upload. Gate on whether PIL can actually decode the file,
+    # not on its filename having a recognized extension — a file dragged in
+    # from another browser tab (e.g. an image on a listing page) routinely
+    # arrives as a real, valid image with no extension in its name at all,
+    # and the old extension check silently dropped those while this route
+    # still reported ok:true, so the UI showed "Uploaded!" for an upload
+    # that added nothing.
     for f in request.files.getlist('images'):
-        if f and allowed(f.filename):
+        if not f or not f.filename:
+            continue
+        try:
             name = save_image(f, img_dir, f'centre_{cid}')
             filenames.append(name)
+        except Exception:
+            skipped += 1
 
     # Handle base64 paste
     for paste_data in request.form.getlist('paste_data'):
@@ -708,7 +719,10 @@ def centre_upload_image(cid):
         rows = conn.execute('SELECT * FROM centre_images WHERE centre_id=? ORDER BY is_primary DESC, sort_order', (cid,)).fetchall()
         for r in rows:
             images.append({'id': r['id'], 'filename': r['filename'], 'is_primary': r['is_primary']})
-    return jsonify({'ok': True, 'images': images})
+
+    if not filenames:
+        return jsonify({'ok': False, 'error': 'No valid images found in that upload' if skipped else 'No images received', 'images': images}), 400
+    return jsonify({'ok': True, 'images': images, 'added': len(filenames), 'skipped': skipped})
 
 @app.route('/centres/<int:cid>/set-primary-image/<int:img_id>', methods=['POST'])
 def set_primary_image(cid, img_id):

@@ -253,10 +253,10 @@ async function doUpload(fd) {
   const res = await fetch(`/centres/${CENTRE_ID}/upload-image`, { method:'POST', body: fd });
   const data = await res.json();
   if (data.ok) {
-    showToast('Uploaded!');
+    showToast(data.skipped ? `Uploaded ${data.added} (${data.skipped} skipped — not a valid image)` : 'Uploaded!');
     renderImages(data.images);
   } else {
-    showToast('Upload failed', 'error');
+    showToast(data.error || 'Upload failed', 'error');
   }
 }
 
