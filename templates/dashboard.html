@@ -385,9 +385,11 @@ const __linkDetails = {{ detail_data_json | safe }};
 const __baseUrl = '{{ base_url }}';
 let currentPanelToken = null;
 let selectedCentres = []; // [{id, name}]
+let importedRecommendedIds = []; // resolved centre ids flagged as "recommended" from an imported map link
 
 function openCreateModal() {
   selectedCentres = [];
+  importedRecommendedIds = [];
   document.getElementById('sl-label').value = '';
   document.getElementById('sl-email').value = '';
   document.getElementById('sl-phone').value = '';
@@ -400,10 +402,21 @@ function openCreateModal() {
   document.getElementById('create-modal').style.display = 'flex';
 }
 
+// recommended_ids on the map link can arrive either as a JSON array
+// (`["123","456"]`, URL-encoded) or as a plain comma list — accept both.
+function _parseRecommendedIdsParam(raw) {
+  if(!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if(Array.isArray(parsed)) return parsed.map(s=>String(s).trim()).filter(Boolean);
+  } catch(e) { /* not JSON, fall through */ }
+  return raw.split(',').map(s=>s.trim()).filter(Boolean);
+}
+
 // Parse a map-generated share URL and populate spaces
 async function parseMapUrl(url, explicit=false) {
   if(!url || url.length < 20) return;
-  let ids=[], names=[];
+  let ids=[], names=[], recIds=[];
   try {
     const u = new URL(url.trim());
     const idsParam = u.searchParams.get('ids');
@@ -411,6 +424,7 @@ async function parseMapUrl(url, explicit=false) {
     if(!idsParam) return;
     ids = idsParam.split(',').map(s=>s.trim()).filter(Boolean);
     names = namesParam ? namesParam.split(',').map(s=>decodeURIComponent(s).trim()) : [];
+    recIds = _parseRecommendedIdsParam(u.searchParams.get('recommended_ids'));
   } catch(e) {
     // Try to extract ids= from raw string
     const m = url.match(/ids=([^&]+)/);
@@ -418,6 +432,8 @@ async function parseMapUrl(url, explicit=false) {
     ids = m[1].split(',').map(s=>s.trim()).filter(Boolean);
     const n = url.match(/names=([^&\s]+)/);
     if(n) names = n[1].split(',').map(s=>decodeURIComponent(s));
+    const r = url.match(/recommended_ids=([^&\s]+)/);
+    if(r) recIds = _parseRecommendedIdsParam(decodeURIComponent(r[1]));
   }
   if(!ids.length) return;
 
@@ -427,10 +443,12 @@ async function parseMapUrl(url, explicit=false) {
   status.style.color = '#6B7280';
   status.textContent = `Looking up ${ids.length} spaces…`;
   selectedCentres = [];
+  importedRecommendedIds = [];
 
   for(let i=0; i<ids.length; i++) {
     const hid = ids[i];
     const name = names[i] || '';
+    const isRecommended = recIds.includes(String(hid));
     try {
       const res = await fetch(`/centres/api/search?q=${encodeURIComponent(name||hid)}`);
       const results = await res.json();
@@ -440,11 +458,16 @@ async function parseMapUrl(url, explicit=false) {
       if(!match && results.length) match = results[0];
       if(match && !selectedCentres.find(c=>c.id===match.id)) {
         selectedCentres.push({id: String(match.id), name: match.name});
+        if(isRecommended) importedRecommendedIds.push(String(match.id));
       } else if(!match && name) {
         selectedCentres.push({id: hid, name: name});
+        if(isRecommended) importedRecommendedIds.push(String(hid));
       }
     } catch(e) {
-      if(name) selectedCentres.push({id: hid, name: name});
+      if(name) {
+        selectedCentres.push({id: hid, name: name});
+        if(isRecommended) importedRecommendedIds.push(String(hid));
+      }
     }
   }
 
@@ -527,6 +550,7 @@ function createLink() {
       label,
       client_email: document.getElementById('sl-email').value.trim(),
       client_phone: document.getElementById('sl-phone').value.trim(),
+      recommended_ids: importedRecommendedIds,
     })
   })
   .then(r => r.json())
@@ -608,19 +632,22 @@ async function quickRegister() {
 
   if (!url) { alert('Paste the map link first.'); return; }
 
-  // Parse ids and names from the URL
-  let ids = [], names = [];
+  // Parse ids, names and recommended flags from the URL
+  let ids = [], names = [], recIds = [];
   try {
     const u = new URL(url);
     const idsP = u.searchParams.get('ids');
     const namesP = u.searchParams.get('names');
     if (idsP) ids = idsP.split(',').map(s=>s.trim()).filter(Boolean);
     if (namesP) names = namesP.split(',').map(s=>decodeURIComponent(s).trim());
+    recIds = _parseRecommendedIdsParam(u.searchParams.get('recommended_ids'));
   } catch(e) {
     const m = url.match(/ids=([^&\s]+)/);
     if (m) ids = m[1].split(',').map(s=>s.trim());
     const n = url.match(/names=([^&\s]+)/);
     if (n) names = n[1].split(',').map(s=>decodeURIComponent(s));
+    const r = url.match(/recommended_ids=([^&\s]+)/);
+    if (r) recIds = _parseRecommendedIdsParam(decodeURIComponent(r[1]));
   }
 
   if (!ids.length) { alert('Could not find space IDs in the link. Make sure you paste the full map link.'); return; }
@@ -638,6 +665,7 @@ async function quickRegister() {
         centre_names: names,
         label: label || names.slice(0,2).join(', ') || 'Map link',
         client_email: email || null,
+        recommended_ids: recIds,
         client_phone: phone || null
       })
     });

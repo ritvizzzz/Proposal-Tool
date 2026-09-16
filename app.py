@@ -1385,6 +1385,7 @@ def share_link_create():
     if not centre_ids:
         return jsonify({'error': 'centre_ids required'}), 400
     centre_names = data.get('centre_names', [])
+    recommended_ids = [str(r) for r in (data.get('recommended_ids') or [])]
     sorted_ids = sorted(centre_ids)
 
     with get_db() as conn:
@@ -1431,11 +1432,19 @@ def share_link_create():
         if not token:
             token = secrets.token_urlsafe(8)
             conn.execute(
-                'INSERT INTO share_links (token, label, centre_ids, centre_names, canonical_ids, client_email, client_phone) VALUES (?,?,?,?,?,?,?)',
-                (token, label, json.dumps(centre_ids), json.dumps(centre_names), canonical_key, client_email, client_phone)
+                'INSERT INTO share_links (token, label, centre_ids, centre_names, canonical_ids, client_email, client_phone, recommended_ids) VALUES (?,?,?,?,?,?,?,?)',
+                (token, label, json.dumps(centre_ids), json.dumps(centre_names), canonical_key, client_email, client_phone,
+                 json.dumps(recommended_ids) if recommended_ids else None)
             )
-        elif label:
-            conn.execute('UPDATE share_links SET label=? WHERE token=?', (label, token))
+        else:
+            updates = []
+            params = []
+            if label:
+                updates.append('label=?'); params.append(label)
+            if recommended_ids:
+                updates.append('recommended_ids=?'); params.append(json.dumps(recommended_ids))
+            if updates:
+                conn.execute(f'UPDATE share_links SET {", ".join(updates)} WHERE token=?', params + [token])
 
     return jsonify({
         'token': token,
