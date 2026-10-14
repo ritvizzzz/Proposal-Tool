@@ -3087,6 +3087,61 @@ def _auto_backup_loop():
 
 threading.Thread(target=_auto_backup_loop, daemon=True).start()
 
+# ── Photo mirror: copy Hubble-hosted photos onto our own volume ─────────────
+# Hubble has already moved its image host once (hubble.imgix.net -> 410 Gone),
+# breaking every imported photo overnight. Each Hubble photo is downloaded
+# into the centre's image dir and its row repointed at the local file, so
+# pages stop depending on Hubble. A row only switches once its file is saved,
+# so pages keep working throughout; restarts just resume where it left off.
+_MIRROR_MIN_FREE_BYTES = 1024 ** 3
+_mirror_state = {'running': False, 'done': 0, 'failed': 0, 'stopped_reason': None}
+
+def _mirror_hubble_photos():
+    _mirror_state['running'] = True
+    try:
+        with get_db() as conn:
+            rows = conn.execute(
+                "SELECT id, centre_id, filename FROM centre_images "
+                "WHERE filename LIKE 'https://images.hubblehq.com/%' "
+                "   OR filename LIKE 'https://d5386sw7psprn.cloudfront.net/%' "
+                "ORDER BY centre_id, sort_order").fetchall()
+        for row in rows:
+            if shutil.disk_usage(_DATA_DIR).free < _MIRROR_MIN_FREE_BYTES:
+                _mirror_state['stopped_reason'] = 'low disk space'
+                print('[photo-mirror] stopping: under 1GB free on volume')
+                return
+            try:
+                r = requests.get(row['filename'], timeout=30, headers={'User-Agent': 'Mozilla/5.0'})
+                r.raise_for_status()
+                fmt = (Image.open(io.BytesIO(r.content)).format or 'JPEG').lower()
+                ext = {'jpeg': 'jpg'}.get(fmt, fmt)
+                out_name = f"hubble_{row['id']}.{ext}"
+                with open(os.path.join(centre_image_dir(row['centre_id']), out_name), 'wb') as fh:
+                    fh.write(r.content)
+                with get_db() as conn:
+                    conn.execute('UPDATE centre_images SET filename=? WHERE id=? AND filename=?',
+                                 (out_name, row['id'], row['filename']))
+                _mirror_state['done'] += 1
+            except Exception as e:
+                _mirror_state['failed'] += 1
+                print(f"[photo-mirror] image {row['id']} failed: {e}")
+            time.sleep(0.1)
+        print(f"[photo-mirror] finished: {_mirror_state['done']} saved, {_mirror_state['failed']} failed")
+    finally:
+        _mirror_state['running'] = False
+
+# Only on Railway -- locally this would pull ~750MB into the OneDrive folder.
+if _DATA_DIR == '/data':
+    threading.Thread(target=_mirror_hubble_photos, daemon=True).start()
+
+@app.route('/admin/photo-mirror/status')
+def admin_photo_mirror_status():
+    with get_db() as conn:
+        remaining = conn.execute("SELECT COUNT(*) FROM centre_images WHERE filename LIKE 'http%'").fetchone()[0]
+        local = conn.execute("SELECT COUNT(*) FROM centre_images WHERE filename NOT LIKE 'http%'").fetchone()[0]
+    return jsonify({**_mirror_state, 'remote_remaining': remaining, 'local': local,
+                    'free_gb': round(shutil.disk_usage(_DATA_DIR).free / 1024 ** 3, 2)})
+
 @app.route('/admin/backup/auto')
 def admin_backup_auto_list():
     os.makedirs(_AUTO_BACKUP_DIR, exist_ok=True)
