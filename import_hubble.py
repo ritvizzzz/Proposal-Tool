@@ -90,11 +90,22 @@ def _clean(s):
     return re.sub(r'[\r\n\t]+', ' ', (s or '').strip()).strip()
 
 
+# Hubble retired hubble.imgix.net (now 410 Gone); the same files are served
+# from their CloudFront bucket, resized through images.hubblehq.com.
+_OLD_IMGIX = re.compile(r'^https://hubble\.imgix\.net/([^?]+)(\?.*)?$')
+
+def _fix_image_url(u):
+    m = _OLD_IMGIX.match(u)
+    if not m:
+        return u
+    return f'https://images.hubblehq.com/_/w:1200/q:70/plain/https://d5386sw7psprn.cloudfront.net/{m.group(1)}'
+
+
 def _parse_images(raw):
     if not raw or raw.strip() in ('', '[]'):
         return []
     try:
-        return [u for u in json.loads(raw) if isinstance(u, str) and u.startswith('http')]
+        return [_fix_image_url(u) for u in json.loads(raw) if isinstance(u, str) and u.startswith('http')]
     except Exception:
         return []
 
@@ -321,13 +332,13 @@ def update_onboarding_db(spaces):
 # Partnered brands (exact brand-name match, from myHQ partnership sheet)
 # IWG group sub-brands + direct partners
 _PARTNERED_EXACT = {
-    'regus','spaces','hq','hq by regus','clubhouse','signature','homework',
+    'regus','spaces','hq','hq by regus','the clubhouse by regus','clubhouse','signature','homework',
     'runway east','xandy','x+y','mindspace','uncommon','workspace',
-    'techspace','labs',
+    'techspace','labs','fora',
 }
 # Prefix match (brand starts with these)
-_PARTNERED_PREFIX = ('regus','spaces','hq ','hq by','clubhouse','signature','homework',
-                     'runway east','mindspace','uncommon','workspace','techspace','labs')
+_PARTNERED_PREFIX = ('regus','spaces','hq ','hq by','the clubhouse','clubhouse','signature','homework',
+                     'runway east','mindspace','uncommon','workspace','techspace','labs','fora')
 
 def _is_partnered(brand):
     b = brand.lower().strip()
