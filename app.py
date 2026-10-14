@@ -216,6 +216,17 @@ def init_db():
             CREATE UNIQUE INDEX IF NOT EXISTS idx_dedup_dwell
             ON link_events(token, ip_hash, created_at) WHERE event_type='dwell'
         """)
+        # Hubble retired hubble.imgix.net (now 410 Gone); the same files are
+        # served from their CloudFront bucket via images.hubblehq.com. Rewrite
+        # any stored links in place -- idempotent, no-op once migrated.
+        _old = re.compile(r'^https://hubble\.imgix\.net/([^?]+)(\?.*)?$')
+        for img_id, fn in conn.execute(
+                "SELECT id, filename FROM centre_images WHERE filename LIKE 'https://hubble.imgix.net/%'").fetchall():
+            m = _old.match(fn)
+            if m:
+                conn.execute('UPDATE centre_images SET filename=? WHERE id=?', (
+                    f'https://images.hubblehq.com/_/w:1200/q:70/plain/https://d5386sw7psprn.cloudfront.net/{m.group(1)}',
+                    img_id))
 
 # SSE event broadcast for real-time dashboard
 _sse_queues = []
