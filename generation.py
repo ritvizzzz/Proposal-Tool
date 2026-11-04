@@ -781,7 +781,7 @@ def _client_requirements_slide(proposal, template, db_centres, manual_centres,
     # Contact
     sl.append(T('YOUR CONSULTANT', inner_x, card_y + 2380000, inner_w, 240000,
                 8, date_label_color, font=font, bold=True))
-    sl.append(T('arjun.budhiraja@myhq.in', inner_x, card_y + 2660000, inner_w, 280000,
+    sl.append(T('kanak.dubey@myhq.in', inner_x, card_y + 2660000, inner_w, 280000,
                 11, WHITE, font=font))
     sl.append(T('+44 7863 754009', inner_x, card_y + 2980000, inner_w, 280000,
                 11, WHITE, font=font))

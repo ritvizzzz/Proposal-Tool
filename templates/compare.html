@@ -489,8 +489,8 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 <!-- Agent popup — OUTSIDE header so it isn't trapped in header's stacking context -->
 <div class="agent-popup" id="agent-popup">
   <button class="agent-popup-close" onclick="toggleAgentPopup()" aria-label="Close">✕</button>
-  <img src="/static/images/agent-arjun.png?v=2" class="agent-popup-photo" alt="Arjun">
-  <div class="agent-popup-name">Arjun</div>
+  <img src="/static/images/agent-kanak.jpg?v=1" class="agent-popup-photo" alt="Kanak">
+  <div class="agent-popup-name">Kanak</div>
   <div class="agent-popup-role">Talk to our expert</div>
   <a href="tel:+447863754009" class="agent-popup-phone">📞 +44 7863 754009</a>
 </div>
@@ -507,14 +507,14 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
 
 <main class="main">
 
-  <!-- Arjun card + personalised message (desktop: above map; phone: list view only, controlled by JS) -->
+  <!-- Advisor card + personalised message (desktop: above map; phone: list view only, controlled by JS) -->
   {% if personalised_message %}
   <div id="intro-block" style="padding:0 0 16px">
     <div onclick="toggleAgentPopup()" style="cursor:pointer;display:flex;gap:12px;padding:14px 16px;background:#F7F8FC;border:1.5px solid #E8E9F3;border-radius:14px;align-items:center">
-      <img src="/static/images/agent-arjun.png?v=2" style="width:44px;height:44px;border-radius:50%;object-fit:contain;background:#fff;border:2px solid #1E22AA;flex-shrink:0" alt="Arjun">
+      <img src="/static/images/agent-kanak.jpg?v=1" style="width:44px;height:44px;border-radius:50%;object-fit:cover;background:#fff;border:2px solid #1E22AA;flex-shrink:0" alt="Kanak">
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;color:#374151;font-style:italic;line-height:1.6;margin-bottom:4px;word-break:break-word;overflow-wrap:anywhere">"{{ personalised_message }}"</div>
-        <div style="font-size:11px;font-weight:700;color:#6B7280">— Arjun · myHQ Advisor</div>
+        <div style="font-size:11px;font-weight:700;color:#6B7280">— Kanak · myHQ Advisor</div>
       </div>
       <button style="padding:7px 12px;background:#1E22AA;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;font-family:inherit;white-space:nowrap;flex-shrink:0;pointer-events:none">📞 Get in touch</button>
     </div>
@@ -526,9 +526,9 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
      load, and switchPhoneView toggling it with the spaces/map tabs. #}
   <div id="intro-block" style="padding:0 0 16px">
     <div onclick="toggleAgentPopup()" style="cursor:pointer;display:flex;gap:12px;padding:14px 16px;background:#F7F8FC;border:1.5px solid #E8E9F3;border-radius:14px;align-items:center">
-      <img src="/static/images/agent-arjun.png?v=2" style="width:44px;height:44px;border-radius:50%;object-fit:contain;background:#fff;border:2px solid #1E22AA;flex-shrink:0" alt="Arjun">
+      <img src="/static/images/agent-kanak.jpg?v=1" style="width:44px;height:44px;border-radius:50%;object-fit:cover;background:#fff;border:2px solid #1E22AA;flex-shrink:0" alt="Kanak">
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:700;color:#1A1A2E">Arjun · myHQ Advisor</div>
+        <div style="font-size:13px;font-weight:700;color:#1A1A2E">Kanak · myHQ Advisor</div>
         <div style="font-size:12px;color:#6B7280">London workspace expert</div>
       </div>
       <button style="padding:7px 12px;background:#1E22AA;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;font-family:inherit;white-space:nowrap;flex-shrink:0;pointer-events:none">📞 Get in touch</button>
