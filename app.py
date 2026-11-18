@@ -3269,9 +3269,10 @@ def _import_hubble_photos(cid, hubble_id):
     html = requests.get(f'https://hubblehq.com/office-space/{hubble_id}/',
                         headers={'User-Agent': 'Mozilla/5.0'}, timeout=30).text
     seen, paths = set(), []
-    # Filenames can contain brackets etc. ("-(1).jpg"), so match up to the extension
+    # Filenames can contain brackets etc. ("-(1).jpg"), so match up to the
+    # extension. iPhone HEIC uploads are fine: Hubble's resizer serves them as JPEG.
     for m in re.finditer(r'd5386sw7psprn\.cloudfront\.net/(listings/uploads/spaces/'
-                         + hubble_id + r'/[^"\'\s?,\\<>]+?\.(?:jpe?g|png|webp|gif))', html, re.I):
+                         + hubble_id + r'/[^"\'\s?,\\<>]+?\.(?:jpe?g|png|webp|gif|heic|heif|avif))', html, re.I):
         # The page has each photo both single- and double-%-encoded
         key = urllib.parse.unquote(urllib.parse.unquote(m.group(1)))
         if key not in seen:
