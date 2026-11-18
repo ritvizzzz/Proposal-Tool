@@ -227,6 +227,15 @@ def init_db():
                 conn.execute('UPDATE centre_images SET filename=? WHERE id=?', (
                     f'https://images.hubblehq.com/_/w:1200/q:70/plain/https://d5386sw7psprn.cloudfront.net/{m.group(1)}',
                     img_id))
+    # migrate: centres confirmed closed in the Nov 2026 Hubble gap review.
+    # Their rows were also deleted from the Centre Data sheet, so sheet sync
+    # won't re-add them. Idempotent -- no-op once they're gone.
+    with get_db() as conn:
+        for (cid,) in conn.execute("SELECT id FROM centres WHERE name IN (?, ?)",
+                                   ('Future Spaces - Maltby Street', 'Next-Gen Workspace')).fetchall():
+            shutil.rmtree(os.path.join(CENTRE_IMAGES, str(cid)), ignore_errors=True)
+            conn.execute('DELETE FROM centre_images WHERE centre_id=?', (cid,))
+            conn.execute('DELETE FROM centres WHERE id=?', (cid,))
 
 # SSE event broadcast for real-time dashboard
 _sse_queues = []
@@ -3223,7 +3232,7 @@ def _restore_rows(conn, rows, table, columns):
 # column is for a future onboarding step, not wired to centre_images here.
 CENTRE_SHEET_ID = os.environ.get('CENTRE_SHEET_ID', '1NQtYzJThRngtHi2J3DyiCzl_djrbA7AmnGFLu8hD9dw')
 _SHEET_SYNC_INTERVAL_SECONDS = 5 * 60
-_sheet_sync_status = {'last_run': None, 'ok': None, 'error': None, 'added': 0, 'updated': 0, 'membership_rows': 0}
+_sheet_sync_status = {'last_run': None, 'ok': None, 'error': None, 'added': 0, 'updated': 0, 'membership_rows': 0, 'photos_added': 0}
 
 def _sheet_csv(tab_name):
     url = (f'https://docs.google.com/spreadsheets/d/{CENTRE_SHEET_ID}/gviz/tq'
@@ -3241,7 +3250,59 @@ def _sheet_int(v):
     except ValueError:
         return None
 
+def _map_url_coords(url):
+    """(lat, lng) from a Google Maps link like ...maps?q=51.48,-0.19, else (None, None)."""
+    m = re.search(r'[?&]q=(-?\d+\.\d+),\s*(-?\d+\.\d+)', url or '')
+    return (float(m.group(1)), float(m.group(2))) if m else (None, None)
+
+def _hubble_id_from_url(url):
+    m = re.search(r'hubblehq\.com/office-space/(\d+)', url or '')
+    return m.group(1) if m else None
+
+# Centres whose Hubble page was already tried this process, so a listing with
+# no photos isn't re-fetched every sync cycle.
+_hubble_photo_tried = set()
+_HUBBLE_PHOTOS_PER_SYNC = 40
+
+def _import_hubble_photos(cid, hubble_id):
+    """Copy up to 6 photos from a Hubble listing page into the centre's image dir."""
+    html = requests.get(f'https://hubblehq.com/office-space/{hubble_id}/',
+                        headers={'User-Agent': 'Mozilla/5.0'}, timeout=30).text
+    seen, paths = set(), []
+    # Filenames can contain brackets etc. ("-(1).jpg"), so match up to the extension
+    for m in re.finditer(r'd5386sw7psprn\.cloudfront\.net/(listings/uploads/spaces/'
+                         + hubble_id + r'/[^"\'\s?,\\<>]+?\.(?:jpe?g|png|webp|gif))', html, re.I):
+        # The page has each photo both single- and double-%-encoded
+        key = urllib.parse.unquote(urllib.parse.unquote(m.group(1)))
+        if key not in seen:
+            seen.add(key)
+            paths.append(urllib.parse.quote(key, safe='/'))
+    img_dir = centre_image_dir(cid)
+    added = 0
+    for i, path in enumerate(paths[:6]):
+        try:
+            r = requests.get(f'https://images.hubblehq.com/_/w:1200/q:70/plain/https://d5386sw7psprn.cloudfront.net/{path}',
+                             headers={'User-Agent': 'Mozilla/5.0'}, timeout=30)
+            r.raise_for_status()
+            out_name = save_image_bytes(r.content, img_dir, f'centre_{cid}_hb')
+        except Exception as e:
+            print(f'[sheet-sync] photo {path} for centre {cid} failed: {e}')
+            continue
+        with get_db() as conn:
+            conn.execute('INSERT INTO centre_images (centre_id, filename, is_primary, sort_order) VALUES (?,?,?,?)',
+                         (cid, out_name, 1 if added == 0 else 0, i))
+        added += 1
+    return added
+
+_sheet_sync_lock = threading.Lock()
+
 def run_sheet_sync():
+    # The 5-minute loop and the manual /admin/sheet-sync/run can overlap;
+    # two runs at once would both insert the same new centres and photos.
+    with _sheet_sync_lock:
+        return _run_sheet_sync()
+
+def _run_sheet_sync():
     centres_rows = _sheet_csv('Centres')
     membership_rows = _sheet_csv('Memberships')
     if not centres_rows:
@@ -3269,7 +3330,11 @@ def run_sheet_sync():
 
     added = updated = 0
     with get_db() as conn:
-        existing = {r['name'].strip().lower(): r['id'] for r in conn.execute('SELECT id, name FROM centres').fetchall()}
+        centre_rows = conn.execute('SELECT id, name, hubble_id, lat FROM centres').fetchall()
+        existing = {r['name'].strip().lower(): r['id'] for r in centre_rows}
+        no_hubble_id = {r['id'] for r in centre_rows if not r['hubble_id']}
+        no_coords = {r['id'] for r in centre_rows if r['lat'] is None}
+        used_hubble_ids = {r['hubble_id'] for r in centre_rows if r['hubble_id']}
 
         for row in centres_rows[1:]:
             name = col(row, 'Name')
@@ -3307,6 +3372,12 @@ def run_sheet_sync():
             cap_min_val = _sheet_int(seats_min)
             cap_max_val = _sheet_int(seats_max)
             key = name.lower()
+            map_lat, map_lng = _map_url_coords(map_url)
+            # Only claim a Hubble ID nobody else has -- proposals and map links
+            # look centres up by it, so it must stay unique.
+            hid = _hubble_id_from_url(website)
+            if hid in used_hubble_ids:
+                hid = None
 
             if key in existing:
                 # A blank sheet cell means "no instruction to change this
@@ -3340,24 +3411,53 @@ def run_sheet_sync():
                 # lists, including "this centre now has zero plans" — that's
                 # a real, intentional signal, unlike a blank Centres-tab cell.
                 sets.append('memberships=?'); vals.append(memberships_json)
+                # Fill gaps only -- never move an existing pin or re-key a centre
+                # that proposals already reference by its Hubble ID.
+                if existing[key] in no_hubble_id and hid:
+                    sets.append('hubble_id=?'); vals.append(hid)
+                    used_hubble_ids.add(hid); no_hubble_id.discard(existing[key])
+                if existing[key] in no_coords and map_lat is not None:
+                    sets.append('lat=?'); vals.append(map_lat)
+                    sets.append('lng=?'); vals.append(map_lng)
+                    no_coords.discard(existing[key])
                 if sets:
                     conn.execute(f'UPDATE centres SET {", ".join(sets)} WHERE id=?', vals + [existing[key]])
                 updated += 1
             else:
-                lat, lng = _geocode_address(address.strip())
-                time.sleep(1)  # be polite to Nominatim when several new centres land at once
+                lat, lng = map_lat, map_lng
+                if lat is None:
+                    lat, lng = _geocode_address(address.strip())
+                    time.sleep(1)  # be polite to Nominatim when several new centres land at once
                 cur = conn.execute('''INSERT INTO centres
                     (name,brand,address,city,space_type,capacity_min,capacity_max,price_from,price_unit,amenities,transport,
-                     website,about,map_url,memberships,source,lat,lng)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                     website,about,map_url,memberships,source,lat,lng,hubble_id)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
                     (name, brand.strip() or None, address.strip() or None, city.strip() or None,
                      space_type.strip() or None, cap_min_val, cap_max_val, price_val, unit_val, json.dumps(amenities_list),
                      transport.strip() or None, website.strip() or None, about.strip() or None,
-                     map_url.strip() or None, memberships_json, 'sheet_sync', lat, lng))
+                     map_url.strip() or None, memberships_json, 'sheet_sync', lat, lng, hid))
+                if hid:
+                    used_hubble_ids.add(hid)
                 existing[key] = cur.lastrowid
                 added += 1
 
-    return {'added': added, 'updated': updated, 'membership_rows': len(membership_rows) - 1}
+    # Centres with no photos but a Hubble listing link get that listing's
+    # photos -- a batch per cycle so one sync never runs for too long.
+    with get_db() as conn:
+        photo_todo = [(r['id'], _hubble_id_from_url(r['website'])) for r in conn.execute(
+            "SELECT id, website FROM centres c WHERE website LIKE '%hubblehq.com/office-space/%' "
+            "AND NOT EXISTS (SELECT 1 FROM centre_images i WHERE i.centre_id = c.id)").fetchall()
+            if r['id'] not in _hubble_photo_tried]
+    photos_added = 0
+    for cid, photo_hid in photo_todo[:_HUBBLE_PHOTOS_PER_SYNC]:
+        _hubble_photo_tried.add(cid)
+        try:
+            photos_added += _import_hubble_photos(cid, photo_hid)
+        except Exception as e:
+            print(f'[sheet-sync] Hubble photos for centre {cid} failed: {e}')
+
+    return {'added': added, 'updated': updated, 'membership_rows': len(membership_rows) - 1,
+            'photos_added': photos_added}
 
 def _sheet_sync_loop():
     while True:
@@ -3365,7 +3465,7 @@ def _sheet_sync_loop():
             result = run_sheet_sync()
             _sheet_sync_status.update(last_run=datetime.now(_dt_timezone.utc).isoformat(), ok=True, error=None, **result)
             print(f"[sheet-sync] added={result['added']} updated={result['updated']} "
-                  f"membership_rows={result['membership_rows']}")
+                  f"membership_rows={result['membership_rows']} photos_added={result['photos_added']}")
         except Exception as e:
             _sheet_sync_status.update(last_run=datetime.now(_dt_timezone.utc).isoformat(), ok=False, error=str(e))
             print(f'[sheet-sync] failed: {e}')
