@@ -2986,21 +2986,42 @@ def dashboard_analytics():
         # how many the client actually opened (same genuine-open rule as
         # everywhere else, so the creator's own check doesn't count), and
         # distinct clients -- one client sent three versions is 3 sent, 1 unique.
-        monthly = [dict(r) for r in conn.execute(f"""
-            SELECT strftime('%Y-%m', sl.created_at) AS month,
-                   COUNT(*) AS sent,
-                   SUM(CASE WHEN o.token IS NOT NULL THEN 1 ELSE 0 END) AS opened,
-                   COUNT(DISTINCT LOWER(TRIM(COALESCE(NULLIF(TRIM(sl.label), ''), sl.token)))) AS unique_clients
+        # Each proposal counts only in the month it was created, even if the
+        # client opens it in a later month.
+        month_links = conn.execute(f"""
+            SELECT sl.token, sl.label, sl.created_at, o.first_open,
+                   strftime('%Y-%m', sl.created_at) AS month
             FROM share_links sl
             LEFT JOIN (
-                SELECT DISTINCT token FROM ({_GENUINE_EVENTS_SQL}) WHERE event_type='open'
+                SELECT token, MIN(created_at) AS first_open FROM ({_GENUINE_EVENTS_SQL})
+                WHERE event_type='open' GROUP BY token
             ) o ON o.token = sl.token
             WHERE sl.token IN ({_REAL_LINKS_SQL}) AND sl.created_at IS NOT NULL
-            GROUP BY month ORDER BY month
-        """).fetchall()]
-        for m in monthly:
-            m['open_rate'] = round(100 * m['opened'] / m['sent']) if m['sent'] else 0
-            m['label'] = datetime.strptime(m['month'], '%Y-%m').strftime('%b %Y')
+            ORDER BY sl.created_at DESC
+        """).fetchall()
+        by_month = {}
+        for r in month_links:
+            name = (r['label'] or '').strip()
+            by_month.setdefault(r['month'], []).append({
+                'token': r['token'],
+                'name': name or '(no name)',
+                'client_key': name.lower() or r['token'],
+                'sent': _parse_utc(r['created_at']).astimezone(_LONDON_TZ).strftime('%d %b'),
+                'opened': r['first_open'] is not None,
+            })
+        monthly = []
+        for month in sorted(by_month):
+            links = by_month[month]
+            opened = sum(1 for l in links if l['opened'])
+            monthly.append({
+                'month': month,
+                'label': datetime.strptime(month, '%Y-%m').strftime('%b %Y'),
+                'sent': len(links),
+                'opened': opened,
+                'open_rate': round(100 * opened / len(links)),
+                'unique_clients': len({l['client_key'] for l in links}),
+                'links': links,
+            })
 
         repeat_openers = _get_repeat_openers(conn)
         hour_counts, peak_window, peak_window_ist = _get_peak_open_hours(conn)

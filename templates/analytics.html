@@ -77,17 +77,39 @@
     </thead>
     <tbody>
       {% for m in monthly|reverse %}
-      <tr style="border-top:1px solid #F1F2F6">
-        <td style="padding:9px 10px;font-weight:700;color:#1A1A2E">{{ m.label }}{% if loop.first %} <span style="font-weight:500;color:#9CA3AF">(so far)</span>{% endif %}</td>
+      <tr class="month-row" data-month="{{ m.month }}" onclick="toggleMonth('{{ m.month }}')" style="border-top:1px solid #F1F2F6;cursor:pointer" title="Click to see this month's proposals">
+        <td style="padding:9px 10px;font-weight:700;color:#1A1A2E"><span class="month-caret" id="caret-{{ m.month }}" style="display:inline-block;width:12px;color:#9CA3AF">▸</span> {{ m.label }}{% if loop.first %} <span style="font-weight:500;color:#9CA3AF">(so far)</span>{% endif %}</td>
         <td style="padding:9px 10px;text-align:right">{{ m.sent }}</td>
         <td style="padding:9px 10px;text-align:right">{{ m.opened }}</td>
         <td style="padding:9px 10px;text-align:right;font-weight:700;color:#059669">{{ m.open_rate }}%</td>
         <td style="padding:9px 10px;text-align:right;font-weight:700;color:#7C3AED">{{ m.unique_clients }}</td>
       </tr>
+      <tr id="month-{{ m.month }}" style="display:none">
+        <td colspan="5" style="padding:4px 10px 14px 32px;background:#FAFAFD">
+          <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+            <thead>
+              <tr style="text-align:left;color:#9CA3AF;font-size:10.5px;text-transform:uppercase;letter-spacing:0.6px">
+                <th style="padding:6px 8px">Proposal</th>
+                <th style="padding:6px 8px">Sent</th>
+                <th style="padding:6px 8px">Opened by client</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for l in m.links %}
+              <tr style="border-top:1px solid #EEF0F6">
+                <td style="padding:6px 8px"><a href="/dashboard/{{ l.token }}" style="color:#1E22AA;font-weight:600;text-decoration:none">{{ l.name }}</a></td>
+                <td style="padding:6px 8px;color:#6B7280">{{ l.sent }}</td>
+                <td style="padding:6px 8px">{% if l.opened %}<span style="color:#059669;font-weight:700">✓ Opened</span>{% else %}<span style="color:#9CA3AF">Not yet</span>{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </td>
+      </tr>
       {% endfor %}
     </tbody>
   </table>
-  <p style="font-size:11px;color:#9CA3AF;margin-top:10px">Recent months' open rates can still rise as clients open proposals they've already been sent.</p>
+  <p style="font-size:11px;color:#9CA3AF;margin-top:10px">Each proposal counts only in the month it was sent — if a client opens it later, that open still counts towards the month it was sent. Click a month to see its proposals. Recent months' open rates can still rise as clients open proposals they've already been sent.</p>
 </div>
 {% endif %}
 
@@ -233,8 +255,20 @@
 </div>
 
 <script>
+function toggleMonth(month) {
+  const row = document.getElementById('month-' + month);
+  if (!row) return;
+  const open = row.style.display === 'none';
+  row.style.display = open ? '' : 'none';
+  document.getElementById('caret-' + month).textContent = open ? '▾' : '▸';
+  if (open) row.previousElementSibling.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
 {% if monthly %}
 (function() {
+  const months = {{ monthly | map(attribute='month') | list | tojson }};
+  // Clicking a month's bars opens that month's proposal list in the table
+  const openMonthFromChart = (evt, els) => { if (els.length) { const m = months[els[0].index]; if (document.getElementById('month-' + m).style.display === 'none') toggleMonth(m); } };
   const labels = {{ monthly | map(attribute='label') | list | tojson }};
   const sent   = {{ monthly | map(attribute='sent') | list | tojson }};
   const opened = {{ monthly | map(attribute='opened') | list | tojson }};
@@ -252,6 +286,7 @@
     },
     options: {
       responsive: true,
+      onClick: openMonthFromChart,
       plugins: {
         legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
         tooltip: { callbacks: { label: c => c.dataset.yAxisID === 'rate' ? ` Open rate: ${c.raw}%` : ` ${c.dataset.label}: ${c.raw}` } }
@@ -270,6 +305,7 @@
     },
     options: {
       responsive: true,
+      onClick: openMonthFromChart,
       plugins: { legend: { display: false } },
       scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
     }
