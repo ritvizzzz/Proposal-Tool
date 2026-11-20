@@ -2873,6 +2873,39 @@ def api_space_engagement():
     return jsonify({'clicked': clicked, 'not_clicked': not_clicked})
 
 
+# Words people tack onto a proposal name when they resend a revised version
+# ("Synnx Updated", "Sundhu Final", "Acme v2") -- not part of the client's name.
+_VERSION_WORDS = {'updated', 'update', 'final', 'revised', 'revision', 'new', 'latest',
+                  'copy', 'version', 'ver', 'resend', 'resent', 'amended', 'edited'}
+
+def _client_name_words(label):
+    """Normalise a proposal name to the words that identify the client:
+    lowercase, notes like "(Tower Hamlets)" or " - Victoria" dropped, version
+    words and v2 / 2 style suffixes dropped."""
+    s = (label or '').lower()
+    # A name auto-built from centre names (no client given) is kept whole --
+    # the bit before its dash is a brand, not a client.
+    if ', ' not in s and '+ more' not in s:
+        s = re.split(r'\s[-–—]\s', s)[0]
+    s = re.sub(r'\([^)]*\)', ' ', s)
+    words = re.findall(r"[a-z0-9&']+", s)
+    return tuple(w for w in words
+                 if w not in _VERSION_WORDS and not re.fullmatch(r'v?\d{1,2}', w))
+
+def _count_unique_clients(names):
+    """Distinct clients among proposal names, treating name variants as one:
+    "M Rashid  (Tower Hamlets)" = "m rashid (Tower Hamlets)", "Synnx" =
+    "Synnx Updated", and a name whose words all appear in a longer one
+    ("Sundhu" in "Arfksad Sundhu") is the same client. "M Rashid" and
+    "Harunur Rashid" stay separate -- neither's words all appear in the other."""
+    word_sets = [_client_name_words(n) for n in names]
+    unnamed = sum(1 for k in word_sets if not k)  # no usable name -- each its own client
+    groups = []  # word-sets of the longest name in each client group
+    for k in sorted({k for k in word_sets if k}, key=len, reverse=True):
+        if not any(set(k) <= g for g in groups):
+            groups.append(set(k))
+    return len(groups) + unnamed
+
 @app.route('/dashboard/analytics')
 def dashboard_analytics():
     from collections import Counter
@@ -3005,7 +3038,7 @@ def dashboard_analytics():
             by_month.setdefault(r['month'], []).append({
                 'token': r['token'],
                 'name': name or '(no name)',
-                'client_key': name.lower() or r['token'],
+                'raw_name': name,
                 'sent': _parse_utc(r['created_at']).astimezone(_LONDON_TZ).strftime('%d %b'),
                 'opened': r['first_open'] is not None,
             })
@@ -3019,7 +3052,7 @@ def dashboard_analytics():
                 'sent': len(links),
                 'opened': opened,
                 'open_rate': round(100 * opened / len(links)),
-                'unique_clients': len({l['client_key'] for l in links}),
+                'unique_clients': _count_unique_clients([l['raw_name'] for l in links]),
                 'links': links,
             })
 
