@@ -2982,6 +2982,26 @@ def dashboard_analytics():
         total_spaces_engaged = sum(min(r['clicked_spaces'], r['total_spaces'] or 0) for r in engagement_rows)
         engagement_pct = round(100 * total_spaces_engaged / total_spaces_shared) if total_spaces_shared else 0
 
+        # Month on month, by the month each link was created: proposals sent,
+        # how many the client actually opened (same genuine-open rule as
+        # everywhere else, so the creator's own check doesn't count), and
+        # distinct clients -- one client sent three versions is 3 sent, 1 unique.
+        monthly = [dict(r) for r in conn.execute(f"""
+            SELECT strftime('%Y-%m', sl.created_at) AS month,
+                   COUNT(*) AS sent,
+                   SUM(CASE WHEN o.token IS NOT NULL THEN 1 ELSE 0 END) AS opened,
+                   COUNT(DISTINCT LOWER(TRIM(COALESCE(NULLIF(TRIM(sl.label), ''), sl.token)))) AS unique_clients
+            FROM share_links sl
+            LEFT JOIN (
+                SELECT DISTINCT token FROM ({_GENUINE_EVENTS_SQL}) WHERE event_type='open'
+            ) o ON o.token = sl.token
+            WHERE sl.token IN ({_REAL_LINKS_SQL}) AND sl.created_at IS NOT NULL
+            GROUP BY month ORDER BY month
+        """).fetchall()]
+        for m in monthly:
+            m['open_rate'] = round(100 * m['opened'] / m['sent']) if m['sent'] else 0
+            m['label'] = datetime.strptime(m['month'], '%Y-%m').strftime('%b %Y')
+
         repeat_openers = _get_repeat_openers(conn)
         hour_counts, peak_window, peak_window_ist = _get_peak_open_hours(conn)
 
@@ -3030,6 +3050,7 @@ def dashboard_analytics():
         avg_spaces=round(avg_spaces or 0, 1),
         avg_clicks_per_link=round(avg_clicks_per_link or 0, 1),
         engagement_pct=engagement_pct,
+        monthly=monthly,
         repeat_openers=repeat_openers,
         hot_by_tier=hot_by_tier,
         hour_counts=hour_counts,
