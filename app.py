@@ -164,7 +164,8 @@ def init_db():
             conn.execute("ALTER TABLE centres ADD COLUMN memberships TEXT")
     # migrate: add new columns to share_links if missing
     with get_db() as conn:
-        for col_def in ['client_email TEXT', 'client_phone TEXT', 'canonical_ids TEXT', 'personalised_message TEXT', 'recommended_ids TEXT']:
+        # price_overrides: per-proposal quoted prices, see _apply_price_overrides
+        for col_def in ['client_email TEXT', 'client_phone TEXT', 'canonical_ids TEXT', 'personalised_message TEXT', 'recommended_ids TEXT', 'price_overrides TEXT']:
             col_name = col_def.split()[0]
             try:
                 conn.execute(f'ALTER TABLE share_links ADD COLUMN {col_name} TEXT')
@@ -236,6 +237,28 @@ def init_db():
             shutil.rmtree(os.path.join(CENTRE_IMAGES, str(cid)), ignore_errors=True)
             conn.execute('DELETE FROM centre_images WHERE centre_id=?', (cid,))
             conn.execute('DELETE FROM centres WHERE id=?', (cid,))
+    # migrate: operator quotes for Rico's proposal (24 Nov 2026), per desk =
+    # quoted office price / desks, rounded. Only fills an empty value, so a
+    # later edit to this link's prices isn't overwritten on restart.
+    with get_db() as conn:
+        def _q(*opts):
+            return [{'desks': d, 'amount': a, 'note': n} for d, a, n in opts]
+        conn.execute("UPDATE share_links SET price_overrides=? WHERE token='H6zLimtYoqQ' AND price_overrides IS NULL",
+                     (json.dumps({
+                         'ARC Club - Tottenham': _q((4, 142, '')),
+                         'Purpose - Shipping Building': _q((4, 161, ''), (5, 157, '')),
+                         'LRP - Westlink House - Brentford': _q((3, 200, ''), (4, 200, ''), (5, 200, '')),
+                         'The Trampery Tottenham': _q((5, 129, '')),
+                         'Workspace - Parkhall Business Centre': _q((3, 273, ''), (4, 198, ''), (5, 198, 'from May 2027')),
+                         'Workspace - The Biscuit Factory': _q((4, 225, 'from Feb 2027'), (5, 172, '')),
+                         'Airivo - Boston Manor Station': _q((3, 300, ''), (4, 238, 'from Jan 2027'), (5, 240, '')),
+                         'Airivo - Brentford': _q((3, 300, ''), (4, 238, 'from Jan 2027'), (5, 240, '')),
+                         'General People - Expressway Studios': _q((5, 179, '')),
+                         'BizSpace - Camberwell Lomond Grove': _q((5, 150, '')),
+                         'BizSpace - Perivale': _q((4, 174, ''), (5, 174, '')),
+                         'BizSpace - Hertfordshire - London Colney': _q((3, 182, 'from 31 Dec 2026'), (4, 169, '')),
+                         'BizSpace - Waltham Abbey': _q((4, 195, ''), (5, 191, '')),
+                     }),))
 
 # SSE event broadcast for real-time dashboard
 _sse_queues = []
@@ -1728,7 +1751,7 @@ def compare_direct():
             return 'Link not found', 500
         link = dict(link)
         hubble_ids = json.loads(link['centre_ids'])
-        centres = _load_centres_for_compare(conn, hubble_ids)
+        centres = _apply_price_overrides(link, _load_centres_for_compare(conn, hubble_ids))
 
     raw_ip = (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
     ip_hash = hashlib.md5(raw_ip.encode()).hexdigest()[:8]
@@ -1767,6 +1790,19 @@ def compare_direct():
                            canonical_url=url_for('compare_page', token=token, _external=True))
 
 
+def _apply_price_overrides(link, centres):
+    """A proposal can carry its own quoted prices (share_links.price_overrides:
+    {centre name: [{desks, amount, note}, ...]}) -- e.g. an operator's quote
+    for 3/4/5 desks. Those replace the centre's standard price on this link
+    only; the first option drives the map pin and booking panel."""
+    overrides = json.loads(link.get('price_overrides') or '{}')
+    for c in centres:
+        opts = overrides.get(c.get('name'))
+        if opts:
+            c['price_from'] = opts[0]['amount']
+            c['price_options'] = opts
+    return centres
+
 @app.route('/compare/<token>')
 def compare_page(token):
     with get_db() as conn:
@@ -1775,7 +1811,7 @@ def compare_page(token):
             return 'Link not found', 404
         link = dict(link)
         hubble_ids = json.loads(link['centre_ids'])
-        centres = _load_centres_for_compare(conn, hubble_ids)
+        centres = _apply_price_overrides(link, _load_centres_for_compare(conn, hubble_ids))
 
     raw_ip  = (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
     ip_hash = hashlib.md5(raw_ip.encode()).hexdigest()[:8]

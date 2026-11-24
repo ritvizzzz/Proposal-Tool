@@ -612,9 +612,16 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F7F8FC; color:
         {% if c.price_from %}
         <div class="card-price-row">
           <div class="card-meta" style="display:flex;flex-direction:column;gap:2px">
-            <div style="display:flex;align-items:baseline;gap:4px">
-              <span class="meta-value price">£{{ c.price_from }}</span><span class="price-suffix">/desk/month</span>
+            <div style="display:flex;align-items:baseline;gap:4px;flex-wrap:wrap">
+              <span class="meta-value price">£{{ c.price_from }}</span><span class="price-suffix">/desk/month{% if c.price_options %} for {{ c.price_options[0].desks }} desks{% endif %}</span>
+              {% if c.price_options and c.price_options[0].note %}<span style="font-size:11px;color:#9CA3AF">({{ c.price_options[0].note }})</span>{% endif %}
             </div>
+            {% for o in (c.price_options or [])[1:] %}
+            <div style="display:flex;align-items:baseline;gap:4px;flex-wrap:wrap">
+              <span style="font-size:15px;font-weight:800;color:#1E22AA">£{{ o.amount }}</span><span class="price-suffix">/desk/month for {{ o.desks }} desks</span>
+              {% if o.note %}<span style="font-size:11px;color:#9CA3AF">({{ o.note }})</span>{% endif %}
+            </div>
+            {% endfor %}
           </div>
           <!-- Phone-only compact book button next to price (hidden on desktop via CSS) -->
           <button class="btn-book-compact" id="book-compact-{{ c.id }}"
