@@ -8,6 +8,7 @@ from PIL import Image
 import openpyxl
 from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
+import availability
 
 app = Flask(__name__)
 app.secret_key = 'myhq-proposal-tool-secret'
@@ -3598,6 +3599,77 @@ def admin_sheet_sync_run():
     except Exception as e:
         _sheet_sync_status.update(last_run=datetime.now(_dt_timezone.utc).isoformat(), ok=False, error=str(e))
         return jsonify({'ok': False, 'error': str(e)}), 500
+
+# --- Live availability (see availability.py) -------------------------------
+# Each operator's own availability sheet/portal, refreshed weekly (failed
+# sources retried daily). Backend only for now: units per centre are at
+# /api/availability/<centre_id>; nothing client-facing reads them yet.
+with get_db() as _conn:
+    availability.init_schema(_conn)
+
+_availability_running = threading.Lock()
+
+def _run_availability(fn, *args):
+    if not _availability_running.acquire(blocking=False):
+        return
+    try:
+        for r in fn(get_db, *args) if args else fn(get_db):
+            print(f'[availability] {r}')
+    except Exception as e:
+        print(f'[availability] failed: {e}')
+    finally:
+        _availability_running.release()
+
+def _availability_loop():
+    time.sleep(120)  # let the app finish starting up first
+    while True:
+        _run_availability(availability.refresh_due)
+        time.sleep(6 * 60 * 60)
+
+threading.Thread(target=_availability_loop, daemon=True).start()
+
+@app.route('/admin/availability/status')
+def admin_availability_status():
+    with get_db() as conn:
+        runs = [dict(r) for r in conn.execute('SELECT * FROM availability_runs ORDER BY operator').fetchall()]
+        per_centre = conn.execute('''SELECT COUNT(DISTINCT centre_id) FROM centre_availability
+                                     WHERE centre_id IS NOT NULL''').fetchone()[0]
+    return jsonify({'running': _availability_running.locked(), 'centres_with_availability': per_centre,
+                    'operators': runs,
+                    'not_configured': [k for k in availability.OPERATOR_SOURCES if k not in {r['operator'] for r in runs}]})
+
+@app.route('/admin/availability/run', methods=['POST'])
+def admin_availability_run():
+    """Refresh now in the background (a full run takes longer than the
+    request timeout). ?operator=workspace refreshes just one."""
+    op = request.args.get('operator')
+    if op and op not in availability.OPERATOR_SOURCES:
+        return jsonify({'ok': False, 'error': f'unknown operator {op}'}), 400
+    if _availability_running.locked():
+        return jsonify({'ok': False, 'error': 'a refresh is already running'}), 409
+    if op:
+        threading.Thread(target=_run_availability,
+                         args=(lambda gdb, k: [availability.refresh_operator(gdb, k)], op), daemon=True).start()
+    else:
+        threading.Thread(target=_run_availability, args=(availability.refresh_all,), daemon=True).start()
+    return jsonify({'ok': True, 'started': op or 'all'})
+
+@app.route('/admin/availability/unmatched')
+def admin_availability_unmatched():
+    """Units whose building didn't match a centre -- buildings missing from
+    the tool, or ones needing an alias in availability.ALIASES."""
+    with get_db() as conn:
+        rows = conn.execute('''SELECT operator, building, COUNT(*) AS units FROM centre_availability
+                               WHERE centre_id IS NULL GROUP BY operator, building ORDER BY operator, units DESC''').fetchall()
+    return jsonify([{'operator': r['operator'], 'building': r['building'][:120], 'units': r['units']} for r in rows])
+
+@app.route('/api/availability/<int:cid>')
+def api_centre_availability(cid):
+    with get_db() as conn:
+        rows = conn.execute('''SELECT operator, unit, desks, desks_max, sqft, price_month, status, available_from,
+                                      product, source, fetched_at FROM centre_availability
+                               WHERE centre_id=? ORDER BY status, price_month''', (cid,)).fetchall()
+    return jsonify([dict(r) for r in rows])
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
